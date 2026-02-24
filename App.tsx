@@ -1,20 +1,25 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import React from "react";
+import AuthProvider from "./src/providers/AuthProvider";
+import AppNavigator from "./src/navigation/AppNavigator";
+import { ThemeProvider } from "./src/contexts/ThemeContext";
+import { SubscriptionProvider } from "./src/contexts/SubscriptionContext";
+import { useAuth } from "./src/hooks/useAuth";
 
-export default function App() {
+function AppWithSubscription() {
+  const { user } = useAuth();
   return (
-    <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
+    <SubscriptionProvider userId={user?.id}>
+      <AppNavigator />
+    </SubscriptionProvider>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AuthProvider>
+        <AppWithSubscription />
+      </AuthProvider>
+    </ThemeProvider>
+  );
+}

@@ -1,0 +1,101 @@
+import { ConfigContext, ExpoConfig } from "expo/config";
+
+// EAS config
+const EAS_PROJECT_ID = ""; // Will be set after running 'eas init'
+const PROJECT_SLUG = "truefeel";
+
+// App production config
+const APP_NAME = "TrueFeel";
+const BUNDLE_IDENTIFIER = "com.eduto.truefeel";
+const PACKAGE_NAME = "com.eduto.truefeel";
+const ICON = "./assets/icon.png";
+const ANDROID_ICON_FOREGROUND = "./assets/icon.png";
+const SCHEME = "truefeel";
+
+export default ({ config }: ConfigContext): ExpoConfig => ({
+    name: APP_NAME,
+    icon: ICON,
+    scheme: SCHEME,
+    version: "1.0.0",
+    slug: PROJECT_SLUG,
+    orientation: "portrait",
+    userInterfaceStyle: "dark",
+    newArchEnabled: true,
+
+    extra: {
+        eas: {
+            projectId: EAS_PROJECT_ID,
+        },
+    },
+
+    splash: {
+        image: "./assets/splash-icon.png",
+        resizeMode: "contain",
+        backgroundColor: "#0a0a1a",
+    },
+
+    ios: {
+        supportsTablet: true,
+        bundleIdentifier: BUNDLE_IDENTIFIER,
+        buildNumber: "1",
+        infoPlist: {
+            ITSAppUsesNonExemptEncryption: false,
+        },
+        requireFullScreen: false,
+        usesAppleSignIn: true,
+    },
+
+    android: {
+        adaptiveIcon: {
+            backgroundColor: "#0a0a1a",
+            foregroundImage: ANDROID_ICON_FOREGROUND,
+        },
+        package: PACKAGE_NAME,
+        versionCode: 1,
+        edgeToEdgeEnabled: true,
+        predictiveBackGestureEnabled: false,
+        intentFilters: [
+            {
+                action: "VIEW",
+                data: [
+                    {
+                        scheme: SCHEME,
+                        host: "auth",
+                        pathPrefix: "/callback",
+                    },
+                ],
+                category: ["BROWSABLE", "DEFAULT"],
+            },
+        ],
+    },
+
+    web: {
+        favicon: "./assets/favicon.png",
+    },
+
+    plugins: [
+        "expo-apple-authentication",
+        "expo-web-browser",
+        "expo-asset",
+        [
+            "expo-splash-screen",
+            {
+                image: "./assets/splash-icon.png",
+                resizeMode: "contain",
+                backgroundColor: "#0a0a1a",
+            },
+        ],
+        [
+            "expo-secure-store",
+            {
+                faceIDPermission:
+                    "Allow TrueFeel to access your Face ID for secure authentication.",
+            },
+        ],
+    ],
+
+    experiments: {
+        typedRoutes: false,
+        reactCompiler: false,
+    },
+});
