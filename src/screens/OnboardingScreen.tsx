@@ -22,6 +22,8 @@ import {
 import { supabase } from "../config/supabase";
 import { useAuth } from "../hooks/useAuth";
 import { Characters } from "../types/database";
+import { getCharacters } from "../cache/charactersCache";
+import * as SecureStore from "expo-secure-store";
 
 const { width, height } = Dimensions.get("window");
 
@@ -107,19 +109,16 @@ export default function OnboardingScreen({
 
     const matchCharacter = useCallback(async () => {
         setIsMatching(true);
-        animateTransition(3);
+
+        const startTime = Date.now();
 
         try {
-            // Fetch available characters
-            const { data: chars, error } = await supabase
-                .from("characters")
-                .select("*, backgrounds!background_default_id(id, name, image)")
-                .eq("is_public", true)
-                .eq("available", true)
-                .not("base_model_url", "ilike", "%.png")
-                .order("order", { ascending: true });
+            // Use cached characters from SignInScreen (falls back to fresh fetch)
+            console.log("[Onboarding] Fetching characters...");
+            const chars = await getCharacters();
+            console.log("[Onboarding] Got characters:", chars?.length ?? 0);
 
-            if (error || !chars || chars.length === 0) {
+            if (!chars || chars.length === 0) {
                 Alert.alert("Error", "Could not find characters.");
                 setIsMatching(false);
                 return;
@@ -127,40 +126,16 @@ export default function OnboardingScreen({
 
             // Random pick
             const matched = chars[Math.floor(Math.random() * Math.min(4, chars.length))];
+            console.log("[Onboarding] Matched:", matched.name, matched.id);
             setMatchedCharacter(matched as Characters);
 
-            // Save to database — update existing row, or insert if none exists
-            if (user?.id) {
-                const payload = {
-                    age_range: selectedAge,
-                    personality: selectedPersonalities,
-                    interests: selectedInterests,
-                    current_character_id: matched.id,
-                    matched_character_id: matched.id,
-                    matched_background_id: matched.background_default_id,
-                    onboarding_completed: true,
-                    updated_at: new Date().toISOString(),
-                };
+            // NOW transition to step 3 (only after we have a character)
+            animateTransition(3);
 
-                // Try update first
-                const { data: updated, error: updateError } = await supabase
-                    .from("user_preferences")
-                    .update(payload)
-                    .eq("user_id", user.id)
-                    .select("id")
-                    .maybeSingle();
+            // Show result after minimum 1.5s animation (for visual feel)
+            const elapsed = Date.now() - startTime;
+            const remainingDelay = Math.max(0, 1500 - elapsed);
 
-                // If no row existed, insert
-                if (!updated && !updateError) {
-                    await supabase
-                        .from("user_preferences")
-                        .insert({ user_id: user.id, ...payload });
-                }
-
-                console.log("[Onboarding] Saved preferences, onboarding_completed=true");
-            }
-
-            // Fake 1s loading then reveal
             setTimeout(() => {
                 setIsMatching(false);
                 Animated.spring(scaleAnim, {
@@ -169,18 +144,98 @@ export default function OnboardingScreen({
                     friction: 8,
                     useNativeDriver: true,
                 }).start();
-            }, 1000);
+            }, remainingDelay);
         } catch (e) {
-            console.error("Match error:", e);
+            console.error("[Onboarding] Match error:", e);
+            Alert.alert("Error", "Something went wrong. Please try again.");
             setIsMatching(false);
         }
+    }, [animateTransition, scaleAnim]);
+
+    // Called when user presses "Start chatting" — grants assets & sets current character
+    const handleClaim = useCallback(async () => {
+        if (!matchedCharacter || !user?.id) {
+            onComplete();
+            return;
+        }
+
+        try {
+            const payload = {
+                age_range: selectedAge,
+                personality: selectedPersonalities,
+                interests: selectedInterests,
+                current_character_id: matchedCharacter.id,
+                matched_character_id: matchedCharacter.id,
+                matched_background_id: matchedCharacter.background_default_id,
+                onboarding_completed: true,
+                updated_at: new Date().toISOString(),
+            };
+
+            // Save preferences (upsert)
+            const savePrefs = async () => {
+                const { data: updated } = await supabase
+                    .from("user_preferences")
+                    .update(payload)
+                    .eq("user_id", user.id)
+                    .select("id")
+                    .maybeSingle();
+
+                if (!updated) {
+                    await supabase
+                        .from("user_preferences")
+                        .insert({ user_id: user.id, ...payload });
+                }
+            };
+
+            // Grant character + its default background to user_assets
+            const grantAssets = async () => {
+                const assetsToGrant = [
+                    { user_id: user.id, owner_key: user.id, item_id: matchedCharacter.id, item_type: "character" },
+                ];
+                if (matchedCharacter.background_default_id) {
+                    assetsToGrant.push({
+                        user_id: user.id,
+                        owner_key: user.id,
+                        item_id: matchedCharacter.background_default_id,
+                        item_type: "background",
+                    });
+                }
+                await supabase
+                    .from("user_assets")
+                    .upsert(assetsToGrant, { onConflict: "owner_key,item_type,item_id", ignoreDuplicates: true });
+            };
+
+            // Run both in parallel, then navigate
+            await Promise.all([savePrefs(), grantAssets()]);
+            console.log("[Onboarding] Claimed character + assets, navigating to Play");
+        } catch (e) {
+            console.warn("[Onboarding] Claim error:", e);
+        }
+
+        // Write to SecureStore so PlayScreen picks up the character instantly on mount
+        try {
+            const bgData = (matchedCharacter as any).backgrounds;
+            const cacheData = {
+                characterId: matchedCharacter.id,
+                characterName: matchedCharacter.name,
+                modelUrl: matchedCharacter.base_model_url ?? "",
+                backgroundUrl: bgData?.image ?? null,
+                backgroundId: matchedCharacter.background_default_id ?? null,
+                thumbnailUrl: matchedCharacter.thumbnail_url ?? null,
+            };
+            await SecureStore.setItemAsync("play_last_character", JSON.stringify(cacheData));
+        } catch (e) {
+            console.warn("[Onboarding] Cache write error:", e);
+        }
+
+        onComplete();
     }, [
+        matchedCharacter,
+        user?.id,
         selectedAge,
         selectedPersonalities,
         selectedInterests,
-        user?.id,
-        animateTransition,
-        scaleAnim,
+        onComplete,
     ]);
 
     const canProceed =
@@ -406,7 +461,7 @@ export default function OnboardingScreen({
 
                                         <TouchableOpacity
                                             style={styles.startButton}
-                                            onPress={onComplete}
+                                            onPress={handleClaim}
                                             activeOpacity={0.8}
                                         >
                                             <LinearGradient

@@ -37,6 +37,9 @@ interface CharacterSheetProps {
     onIsOpenedChange: (open: boolean) => void;
     currentCharacterId: string | null;
     onSelect: (character: Character) => void;
+    isPro?: boolean;
+    onOpenSubscription?: () => void;
+    userId?: string;
 }
 
 export type CharacterSheetRef = BottomSheetRef;
@@ -46,9 +49,13 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
     onIsOpenedChange,
     currentCharacterId,
     onSelect,
+    isPro = false,
+    onOpenSubscription,
+    userId,
 }, ref) => {
     const sheetRef = useRef<BottomSheetRef>(null);
     const [characters, setCharacters] = useState<Character[]>([]);
+    const [ownedIds, setOwnedIds] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const shimmerOpacity = useRef(new Animated.Value(0.3)).current;
@@ -73,13 +80,23 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
                 .order("order", { ascending: true });
             if (error) throw error;
             if (data) setCharacters(data);
+
+            // Fetch owned character IDs
+            if (userId) {
+                const { data: owned } = await supabase
+                    .from("user_assets")
+                    .select("item_id")
+                    .eq("user_id", userId)
+                    .eq("item_type", "character");
+                if (owned) setOwnedIds(new Set(owned.map(o => o.item_id)));
+            }
         } catch (e: any) {
             console.error("[CharacterSheet] Failed to load:", e);
             setErrorMessage(e.message || "Failed to load");
         } finally {
             setLoading(false);
         }
-    }, [loading]);
+    }, [loading, userId]);
 
     useEffect(() => {
         if (isOpened && characters.length === 0) {
@@ -104,18 +121,28 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
 
     const handleSelect = useCallback(
         (char: Character) => {
+            const isOwned = ownedIds.has(char.id);
+            // Switching characters requires PRO or ownership
+            if (!isPro && !isOwned && char.id !== currentCharacterId) {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                onIsOpenedChange(false);
+                sheetRef.current?.dismiss();
+                setTimeout(() => onOpenSubscription?.(), 300);
+                return;
+            }
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             onIsOpenedChange(false);
             sheetRef.current?.dismiss();
             onSelect(char);
         },
-        [onSelect, onIsOpenedChange]
+        [onSelect, onIsOpenedChange, isPro, onOpenSubscription, currentCharacterId, ownedIds]
     );
 
     const renderItem = useCallback(
         ({ item }: { item: Character }) => {
             const isSelected = item.id === currentCharacterId;
-            const isPro = item.tier === "pro";
+            const isOwned = ownedIds.has(item.id);
+            const isLocked = !isPro && !isOwned && !isSelected;
 
             return (
                 <Pressable
@@ -147,7 +174,7 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
                             <Text style={styles.rowName} numberOfLines={1}>
                                 {item.name}
                             </Text>
-                            {isPro && (
+                            {isLocked && (
                                 <View style={styles.proPill}>
                                     <Text style={styles.proPillText}>PRO</Text>
                                 </View>
@@ -190,7 +217,7 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
                 </Pressable>
             );
         },
-        [currentCharacterId, handleSelect]
+        [currentCharacterId, handleSelect, isPro, ownedIds]
     );
 
     const renderSkeleton = () => (

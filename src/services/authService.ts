@@ -1,5 +1,6 @@
 import { supabase } from "../config/supabase";
 import { Session, User } from "@supabase/supabase-js";
+import { clearCharactersCache } from "../cache/charactersCache";
 
 export class AuthService {
     /**
@@ -73,6 +74,7 @@ export class AuthService {
      * Sign out
      */
     async signOut() {
+        clearCharactersCache();
         const { error } = await supabase.auth.signOut();
         if (error) throw error;
     }

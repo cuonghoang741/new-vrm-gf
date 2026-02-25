@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import {
     View,
     Text,
@@ -10,7 +10,11 @@ import {
     Modal,
     StatusBar,
     Linking,
+    FlatList,
+    TouchableOpacity,
+    Animated,
 } from "react-native";
+import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -24,13 +28,19 @@ import {
     IconUsers,
     IconSparkles,
     IconHeart,
+    IconMusic,
+    IconChevronLeft,
+    IconChevronRight,
 } from "@tabler/icons-react-native";
 import { useSubscription } from "../../contexts/SubscriptionContext";
+import VRMViewer, { VRMViewerHandle } from "../VRMViewer";
+import { fetchAndCacheCharacters } from "../../cache/charactersCache";
+import { supabase } from "../../config/supabase";
 
 const FEATURES = [
     { icon: IconCube3dSphere, text: "Full 3D VRM interaction experience", color: "#8b5cf6" },
-    { icon: IconVideo, text: "Unlimited HD Video Calls anytime", color: "#9C27B0" },
-    { icon: IconLock, text: "Unlock all secret & exclusive content", color: "#FF9800" },
+    // { icon: IconVideo, text: "Unlimited HD Video Calls anytime", color: "#9C27B0" },
+    // { icon: IconLock, text: "Unlock all secret & exclusive content", color: "#FF9800" },
     { icon: IconUsers, text: "Access every character instantly", color: "#4CAF50" },
     { icon: IconSparkles, text: "Premium costumes & animations", color: "#2196F3" },
     { icon: IconHeart, text: "Deeper intimacy & special moments", color: "#a78bfa" },
@@ -56,6 +66,105 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
     const [selectedPackage, setSelectedPackage] = useState<PurchasesPackage | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
     const [activeProductId, setActiveProductId] = useState<string | null>(null);
+    const vrmRef = useRef<VRMViewerHandle>(null);
+
+    // Test controls state
+    const [characters, setCharacters] = useState<any[]>([]);
+    const [selectedIndex, setSelectedIndex] = useState(0);
+
+    // Fetch characters for test carousel
+    useEffect(() => {
+        if (!isOpened) return;
+        const loadCharacters = async () => {
+            try {
+                const chars = await fetchAndCacheCharacters();
+                if (chars && chars.length > 0) {
+                    setCharacters(chars);
+                }
+            } catch (e) {
+                console.error("Failed to fetch characters:", e);
+            }
+        };
+        loadCharacters();
+    }, [isOpened]);
+
+    const selectedChar = characters[selectedIndex];
+
+    const [costumes, setCostumes] = useState<any[]>([]);
+    const [selectedCostume, setSelectedCostume] = useState<any | null>(null);
+    const [isCostumesLoading, setIsCostumesLoading] = useState(false);
+    const shimmerOpacity = useRef(new Animated.Value(0.3)).current;
+
+    useEffect(() => {
+        if (isCostumesLoading) {
+            Animated.loop(
+                Animated.sequence([
+                    Animated.timing(shimmerOpacity, { toValue: 1, duration: 800, useNativeDriver: true }),
+                    Animated.timing(shimmerOpacity, { toValue: 0.3, duration: 800, useNativeDriver: true }),
+                ])
+            ).start();
+        } else {
+            shimmerOpacity.stopAnimation();
+            shimmerOpacity.setValue(0.3);
+        }
+    }, [isCostumesLoading]);
+
+    // Fetch costumes when selected character changes
+    useEffect(() => {
+        if (!selectedChar || !isOpened) return;
+        setCostumes([]);
+        setSelectedCostume(null);
+        setIsCostumesLoading(true);
+
+        const loadCostumes = async () => {
+            const { data } = await supabase
+                .from("character_costumes")
+                .select("id, costume_name, thumbnail, model_url")
+                .eq("character_id", selectedChar.id)
+                .eq("available", true)
+                .order("created_at", { ascending: true });
+
+            if (data && data.length > 0) {
+                setCostumes(data);
+            }
+            setIsCostumesLoading(false);
+        };
+        loadCostumes();
+    }, [selectedChar?.id, isOpened]);
+
+    useEffect(() => {
+        if (!isOpened || !vrmRef.current) return;
+        const modelUrl = selectedCostume?.model_url || selectedChar?.base_model_url;
+        if (modelUrl) {
+            vrmRef.current.loadModelByURL(modelUrl);
+        }
+        const bgImage = selectedChar?.backgrounds?.image;
+        if (bgImage) {
+            vrmRef.current.setBackgroundImage(bgImage);
+        }
+    }, [selectedChar, selectedCostume, isOpened]);
+
+    const goToPrev = () => {
+        if (characters.length === 0) return;
+        setSelectedIndex((prev) => (prev === 0 ? characters.length - 1 : prev - 1));
+    };
+
+    const goToNext = () => {
+        if (characters.length === 0) return;
+        setSelectedIndex((prev) => (prev === characters.length - 1 ? 0 : prev + 1));
+    };
+
+    const handleDanceTest = () => {
+        const dances = [
+            "Dance - Give Your Soul.fbx",
+            "Feminine - Exaggerated 2.fbx",
+            "Heart-Flutter Pose.fbx",
+            "Making a snow angel.fbx",
+            "Sly - Finger gun gesture.fbx"
+        ];
+        const randomDance = dances[Math.floor(Math.random() * dances.length)];
+        vrmRef.current?.loadAnimationByName(randomDance);
+    };
 
     // Find plans
     const yearlyPackage = packages.find(
@@ -140,9 +249,28 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
             <View style={styles.container}>
                 <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-                {/* BG gradient */}
+                {isOpened && (
+                    <VRMViewer
+                        ref={vrmRef}
+                        initialModelName="001/001_vrm/001_01.vrm"
+                        initialBackgroundUrl={selectedChar?.backgrounds?.image ?? undefined}
+                        style={StyleSheet.absoluteFillObject}
+                    />
+                )}
+
+                {/* Blur overlay when a costume is selected */}
+                {selectedCostume && (
+                    <BlurView
+                        intensity={80}
+                        tint="dark"
+                        style={StyleSheet.absoluteFill}
+                    />
+                )}
+
+                {/* BG gradient overlay */}
                 <LinearGradient
-                    colors={["#1a0533", "#0d0d1a", "#000000"]}
+                    colors={["rgba(26,5,51,0.1)", "rgba(13,13,26,0.4)", "rgba(0,0,0,0.95)"]}
+                    locations={[0, 0.4, 1]}
                     style={StyleSheet.absoluteFill}
                 />
 
@@ -176,6 +304,91 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                             <Text style={styles.heroSubtitle}>
                                 Access premium characters, unlimited calls, exclusive content, and more.
                             </Text>
+
+                            {/* Demo Controls Area */}
+                            {characters.length > 0 && (
+                                <View style={styles.demoControls}>
+                                    {/* Avatar Carousel Pill */}
+                                    <View style={styles.avatarGlassPill}>
+                                        <TouchableOpacity style={styles.arrowBtn} onPress={goToPrev} activeOpacity={0.7}>
+                                            <IconChevronLeft size={18} color="rgba(255,255,255,0.6)" />
+                                        </TouchableOpacity>
+
+                                        <FlatList
+                                            style={styles.carouselList}
+                                            data={characters}
+                                            horizontal
+                                            showsHorizontalScrollIndicator={false}
+                                            contentContainerStyle={styles.thumbnailList}
+                                            keyExtractor={(item) => item.id}
+                                            renderItem={({ item, index }) => (
+                                                <TouchableOpacity
+                                                    onPress={() => setSelectedIndex(index)}
+                                                    activeOpacity={0.7}
+                                                    style={[
+                                                        styles.thumbnailWrap,
+                                                        index === selectedIndex && styles.thumbnailWrapActive,
+                                                    ]}
+                                                >
+                                                    <Image
+                                                        source={{ uri: item.thumbnail_url ?? undefined }}
+                                                        style={styles.thumbnail}
+                                                        contentFit="cover"
+                                                    />
+                                                </TouchableOpacity>
+                                            )}
+                                        />
+
+                                        <TouchableOpacity style={styles.arrowBtn} onPress={goToNext} activeOpacity={0.7}>
+                                            <IconChevronRight size={18} color="rgba(255,255,255,0.6)" />
+                                        </TouchableOpacity>
+                                    </View>
+
+                                    {/* Secondary Actions */}
+                                    <View style={styles.actionsRow}>
+                                        {(isCostumesLoading || costumes.length > 0) && (
+                                            <View style={[styles.actionGroup, { alignItems: "flex-start" }]}>
+                                                <Text style={styles.sectionLabel}>OUTFIT</Text>
+                                                {isCostumesLoading ? (
+                                                    <View style={styles.costumesList}>
+                                                        {[1, 2, 3].map((key) => (
+                                                            <Animated.View
+                                                                key={key}
+                                                                style={[styles.costumeItemSkeleton, { opacity: shimmerOpacity }]}
+                                                            />
+                                                        ))}
+                                                    </View>
+                                                ) : (
+                                                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.costumesList}>
+
+                                                        {costumes.map((c) => (
+                                                            <TouchableOpacity
+                                                                key={c.id}
+                                                                activeOpacity={0.7}
+                                                                onPress={() => setSelectedCostume(c)}
+                                                                style={[styles.costumeItem, selectedCostume?.id === c.id && styles.costumeItemActive]}
+                                                            >
+                                                                <Image
+                                                                    source={{ uri: c.thumbnail ?? undefined }}
+                                                                    style={styles.costumeThumb}
+                                                                    contentFit="cover"
+                                                                />
+                                                            </TouchableOpacity>
+                                                        ))}
+                                                    </ScrollView>
+                                                )}
+                                            </View>
+                                        )}
+
+                                        <View style={[styles.actionGroup, { flex: 0 }]}>
+                                            <Text style={styles.sectionLabel}>VIBE</Text>
+                                            <TouchableOpacity style={styles.danceBtn} onPress={handleDanceTest} activeOpacity={0.7}>
+                                                <IconMusic size={20} color="#fff" />
+                                            </TouchableOpacity>
+                                        </View>
+                                    </View>
+                                </View>
+                            )}
                         </View>
 
                         {/* Features */}
@@ -293,12 +506,16 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                                 <Text style={styles.footerLink}>Restore</Text>
                             </Pressable>
                             <Text style={styles.footerDot}>•</Text>
-                            <Pressable onPress={() => WebBrowser.openBrowserAsync("https://eduto.io/terms")}>
+                            <Pressable onPress={() => WebBrowser.openBrowserAsync("https://truefeel-legal-haven.lovable.app/terms")}>
                                 <Text style={styles.footerLink}>Terms</Text>
                             </Pressable>
                             <Text style={styles.footerDot}>•</Text>
-                            <Pressable onPress={() => WebBrowser.openBrowserAsync("https://eduto.io/privacy")}>
+                            <Pressable onPress={() => WebBrowser.openBrowserAsync("https://truefeel-legal-haven.lovable.app/privacy")}>
                                 <Text style={styles.footerLink}>Privacy</Text>
+                            </Pressable>
+                            <Text style={styles.footerDot}>•</Text>
+                            <Pressable onPress={() => WebBrowser.openBrowserAsync("https://truefeel-legal-haven.lovable.app/eula")}>
+                                <Text style={styles.footerLink}>EULA</Text>
                             </Pressable>
                         </View>
 
@@ -355,7 +572,89 @@ const styles = StyleSheet.create({
         textShadowOffset: { width: 0, height: 2 },
         textShadowRadius: 10,
     },
-    heroSubtitle: { color: "rgba(255,255,255,0.8)", fontSize: 16, lineHeight: 24, fontWeight: "500" },
+    heroSubtitle: { color: "rgba(255,255,255,0.8)", fontSize: 16, lineHeight: 24, fontWeight: "500", marginBottom: 16 },
+
+    // Demo Controls
+    demoControls: {
+        width: "100%",
+        alignItems: "stretch",
+        marginBottom: 24,
+        gap: 16,
+    },
+    avatarGlassPill: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: "rgba(255,255,255,0.06)",
+        borderRadius: 40,
+        paddingVertical: 6,
+        paddingHorizontal: 8,
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.08)",
+    },
+    carouselList: { flexGrow: 0 },
+    arrowBtn: { padding: 8 },
+    thumbnailList: { flexGrow: 1, gap: 10, paddingHorizontal: 4, alignItems: "center", justifyContent: "center" },
+    thumbnailWrap: {
+        width: 46,
+        height: 46,
+        borderRadius: 23,
+        padding: 2,
+        borderWidth: 2,
+        borderColor: "transparent",
+    },
+    thumbnailWrapActive: { borderColor: "#8b5cf6" },
+    thumbnail: { width: 38, height: 38, borderRadius: 19 },
+
+    actionsRow: {
+        flexDirection: "row",
+        justifyContent: "center",
+        alignItems: "center",
+        gap: 20,
+    },
+    actionGroup: {
+        alignItems: "center",
+        flex: 1,
+    },
+    sectionLabel: {
+        fontSize: 10,
+        color: "rgba(255,255,255,0.5)",
+        fontWeight: "700",
+        letterSpacing: 1.5,
+        marginBottom: 8,
+    },
+    costumesList: {
+        gap: 10,
+        alignItems: "center",
+        justifyContent: "flex-start",
+        flexDirection: "row",
+    },
+    costumeItemSkeleton: {
+        width: 42,
+        height: 42,
+        borderRadius: 21,
+        backgroundColor: "rgba(255,255,255,0.2)",
+    },
+    costumeItem: {
+        width: 42,
+        height: 42,
+        borderRadius: 21,
+        padding: 2,
+        borderWidth: 2,
+        borderColor: "transparent",
+        backgroundColor: "rgba(255,255,255,0.05)",
+    },
+    costumeItemActive: { borderColor: "#8b5cf6", backgroundColor: "rgba(139, 92, 246, 0.15)" },
+    costumeThumb: { width: 34, height: 34, borderRadius: 17 },
+    danceBtn: {
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "rgba(255, 255, 255, 0.1)",
+        width: 42,
+        height: 42,
+        borderRadius: 21,
+        borderWidth: 1,
+        borderColor: "rgba(255, 255, 255, 0.15)",
+    },
 
     // Features
     featuresContainer: { gap: 14 },

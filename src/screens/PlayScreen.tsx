@@ -18,13 +18,12 @@ import {
     Keyboard,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { Image } from "expo-image";
 
 import {
     IconSend,
     IconMessageCircle,
     IconX,
-    IconPlayerPlay,
-    IconHeart,
     IconMusic,
     IconUser,
     IconHanger,
@@ -32,8 +31,10 @@ import {
     IconSettings,
     IconCrown,
     IconPhotoFilled,
+    IconCube,
 } from "@tabler/icons-react-native";
 import { useAuth } from "../hooks/useAuth";
+import Button from "../components/common/Button";
 import VRMViewer, { VRMViewerHandle } from "../components/VRMViewer";
 import { chatService, ChatMessage, SuggestedAction } from "../services/chatService";
 import { supabase } from "../config/supabase";
@@ -57,6 +58,7 @@ interface CachedCharacter {
     modelUrl: string;
     backgroundUrl: string | null;
     backgroundId: string | null;
+    thumbnailUrl?: string | null;
 }
 
 export default function PlayScreen() {
@@ -78,9 +80,11 @@ export default function PlayScreen() {
     const [characterId, setCharacterId] = useState<string | null>(null);
     const [characterName, setCharacterName] = useState("Companion");
     const [characterModelUrl, setCharacterModelUrl] = useState<string | null>(null);
+    const [characterThumbnail, setCharacterThumbnail] = useState<string | null>(null);
     const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null);
     const [backgroundId, setBackgroundId] = useState<string | null>(null);
     const [vrmReady, setVrmReady] = useState(false);
+    const [is3DMode, setIs3DMode] = useState(false); // Only PRO can enable
 
     // Chat state
     const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -111,6 +115,7 @@ export default function PlayScreen() {
                     setCharacterModelUrl(cached.modelUrl);
                     setBackgroundUrl(cached.backgroundUrl);
                     setBackgroundId(cached.backgroundId);
+                    if (cached.thumbnailUrl) setCharacterThumbnail(cached.thumbnailUrl);
                 }
             } catch { }
         };
@@ -137,12 +142,13 @@ export default function PlayScreen() {
 
                 const { data: char } = await supabase
                     .from("characters")
-                    .select("name, base_model_url, background_default_id")
+                    .select("name, base_model_url, background_default_id, thumbnail_url")
                     .eq("id", charId)
                     .single();
 
                 if (char) {
                     setCharacterName(char.name);
+                    if (char.thumbnail_url) setCharacterThumbnail(char.thumbnail_url);
                     if (char.base_model_url?.endsWith(".vrm")) {
                         setCharacterModelUrl(char.base_model_url);
                     }
@@ -160,13 +166,14 @@ export default function PlayScreen() {
                 }
 
                 // Update cache
-                if (char?.base_model_url?.endsWith(".vrm")) {
+                if (char) {
                     saveCache({
                         characterId: charId,
                         characterName: char.name,
-                        modelUrl: char.base_model_url,
+                        modelUrl: char.base_model_url ?? "",
                         backgroundUrl: bgUrl,
                         backgroundId: bgId ?? null,
+                        thumbnailUrl: char.thumbnail_url ?? null,
                     });
                 }
             } catch (e) {
@@ -240,19 +247,64 @@ export default function PlayScreen() {
                     vrmRef.current?.loadAnimationByName(action.parameters.animationName);
                 }
                 break;
+
             case "change_background":
                 setBgSheetOpen(true);
                 break;
+
             case "change_costume":
                 setCostumeSheetOpen(true);
                 break;
+
             case "change_character":
                 setCharSheetOpen(true);
                 break;
+
+            case "send_photo":
+                setMediaSheetOpen(true);
+                // MediaSheet defaults to "image" tab
+                break;
+
+            case "send_video":
+                setMediaSheetOpen(true);
+                // TODO: auto-switch to video tab
+                break;
+
+            case "send_nude_media":
+                // PRO-gated: open subscription if not PRO, else open media
+                if (!isPro) {
+                    setSubscriptionOpen(true);
+                } else {
+                    setMediaSheetOpen(true);
+                }
+                break;
+
+            case "become_nude":
+                // PRO-gated nude costume
+                if (!isPro) {
+                    setSubscriptionOpen(true);
+                } else {
+                    setCostumeSheetOpen(true);
+                }
+                break;
+
+            case "start_voice_call":
+                // Enable call mode (close-up camera + head tracking)
+                vrmRef.current?.setCallMode(true);
+                break;
+
+            case "start_video_call":
+                vrmRef.current?.setCallMode(true);
+                break;
+
+            case "open_subscription":
+                setSubscriptionOpen(true);
+                break;
+
             default:
                 break;
         }
-    }, []);
+    }, [isPro]);
 
     // ─── Send message ───
     const handleSend = useCallback(async () => {
@@ -290,8 +342,10 @@ export default function PlayScreen() {
     const handleCharacterSelect = useCallback(async (char: any) => {
         setCharacterId(char.id);
         setCharacterName(char.name);
+        if (char.thumbnail_url) setCharacterThumbnail(char.thumbnail_url);
 
-        const { data } = await supabase.from("characters").select("base_model_url, background_default_id").eq("id", char.id).single();
+        const { data } = await supabase.from("characters").select("base_model_url, background_default_id, thumbnail_url").eq("id", char.id).single();
+        if (data?.thumbnail_url) setCharacterThumbnail(data.thumbnail_url);
         if (data?.base_model_url?.endsWith(".vrm")) {
             setCharacterModelUrl(data.base_model_url);
             vrmRef.current?.loadModelByURL(data.base_model_url, char.name);
@@ -303,12 +357,15 @@ export default function PlayScreen() {
                 modelUrl: data.base_model_url,
                 backgroundUrl,
                 backgroundId,
+                thumbnailUrl: data.thumbnail_url ?? char.thumbnail_url ?? null,
             });
         }
 
-        // Update user preference
+        // Update user preference + cache ownership
         if (user?.id) {
             await supabase.from("user_preferences").update({ current_character_id: char.id, updated_at: new Date().toISOString() }).eq("user_id", user.id);
+            supabase.from("user_assets")
+                .upsert({ user_id: user.id, owner_key: user.id, item_id: char.id, item_type: "character" }, { onConflict: "owner_key,item_type,item_id", ignoreDuplicates: true });
         }
 
         // Reload chat
@@ -323,15 +380,25 @@ export default function PlayScreen() {
             setCharacterModelUrl(costume.model_url);
             vrmRef.current?.loadModelByURL(costume.model_url, costume.costume_name);
         }
-    }, []);
+        // Cache ownership
+        if (user?.id && costume.id) {
+            supabase.from("user_assets")
+                .upsert({ user_id: user.id, owner_key: user.id, item_id: costume.id, item_type: "character_costume" }, { onConflict: "owner_key,item_type,item_id", ignoreDuplicates: true });
+        }
+    }, [user?.id]);
 
     const handleBackgroundSelect = useCallback((bg: any) => {
         setBackgroundId(bg.id);
-        setBackgroundUrl(bg.image);
-        vrmRef.current?.setBackgroundImage(bg.image);
+        // Use video_url if available, otherwise fall back to image
+        const bgSource = bg.video_url || bg.image;
+        setBackgroundUrl(bgSource);
+        vrmRef.current?.setBackgroundImage(bgSource);
 
         if (user?.id) {
             supabase.from("user_preferences").update({ matched_background_id: bg.id, updated_at: new Date().toISOString() }).eq("user_id", user.id);
+            // Cache ownership
+            supabase.from("user_assets")
+                .upsert({ user_id: user.id, owner_key: user.id, item_id: bg.id, item_type: "background" }, { onConflict: "owner_key,item_type,item_id", ignoreDuplicates: true });
         }
     }, [user?.id]);
 
@@ -353,15 +420,34 @@ export default function PlayScreen() {
         <View style={styles.container}>
             <StatusBar style="light" />
 
-            {/* VRM Viewer */}
-            <VRMViewer
-                ref={vrmRef}
-                onReady={() => {
-                    setVrmReady(true);
-                    vrmRef.current?.setControlsEnabled(true);
-                }}
-                style={styles.vrmFull}
-            />
+            {/* VRM Viewer (PRO) or Static Image (non-PRO) */}
+            {is3DMode && isPro ? (
+                <VRMViewer
+                    ref={vrmRef}
+                    onReady={() => {
+                        setVrmReady(true);
+                        vrmRef.current?.setControlsEnabled(true);
+                    }}
+                    style={styles.vrmFull}
+                />
+            ) : (
+                <View style={styles.vrmFull}>
+                    {backgroundUrl && (
+                        <Image
+                            source={{ uri: backgroundUrl }}
+                            style={StyleSheet.absoluteFill}
+                            contentFit="cover"
+                        />
+                    )}
+                    {characterThumbnail && (
+                        <Image
+                            source={{ uri: characterThumbnail }}
+                            style={styles.staticCharacter}
+                            contentFit="cover"
+                        />
+                    )}
+                </View>
+            )}
 
             {/* Top bar */}
             <View style={styles.topBar}>
@@ -375,72 +461,80 @@ export default function PlayScreen() {
             </View>
 
             {/* ─── Left side bubble actions ─── */}
-            <View style={styles.leftActions}
-            >
-                <TouchableOpacity
-                    style={styles.bubbleBtn}
+            <View style={styles.leftActions}>
+                <Button
+                    variant="liquid"
+                    size="sm"
+                    startIcon={IconUser}
                     onPress={() => setCharSheetOpen(true)}
-                    activeOpacity={0.7}
                 >
-                    <IconUser size={20} color="#FFFFFF" />
-                    <Text style={styles.bubbleLabel}>Character</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    style={styles.bubbleBtn}
+                    Character
+                </Button>
+                <Button
+                    variant="liquid"
+                    size="sm"
+                    startIcon={IconHanger}
                     onPress={() => setCostumeSheetOpen(true)}
-                    activeOpacity={0.7}
                 >
-                    <IconHanger size={20} color="#FFFFFF" />
-                    <Text style={styles.bubbleLabel}>Costume</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    style={styles.bubbleBtn}
+                    Costume
+                </Button>
+                <Button
+                    variant="liquid"
+                    size="sm"
+                    startIcon={IconPhoto}
                     onPress={() => setBgSheetOpen(true)}
-                    activeOpacity={0.7}
                 >
-                    <IconPhoto size={20} color="#FFFFFF" />
-                    <Text style={styles.bubbleLabel}>Scene</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    style={styles.bubbleBtn}
+                    Scene
+                </Button>
+                <Button
+                    variant="liquid"
+                    size="sm"
+                    startIcon={IconPhotoFilled}
                     onPress={() => setMediaSheetOpen(true)}
-                    activeOpacity={0.7}
                 >
-                    <IconPhotoFilled size={20} color="#FFFFFF" />
-                    <Text style={styles.bubbleLabel}>Gallery</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    style={[styles.bubbleBtn, styles.danceBubble]}
-                    onPress={() => vrmRef.current?.loadNextAnimation()}
-                    activeOpacity={0.7}
-                >
-                    <IconMusic size={20} color="#FFFFFF" />
-                    <Text style={styles.bubbleLabel}>Dance</Text>
-                </TouchableOpacity>
-                {!isPro && (
-                    <TouchableOpacity
-                        style={[styles.bubbleBtn, { backgroundColor: 'rgba(139,92,246,0.3)' }]}
-                        onPress={() => setSubscriptionOpen(true)}
-                        activeOpacity={0.7}
+                    Gallery
+                </Button>
+                {is3DMode && isPro && (
+                    <Button
+                        variant="liquid"
+                        size="sm"
+                        startIcon={IconMusic}
+                        onPress={() => vrmRef.current?.loadNextAnimation()}
                     >
-                        <IconCrown size={20} color="#F59E0B" />
-                        <Text style={[styles.bubbleLabel, { color: '#F59E0B' }]}>PRO</Text>
-                    </TouchableOpacity>
+                        Dance
+                    </Button>
+                )}
+                <View>
+                    <Button
+                        variant="liquid"
+                        size="sm"
+                        startIcon={IconCube}
+                        startIconColor={is3DMode && isPro ? '#8B5CF6' : undefined}
+                        onPress={() => {
+                            if (!isPro) {
+                                setSubscriptionOpen(true);
+                            } else {
+                                setIs3DMode(prev => !prev);
+                            }
+                        }}
+                    >
+                        3D
+                    </Button>
+                    {!isPro && <View style={styles.proBadgeMini}><Text style={styles.proBadgeMiniText}>PRO</Text></View>}
+                </View>
+                {!isPro && (
+                    <Button
+                        variant="liquid"
+                        size="sm"
+                        startIcon={IconCrown}
+                        startIconColor="#F59E0B"
+                        onPress={() => setSubscriptionOpen(true)}
+                    >
+                        PRO
+                    </Button>
                 )}
             </View>
 
-            {/* ─── Right side quick reactions ─── */}
-            <View style={styles.rightActions}>
-                <TouchableOpacity style={styles.actionBtn} onPress={() => vrmRef.current?.playRandomGreeting()} activeOpacity={0.7}>
-                    <IconPlayerPlay size={20} color="#FFFFFF" />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.actionBtn} onPress={() => vrmRef.current?.triggerLove()} activeOpacity={0.7}>
-                    <IconHeart size={20} color="#FF6B9D" />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.actionBtn} onPress={() => vrmRef.current?.triggerDance()} activeOpacity={0.7}>
-                    <IconMusic size={20} color="#48BB78" />
-                </TouchableOpacity>
-            </View>
 
             {/* Chat FAB */}
             {!isChatOpen && (
@@ -510,6 +604,9 @@ export default function PlayScreen() {
                 onIsOpenedChange={setCharSheetOpen}
                 currentCharacterId={characterId}
                 onSelect={handleCharacterSelect}
+                isPro={isPro}
+                onOpenSubscription={() => setSubscriptionOpen(true)}
+                userId={user?.id}
             />
             <CostumeSheet
                 isOpened={costumeSheetOpen}
@@ -517,12 +614,18 @@ export default function PlayScreen() {
                 characterId={characterId}
                 currentCostumeUrl={characterModelUrl}
                 onSelect={handleCostumeSelect}
+                isPro={isPro}
+                onOpenSubscription={() => setSubscriptionOpen(true)}
+                userId={user?.id}
             />
             <BackgroundSheet
                 isOpened={bgSheetOpen}
                 onIsOpenedChange={setBgSheetOpen}
                 currentBackgroundId={backgroundId}
                 onSelect={handleBackgroundSelect}
+                isPro={isPro}
+                onOpenSubscription={() => setSubscriptionOpen(true)}
+                userId={user?.id}
             />
             <SettingsSheet
                 isOpened={settingsSheetOpen}
@@ -583,28 +686,22 @@ const styles = StyleSheet.create({
         bottom: Platform.OS === "ios" ? 120 : 100,
         gap: 10, zIndex: 5,
     },
-    bubbleBtn: {
-        flexDirection: "row", alignItems: "center", gap: 8,
-        paddingHorizontal: 14, paddingVertical: 10,
-        borderRadius: 22,
-        backgroundColor: "rgba(155, 89, 255, 0.2)",
-        borderWidth: 1, borderColor: "rgba(155, 89, 255, 0.25)",
-    },
-    danceBubble: {
-        backgroundColor: "rgba(72, 187, 120, 0.2)",
-        borderColor: "rgba(72, 187, 120, 0.3)",
-    },
-    bubbleLabel: { fontSize: 13, fontWeight: "600", color: "#FFFFFF" },
 
-    // Right actions
-    rightActions: {
-        position: "absolute", right: 16, top: "35%", gap: 12, zIndex: 5,
+    // Static character (non-3D mode)
+    staticCharacter: {
+        ...StyleSheet.absoluteFillObject,
     },
-    actionBtn: {
-        width: 44, height: 44, borderRadius: 22,
-        backgroundColor: "rgba(0,0,0,0.35)", justifyContent: "center", alignItems: "center",
-        borderWidth: 1, borderColor: "rgba(255,255,255,0.1)",
+
+    // 3D toggle PRO badge
+    proBadgeMini: {
+        position: "absolute", top: -4, right: -4,
+        backgroundColor: "#F59E0B", borderRadius: 6,
+        paddingHorizontal: 4, paddingVertical: 1,
     },
+    proBadgeMiniText: {
+        fontSize: 7, fontWeight: "900", color: "#fff",
+    },
+
 
     // Chat FAB
     chatFab: {

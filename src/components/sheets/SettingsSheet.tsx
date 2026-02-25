@@ -7,12 +7,14 @@ import {
     Alert,
     Linking,
     ScrollView,
+    Platform,
 } from "react-native";
 import { Image } from "expo-image";
+import * as WebBrowser from "expo-web-browser";
 import {
     IconLogout,
     IconInfoCircle,
-    IconMail,
+    IconBug,
     IconChevronRight,
     IconShieldLock,
     IconStar,
@@ -161,6 +163,44 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
         ]);
     }, [onResetOnboarding, onIsOpenedChange]);
 
+    const handleReportBug = useCallback(() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        Alert.prompt(
+            "Report a Bug 🐛",
+            "Please describe the issue you encountered:",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Submit",
+                    onPress: async (description?: string) => {
+                        if (!description?.trim()) {
+                            Alert.alert("Oops", "Please enter a description.");
+                            return;
+                        }
+                        try {
+                            const { error } = await supabase.from("bug_reports").insert({
+                                user_id: userId,
+                                description: description.trim(),
+                                device_info: {
+                                    os: Platform.OS,
+                                    version: Platform.Version,
+                                },
+                            });
+                            if (error) throw error;
+                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                            Alert.alert("Thank you! 💜", "Your report has been submitted. We'll look into it.");
+                        } catch {
+                            Alert.alert("Error", "Failed to submit report. Please try again.");
+                        }
+                    },
+                },
+            ],
+            "plain-text",
+            "",
+            "default"
+        );
+    }, [userId]);
+
     const handleOpenEditProfile = useCallback(() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         setEditProfileOpen(true);
@@ -241,13 +281,10 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                             <Text style={styles.sectionTitle}>SUPPORT</Text>
                             <View style={styles.sectionCard}>
                                 <SettingItem
-                                    icon={<IconMail size={20} color="#A78BFA" />}
-                                    label="Contact Us"
-                                    subtitle="support@eduto.io"
-                                    onPress={() => {
-                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                        Linking.openURL("mailto:support@eduto.io");
-                                    }}
+                                    icon={<IconBug size={20} color="#F472B6" />}
+                                    label="Report a Bug"
+                                    subtitle="Help us improve the app"
+                                    onPress={handleReportBug}
                                 />
                                 <View style={styles.separator} />
                                 <SettingItem
@@ -255,7 +292,25 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                                     label="Privacy Policy"
                                     onPress={() => {
                                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                        Linking.openURL("https://eduto.io/privacy");
+                                        WebBrowser.openBrowserAsync("https://truefeel-legal-haven.lovable.app/privacy");
+                                    }}
+                                />
+                                <View style={styles.separator} />
+                                <SettingItem
+                                    icon={<IconInfoCircle size={20} color="#93C5FD" />}
+                                    label="Terms of Service"
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        WebBrowser.openBrowserAsync("https://truefeel-legal-haven.lovable.app/terms");
+                                    }}
+                                />
+                                <View style={styles.separator} />
+                                <SettingItem
+                                    icon={<IconInfoCircle size={20} color="#93C5FD" />}
+                                    label="EULA"
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        WebBrowser.openBrowserAsync("https://truefeel-legal-haven.lovable.app/eula");
                                     }}
                                 />
                                 <View style={styles.separator} />

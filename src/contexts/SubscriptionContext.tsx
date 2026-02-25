@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from "react";
 import Purchases, {
     CustomerInfo,
     PurchasesPackage,
@@ -36,17 +36,22 @@ export function SubscriptionProvider({ children, userId }: { children: ReactNode
     const [isLoading, setIsLoading] = useState(true);
     const [packages, setPackages] = useState<PurchasesPackage[]>([]);
     const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
+    const configuredRef = useRef(false);
 
-    // Initialize RevenueCat
+    const updateFromInfo = useCallback((info: CustomerInfo) => {
+        setCustomerInfo(info);
+        setIsPro(info.entitlements.active[PRO_ENTITLEMENT_ID] !== undefined);
+    }, []);
+
+    // Configure RevenueCat SDK exactly once
     useEffect(() => {
+        if (configuredRef.current) return;
+        configuredRef.current = true;
+
         const init = async () => {
             try {
                 const apiKey = Platform.OS === "ios" ? REVENUECAT_API_KEY_IOS : REVENUECAT_API_KEY_ANDROID;
                 Purchases.configure({ apiKey });
-
-                if (userId) {
-                    await Purchases.logIn(userId);
-                }
 
                 // Load offerings
                 const offerings = await Purchases.getOfferings();
@@ -54,11 +59,9 @@ export function SubscriptionProvider({ children, userId }: { children: ReactNode
                     setPackages(offerings.current.availablePackages);
                 }
 
-                // Check subscription status
+                // Initial subscription check
                 const info = await Purchases.getCustomerInfo();
-                setCustomerInfo(info);
-                const hasPro = info.entitlements.active[PRO_ENTITLEMENT_ID] !== undefined;
-                setIsPro(hasPro);
+                updateFromInfo(info);
             } catch (e) {
                 console.error("[SubscriptionProvider] Init error:", e);
             } finally {
@@ -67,19 +70,35 @@ export function SubscriptionProvider({ children, userId }: { children: ReactNode
         };
         init();
 
-        // Listen for changes
-        Purchases.addCustomerInfoUpdateListener((info) => {
-            setCustomerInfo(info);
-            setIsPro(info.entitlements.active[PRO_ENTITLEMENT_ID] !== undefined);
-        });
-    }, [userId]);
+        // Listen for real-time entitlement changes (purchases, renewals, cancellations)
+        const listener = (info: CustomerInfo) => {
+            updateFromInfo(info);
+        };
+        Purchases.addCustomerInfoUpdateListener(listener);
+
+        // RevenueCat v9 addCustomerInfoUpdateListener returns void; no cleanup needed
+    }, [updateFromInfo]);
+
+    // Log in / identify user separately so re-renders on userId change don't re-configure
+    useEffect(() => {
+        if (!userId || !configuredRef.current) return;
+
+        const identify = async () => {
+            try {
+                const { customerInfo: info } = await Purchases.logIn(userId);
+                updateFromInfo(info);
+            } catch (e) {
+                console.error("[SubscriptionProvider] logIn error:", e);
+            }
+        };
+        identify();
+    }, [userId, updateFromInfo]);
 
     const purchasePackage = useCallback(async (pkg: PurchasesPackage) => {
         try {
             const { customerInfo: info } = await Purchases.purchasePackage(pkg);
-            setCustomerInfo(info);
+            updateFromInfo(info);
             const hasPro = info.entitlements.active[PRO_ENTITLEMENT_ID] !== undefined;
-            setIsPro(hasPro);
             return { success: hasPro };
         } catch (e: any) {
             if (e.userCancelled) {
@@ -87,29 +106,27 @@ export function SubscriptionProvider({ children, userId }: { children: ReactNode
             }
             return { success: false, error: e.message || "Purchase failed" };
         }
-    }, []);
+    }, [updateFromInfo]);
 
     const restorePurchases = useCallback(async () => {
         try {
             const info = await Purchases.restorePurchases();
-            setCustomerInfo(info);
+            updateFromInfo(info);
             const hasPro = info.entitlements.active[PRO_ENTITLEMENT_ID] !== undefined;
-            setIsPro(hasPro);
             return { isPro: hasPro };
         } catch (e: any) {
             return { isPro: false, error: e.message || "Restore failed" };
         }
-    }, []);
+    }, [updateFromInfo]);
 
     const refreshStatus = useCallback(async () => {
         try {
             const info = await Purchases.getCustomerInfo();
-            setCustomerInfo(info);
-            setIsPro(info.entitlements.active[PRO_ENTITLEMENT_ID] !== undefined);
+            updateFromInfo(info);
         } catch (e) {
             console.error("[SubscriptionProvider] Refresh error:", e);
         }
-    }, []);
+    }, [updateFromInfo]);
 
     return (
         <SubscriptionContext.Provider

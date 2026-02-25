@@ -31,12 +31,15 @@ export default function AuthProvider({ children }: PropsWithChildren) {
     }, []);
 
     useEffect(() => {
+        let mounted = true;
+
         const fetchSession = async () => {
             setIsLoading(true);
             try {
                 const {
                     data: { session },
                 } = await supabase.auth.getSession();
+                if (!mounted) return;
                 setSession(session);
                 setUser(session?.user ?? null);
 
@@ -47,7 +50,7 @@ export default function AuthProvider({ children }: PropsWithChildren) {
             } catch (error) {
                 console.error("Error fetching session:", error);
             } finally {
-                setIsLoading(false);
+                if (mounted) setIsLoading(false);
             }
         };
 
@@ -55,18 +58,21 @@ export default function AuthProvider({ children }: PropsWithChildren) {
 
         const {
             data: { subscription },
-        } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        } = supabase.auth.onAuthStateChange(async (event, session) => {
+            if (!mounted) return;
             setSession(session);
             setUser(session?.user ?? null);
 
-            if (session?.user?.id) {
+            // Only re-check onboarding on actual sign-in (not INITIAL_SESSION which races with fetchSession)
+            if (event === "SIGNED_IN" && session?.user?.id) {
                 await checkOnboarding(session.user.id);
-            } else {
+            } else if (event === "SIGNED_OUT") {
                 setIsOnboarded(false);
             }
         });
 
         return () => {
+            mounted = false;
             subscription.unsubscribe();
         };
     }, [checkOnboarding]);

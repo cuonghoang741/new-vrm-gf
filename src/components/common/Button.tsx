@@ -65,6 +65,18 @@ const Button: React.FC<ButtonProps> = ({
 }) => {
   const theme = useTheme();
 
+  // Compute the text color so icons can default to it
+  const computedTextColor = makeButtonStyles(theme, {
+    size,
+    variant,
+    colorScheme,
+    fullWidth,
+    disabled: !!disabled,
+    loading: !!loading,
+    isIconOnly,
+    shadow,
+  }).text.color as string;
+
   const buttonContent = (
     <View style={{ alignItems: 'center', justifyContent: 'center', width: 'auto' }}>
       <View
@@ -80,7 +92,7 @@ const Button: React.FC<ButtonProps> = ({
           <Icon
             icon={startIcon}
             size={startIconSize}
-            color={startIconColor}
+            color={startIconColor ?? computedTextColor}
             strokeWidth={startIconStrokeWidth}
           // Icon component does not support variant
           />
@@ -103,7 +115,7 @@ const Button: React.FC<ButtonProps> = ({
             {children}
           </Typography>
         )}
-        {endIcon ? <Icon icon={endIcon} size={endIconSize} color={endIconColor} /> : null}
+        {endIcon ? <Icon icon={endIcon} size={endIconSize} color={endIconColor ?? computedTextColor} /> : null}
       </View>
 
       {loading ? (

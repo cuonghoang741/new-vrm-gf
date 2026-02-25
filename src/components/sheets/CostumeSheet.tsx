@@ -27,6 +27,9 @@ interface CostumeSheetProps {
     characterId: string | null;
     currentCostumeUrl: string | null;
     onSelect: (costume: Costume) => void;
+    isPro?: boolean;
+    onOpenSubscription?: () => void;
+    userId?: string;
 }
 
 export type CostumeSheetRef = BottomSheetRef;
@@ -37,9 +40,13 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
     characterId,
     currentCostumeUrl,
     onSelect,
+    isPro = false,
+    onOpenSubscription,
+    userId,
 }, ref) => {
     const sheetRef = useRef<BottomSheetRef>(null);
     const [costumes, setCostumes] = useState<Costume[]>([]);
+    const [ownedIds, setOwnedIds] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const shimmerOpacity = useRef(new Animated.Value(0.3)).current;
@@ -62,13 +69,23 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
                 .order("created_at", { ascending: true });
             if (error) throw error;
             if (data) setCostumes(data);
+
+            // Fetch owned costume IDs
+            if (userId) {
+                const { data: owned } = await supabase
+                    .from("user_assets")
+                    .select("item_id")
+                    .eq("user_id", userId)
+                    .eq("item_type", "character_costume");
+                if (owned) setOwnedIds(new Set(owned.map(o => o.item_id)));
+            }
         } catch (e: any) {
             console.error("[CostumeSheet] Failed to load:", e);
             setErrorMessage(e.message || "Failed to load");
         } finally {
             setLoading(false);
         }
-    }, [characterId, loading]);
+    }, [characterId, loading, userId]);
 
     useEffect(() => {
         if (isOpened && characterId) {
@@ -92,18 +109,28 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
 
     const handleSelect = useCallback(
         (costume: Costume) => {
+            const isProItem = costume.tier === "pro";
+            const isOwned = ownedIds.has(costume.id);
+            if (isProItem && !isPro && !isOwned) {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                onIsOpenedChange(false);
+                sheetRef.current?.dismiss();
+                setTimeout(() => onOpenSubscription?.(), 300);
+                return;
+            }
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             onIsOpenedChange(false);
             sheetRef.current?.dismiss();
             onSelect(costume);
         },
-        [onSelect, onIsOpenedChange]
+        [onSelect, onIsOpenedChange, isPro, onOpenSubscription, ownedIds]
     );
 
     const renderItem = useCallback(
         ({ item }: { item: Costume }) => {
             const isSelected = item.model_url === currentCostumeUrl;
-            const isPro = item.tier === "pro";
+            const isPro_item = item.tier === "pro";
+            const isOwned = ownedIds.has(item.id);
 
             return (
                 <Pressable
@@ -133,7 +160,7 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
                             <Text style={styles.rowName} numberOfLines={1}>
                                 {item.costume_name}
                             </Text>
-                            {isPro && (
+                            {isPro_item && !isPro && !isOwned && (
                                 <View style={styles.proPill}>
                                     <Text style={styles.proPillText}>PRO</Text>
                                 </View>
@@ -147,7 +174,7 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
                 </Pressable>
             );
         },
-        [currentCostumeUrl, handleSelect]
+        [currentCostumeUrl, handleSelect, isPro, ownedIds]
     );
 
     const renderSkeleton = () => (

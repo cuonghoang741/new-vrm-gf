@@ -16,15 +16,15 @@ import { Video, ResizeMode } from "expo-av";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
 import {
-    IconBrandApple,
-    IconBrandGoogle,
     IconChevronLeft,
     IconChevronRight,
 } from "@tabler/icons-react-native";
+import AppleLogo from "../components/icons/AppleLogo";
+import GoogleLogo from "../components/icons/GoogleLogo";
 import * as AppleAuthentication from "expo-apple-authentication";
 import * as WebBrowser from "expo-web-browser";
 import { authService } from "../services/authService";
-import { supabase } from "../config/supabase";
+import { fetchAndCacheCharacters } from "../cache/charactersCache";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -59,22 +59,13 @@ export default function SignInScreen() {
     const [selectedIndex, setSelectedIndex] = useState(0);
     const videoRef = useRef<Video>(null);
 
-    // Fetch public characters with their default background
+    // Fetch public characters and cache for onboarding reuse
     useEffect(() => {
-        const fetchCharacters = async () => {
+        const loadCharacters = async () => {
             try {
-                const { data, error } = await supabase
-                    .from("characters")
-                    .select(
-                        "id, name, description, video_url, thumbnail_url, base_model_url"
-                    )
-                    .eq("is_public", true)
-                    .eq("available", true)
-                    .not("base_model_url", "ilike", "%.png")
-                    .order("order", { ascending: true });
-
-                if (!error && data && data.length > 0) {
-                    const mapped: CharacterPreview[] = data.map((c: any) => ({
+                const chars = await fetchAndCacheCharacters();
+                if (chars.length > 0) {
+                    const mapped: CharacterPreview[] = chars.map((c: any) => ({
                         id: c.id,
                         name: c.name,
                         description: c.description,
@@ -90,7 +81,7 @@ export default function SignInScreen() {
             }
         };
 
-        fetchCharacters();
+        loadCharacters();
     }, []);
 
     useEffect(() => {
@@ -300,10 +291,9 @@ export default function SignInScreen() {
                                 <ActivityIndicator color="#FFFFFF" size="small" />
                             ) : (
                                 <>
-                                    <IconBrandApple
-                                        size={22}
+                                    <AppleLogo
+                                        size={20}
                                         color="#FFFFFF"
-                                        style={styles.buttonIcon}
                                     />
                                     <Text style={styles.buttonText}>Continue with Apple</Text>
                                 </>
@@ -321,10 +311,8 @@ export default function SignInScreen() {
                             <ActivityIndicator color="#1a1a2e" size="small" />
                         ) : (
                             <>
-                                <IconBrandGoogle
+                                <GoogleLogo
                                     size={20}
-                                    color="#4285F4"
-                                    style={styles.buttonIcon}
                                 />
                                 <Text style={[styles.buttonText, styles.googleButtonText]}>
                                     Continue with Google
@@ -335,8 +323,9 @@ export default function SignInScreen() {
 
                     <Text style={styles.termsText}>
                         By continuing, you agree to our{" "}
-                        <Text style={styles.termsLink}>Terms of Service</Text> and{" "}
-                        <Text style={styles.termsLink}>Privacy Policy</Text>
+                        <Text style={styles.termsLink} onPress={() => WebBrowser.openBrowserAsync("https://truefeel-legal-haven.lovable.app/terms")}>Terms of Service</Text>,{" "}
+                        <Text style={styles.termsLink} onPress={() => WebBrowser.openBrowserAsync("https://truefeel-legal-haven.lovable.app/privacy")}>Privacy Policy</Text> and{" "}
+                        <Text style={styles.termsLink} onPress={() => WebBrowser.openBrowserAsync("https://truefeel-legal-haven.lovable.app/eula")}>EULA</Text>
                     </Text>
                 </View>
             </View>
@@ -480,6 +469,7 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
+        gap: 12,
         width: "100%",
         height: 52,
         borderRadius: 26,
@@ -491,15 +481,10 @@ const styles = StyleSheet.create({
         elevation: 6,
     },
     appleButton: {
-        backgroundColor: "rgba(150, 100, 255, 0.15)",
-        borderWidth: 1,
-        borderColor: "rgba(150, 100, 255, 0.25)",
+        backgroundColor: "#000000",
     },
     googleButton: {
         backgroundColor: "rgba(255, 255, 255, 0.95)",
-    },
-    buttonIcon: {
-        marginRight: 12,
     },
     buttonText: {
         fontSize: 16,

@@ -19,6 +19,7 @@ interface Background {
     thumbnail: string | null;
     image: string;
     tier: string | null;
+    video_url: string | null;
 }
 
 interface BackgroundSheetProps {
@@ -26,6 +27,9 @@ interface BackgroundSheetProps {
     onIsOpenedChange: (open: boolean) => void;
     currentBackgroundId: string | null;
     onSelect: (bg: Background) => void;
+    isPro?: boolean;
+    onOpenSubscription?: () => void;
+    userId?: string;
 }
 
 export type BackgroundSheetRef = BottomSheetRef;
@@ -35,9 +39,13 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
     onIsOpenedChange,
     currentBackgroundId,
     onSelect,
+    isPro = false,
+    onOpenSubscription,
+    userId,
 }, ref) => {
     const sheetRef = useRef<BottomSheetRef>(null);
     const [backgrounds, setBackgrounds] = useState<Background[]>([]);
+    const [ownedIds, setOwnedIds] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const shimmerOpacity = useRef(new Animated.Value(0.3)).current;
@@ -54,19 +62,29 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
         try {
             const { data, error } = await supabase
                 .from("backgrounds")
-                .select("id, name, thumbnail, image, tier")
+                .select("id, name, thumbnail, image, tier, video_url")
                 .eq("available", true)
                 .eq("public", true)
                 .order("created_at", { ascending: true });
             if (error) throw error;
             if (data) setBackgrounds(data);
+
+            // Fetch owned background IDs
+            if (userId) {
+                const { data: owned } = await supabase
+                    .from("user_assets")
+                    .select("item_id")
+                    .eq("user_id", userId)
+                    .eq("item_type", "background");
+                if (owned) setOwnedIds(new Set(owned.map(o => o.item_id)));
+            }
         } catch (e: any) {
             console.error("[BackgroundSheet] Failed to load:", e);
             setErrorMessage(e.message || "Failed to load");
         } finally {
             setLoading(false);
         }
-    }, [loading]);
+    }, [loading, userId]);
 
     useEffect(() => {
         if (isOpened && backgrounds.length === 0) {
@@ -90,18 +108,28 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
 
     const handleSelect = useCallback(
         (bg: Background) => {
+            const isProItem = bg.tier === "pro";
+            const isOwned = ownedIds.has(bg.id);
+            if (isProItem && !isPro && !isOwned) {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                onIsOpenedChange(false);
+                sheetRef.current?.dismiss();
+                setTimeout(() => onOpenSubscription?.(), 300);
+                return;
+            }
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             onIsOpenedChange(false);
             sheetRef.current?.dismiss();
             onSelect(bg);
         },
-        [onSelect, onIsOpenedChange]
+        [onSelect, onIsOpenedChange, isPro, onOpenSubscription, ownedIds]
     );
 
     const renderItem = useCallback(
         ({ item }: { item: Background }) => {
             const isSelected = item.id === currentBackgroundId;
-            const isPro = item.tier === "pro";
+            const isPro_item = item.tier === "pro";
+            const isOwned = ownedIds.has(item.id);
 
             return (
                 <Pressable
@@ -124,6 +152,11 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
                                 <Ionicons name="checkmark" size={14} color="#fff" />
                             </View>
                         )}
+                        {!!item.video_url && (
+                            <View style={styles.videoBadge}>
+                                <Ionicons name="play" size={10} color="#fff" />
+                            </View>
+                        )}
                     </View>
 
                     <View style={styles.rowContent}>
@@ -131,7 +164,7 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
                             <Text style={styles.rowName} numberOfLines={1}>
                                 {item.name}
                             </Text>
-                            {isPro && (
+                            {isPro_item && !isPro && (
                                 <View style={styles.proPill}>
                                     <Text style={styles.proPillText}>PRO</Text>
                                 </View>
@@ -145,7 +178,7 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
                 </Pressable>
             );
         },
-        [currentBackgroundId, handleSelect]
+        [currentBackgroundId, handleSelect, isPro, ownedIds]
     );
 
     const renderSkeleton = () => (
@@ -231,6 +264,11 @@ const styles = StyleSheet.create({
     previewContainer: { position: "relative", marginRight: 16 },
     preview: {
         width: 88, height: 56, borderRadius: 12, backgroundColor: "rgba(0,0,0,0.2)",
+    },
+    videoBadge: {
+        position: "absolute", top: 4, left: 4,
+        width: 20, height: 20, borderRadius: 10,
+        backgroundColor: "rgba(0,0,0,0.6)", alignItems: "center", justifyContent: "center",
     },
     selectedBadge: {
         position: "absolute", bottom: -6, right: -6,
