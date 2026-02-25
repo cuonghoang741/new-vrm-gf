@@ -70,10 +70,9 @@ export default function OnboardingScreen({
         []
     );
     const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
-    const [matchedCharacter, setMatchedCharacter] = useState<Characters | null>(
-        null
-    );
+    const [matchedCharacter, setMatchedCharacter] = useState<Characters | null>(null);
     const [isMatching, setIsMatching] = useState(false);
+    const [isClaiming, setIsClaiming] = useState(false);
     const fadeAnim = useRef(new Animated.Value(1)).current;
     const scaleAnim = useRef(new Animated.Value(0)).current;
 
@@ -152,67 +151,15 @@ export default function OnboardingScreen({
         }
     }, [animateTransition, scaleAnim]);
 
-    // Called when user presses "Start chatting" — grants assets & sets current character
     const handleClaim = useCallback(async () => {
         if (!matchedCharacter || !user?.id) {
             onComplete();
             return;
         }
 
-        try {
-            const payload = {
-                age_range: selectedAge,
-                personality: selectedPersonalities,
-                interests: selectedInterests,
-                current_character_id: matchedCharacter.id,
-                matched_character_id: matchedCharacter.id,
-                matched_background_id: matchedCharacter.background_default_id,
-                onboarding_completed: true,
-                updated_at: new Date().toISOString(),
-            };
+        setIsClaiming(true);
 
-            // Save preferences (upsert)
-            const savePrefs = async () => {
-                const { data: updated } = await supabase
-                    .from("user_preferences")
-                    .update(payload)
-                    .eq("user_id", user.id)
-                    .select("id")
-                    .maybeSingle();
-
-                if (!updated) {
-                    await supabase
-                        .from("user_preferences")
-                        .insert({ user_id: user.id, ...payload });
-                }
-            };
-
-            // Grant character + its default background to user_assets
-            const grantAssets = async () => {
-                const assetsToGrant = [
-                    { user_id: user.id, owner_key: user.id, item_id: matchedCharacter.id, item_type: "character" },
-                ];
-                if (matchedCharacter.background_default_id) {
-                    assetsToGrant.push({
-                        user_id: user.id,
-                        owner_key: user.id,
-                        item_id: matchedCharacter.background_default_id,
-                        item_type: "background",
-                    });
-                }
-                await supabase
-                    .from("user_assets")
-                    .upsert(assetsToGrant, { onConflict: "owner_key,item_type,item_id", ignoreDuplicates: true });
-            };
-
-            // Run both in parallel, then navigate
-            await Promise.all([savePrefs(), grantAssets()]);
-            console.log("[Onboarding] Claimed character + assets, navigating to Play");
-        } catch (e) {
-            console.warn("[Onboarding] Claim error:", e);
-        }
-
-        // Write to SecureStore so PlayScreen picks up the character instantly on mount
+        // 1. Write to SecureStore FIRST so PlayScreen has character data instantly
         try {
             const bgData = (matchedCharacter as any).backgrounds;
             const cacheData = {
@@ -224,11 +171,104 @@ export default function OnboardingScreen({
                 thumbnailUrl: matchedCharacter.thumbnail_url ?? null,
             };
             await SecureStore.setItemAsync("play_last_character", JSON.stringify(cacheData));
+            console.log("[Onboarding] Cache written to SecureStore");
         } catch (e) {
             console.warn("[Onboarding] Cache write error:", e);
         }
 
+        // 2. Navigate to PlayScreen immediately — don't wait for DB
+        setIsClaiming(false);
         onComplete();
+
+        // 3. Fire-and-forget DB operations in background with timeout
+        const userId = user.id;
+        const charId = matchedCharacter.id;
+        const bgDefaultId = matchedCharacter.background_default_id;
+
+        const withTimeout = <T,>(promise: PromiseLike<T>, ms: number): Promise<T> =>
+            Promise.race([
+                Promise.resolve(promise),
+                new Promise<T>((_, reject) => setTimeout(() => reject(new Error("timeout")), ms)),
+            ]);
+
+        (async () => {
+            try {
+                const payload = {
+                    age_range: selectedAge,
+                    personality: selectedPersonalities,
+                    interests: selectedInterests,
+                    current_character_id: charId,
+                    matched_character_id: charId,
+                    matched_background_id: bgDefaultId,
+                    onboarding_completed: true,
+                    updated_at: new Date().toISOString(),
+                };
+
+                // Save preferences with 5s timeout
+                console.log("[Onboarding BG] Saving preferences...");
+                try {
+                    const res = await withTimeout(
+                        supabase
+                            .from("user_preferences")
+                            .update(payload)
+                            .eq("user_id", userId)
+                            .select("id")
+                            .maybeSingle()
+                            .then(r => r),
+                        5000
+                    );
+                    console.log("[Onboarding BG] Prefs update result:", JSON.stringify({ data: res.data, error: res.error }));
+                    if (!res.data) {
+                        const insertRes = await withTimeout(
+                            supabase
+                                .from("user_preferences")
+                                .insert({ user_id: userId, ...payload })
+                                .select()
+                                .then(r => r),
+                            5000
+                        );
+                        console.log("[Onboarding BG] Prefs insert result:", JSON.stringify({ data: insertRes.data, error: insertRes.error }));
+                    }
+                    console.log("[Onboarding BG] Preferences saved ✅");
+                } catch (e) {
+                    console.warn("[Onboarding BG] Preferences save failed:", e);
+                }
+
+                // Grant assets with 5s timeout
+                console.log("[Onboarding BG] Granting assets...");
+                try {
+                    const assetsToGrant: any[] = [
+                        { user_id: userId, item_id: charId, item_type: "character" },
+                    ];
+                    if (bgDefaultId) {
+                        assetsToGrant.push({
+                            user_id: userId,
+                            item_id: bgDefaultId,
+                            item_type: "background",
+                        });
+                    }
+                    console.log("[Onboarding BG] Assets payload:", JSON.stringify(assetsToGrant));
+                    const result = await withTimeout(
+                        supabase
+                            .from("user_assets")
+                            .insert(assetsToGrant)
+                            .select()
+                            .then(r => r),
+                        5000
+                    );
+                    console.log("[Onboarding BG] Assets result:", JSON.stringify(result));
+                    if (result.error) {
+                        console.error("[Onboarding BG] Assets upsert ERROR:", result.error);
+                    } else {
+                        console.log("[Onboarding BG] Assets granted ✅", result.data?.length, "rows");
+                    }
+                } catch (e) {
+                    console.warn("[Onboarding BG] Assets grant failed (will retry on next launch):", e);
+                }
+            } catch (e) {
+                console.warn("[Onboarding BG] Background save error:", e);
+            }
+        })();
     }, [
         matchedCharacter,
         user?.id,

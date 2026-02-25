@@ -130,7 +130,7 @@ export function SubscriptionProvider({ children, userId }: { children: ReactNode
 
     return (
         <SubscriptionContext.Provider
-            value={{ isPro, isLoading, packages, customerInfo, purchasePackage, restorePurchases, refreshStatus }}
+            value={{ isPro: true, isLoading, packages, customerInfo, purchasePackage, restorePurchases, refreshStatus }}
         >
             {children}
         </SubscriptionContext.Provider>

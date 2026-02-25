@@ -18,8 +18,8 @@ const ExpoSecureStoreAdapter = {
     },
 };
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? "https://nysfrunajmmaoqtppowb.supabase.co";
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im55c2ZydW5ham1tYW9xdHBwb3diIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwOTM5MTYsImV4cCI6MjA4NTY2OTkxNn0.a5M-CRe9f-XCN-ZVisAEeK3_zjGeThQdNwU5iKIX5Jc";
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? "https://kwqqmjfsrgoczbutuisx.supabase.co";
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt3cXFtamZzcmdvY3pidXR1aXN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5ODI0MjcsImV4cCI6MjA4NzU1ODQyN30.SpEyZ4PPiq6JMpDJcZ-NVJSxNM6ORHp7ZJ9Bog3X9Tk";
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {

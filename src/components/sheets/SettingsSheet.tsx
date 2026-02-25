@@ -221,7 +221,7 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                 onIsOpenedChange={onIsOpenedChange}
                 title="Settings"
                 isDarkBackground
-                detents={[0.65, 0.9]}
+                detents={[0.85, 0.95]}
                 backgroundBlur="system-thick-material-dark"
             >
                 <View style={{ flex: 1 }}>

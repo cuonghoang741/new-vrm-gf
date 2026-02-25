@@ -32,7 +32,11 @@ import {
     IconCrown,
     IconPhotoFilled,
     IconCube,
+    IconPhoneCall,
+    IconVideo,
 } from "@tabler/icons-react-native";
+import { CameraView, useCameraPermissions } from "expo-camera";
+import { useConversation } from "@elevenlabs/react-native";
 import { useAuth } from "../hooks/useAuth";
 import Button from "../components/common/Button";
 import VRMViewer, { VRMViewerHandle } from "../components/VRMViewer";
@@ -59,6 +63,7 @@ interface CachedCharacter {
     backgroundUrl: string | null;
     backgroundId: string | null;
     thumbnailUrl?: string | null;
+    agentElevenlabsId?: string | null;
 }
 
 export default function PlayScreen() {
@@ -85,6 +90,27 @@ export default function PlayScreen() {
     const [backgroundId, setBackgroundId] = useState<string | null>(null);
     const [vrmReady, setVrmReady] = useState(false);
     const [is3DMode, setIs3DMode] = useState(false); // Only PRO can enable
+    const [agentElevenlabsId, setAgentElevenlabsId] = useState<string | null>(null);
+    const [isVideoCall, setIsVideoCall] = useState(false);
+    const [permission, requestPermission] = useCameraPermissions();
+
+    const conversation = useConversation({
+        onConnect: () => console.log("ElevenLabs Connected"),
+        onDisconnect: () => {
+            console.log("ElevenLabs Disconnected");
+            vrmRef.current?.setMouthOpen(0);
+            vrmRef.current?.setCallMode(false);
+            setIsVideoCall(false);
+        },
+        onError: (err) => console.error("ElevenLabs Error:", err),
+        onModeChange: ({ mode }) => {
+            if (mode === "speaking") {
+                vrmRef.current?.setMouthOpen(0.6);
+            } else {
+                vrmRef.current?.setMouthOpen(0);
+            }
+        },
+    });
 
     // Chat state
     const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -116,6 +142,7 @@ export default function PlayScreen() {
                     setBackgroundUrl(cached.backgroundUrl);
                     setBackgroundId(cached.backgroundId);
                     if (cached.thumbnailUrl) setCharacterThumbnail(cached.thumbnailUrl);
+                    if (cached.agentElevenlabsId) setAgentElevenlabsId(cached.agentElevenlabsId);
                 }
             } catch { }
         };
@@ -142,7 +169,7 @@ export default function PlayScreen() {
 
                 const { data: char } = await supabase
                     .from("characters")
-                    .select("name, base_model_url, background_default_id, thumbnail_url")
+                    .select("name, base_model_url, background_default_id, thumbnail_url, agent_elevenlabs_id")
                     .eq("id", charId)
                     .single();
 
@@ -151,6 +178,9 @@ export default function PlayScreen() {
                     if (char.thumbnail_url) setCharacterThumbnail(char.thumbnail_url);
                     if (char.base_model_url?.endsWith(".vrm")) {
                         setCharacterModelUrl(char.base_model_url);
+                    }
+                    if (char.agent_elevenlabs_id) {
+                        setAgentElevenlabsId(char.agent_elevenlabs_id);
                     }
                 }
 
@@ -174,6 +204,7 @@ export default function PlayScreen() {
                         backgroundUrl: bgUrl,
                         backgroundId: bgId ?? null,
                         thumbnailUrl: char.thumbnail_url ?? null,
+                        agentElevenlabsId: char.agent_elevenlabs_id ?? null,
                     });
                 }
             } catch (e) {
@@ -208,7 +239,6 @@ export default function PlayScreen() {
         loadHistory();
     }, [characterId, user?.id]);
 
-    // ─── Chat toggle ───
     const toggleChat = useCallback(() => {
         const opening = !isChatOpen;
         setIsChatOpen(opening);
@@ -220,6 +250,77 @@ export default function PlayScreen() {
         }).start();
         if (!opening) Keyboard.dismiss();
     }, [isChatOpen, chatSlideAnim]);
+
+    // ─── Call toggle ───
+    const toggleCall = useCallback(async () => {
+        if (!isPro) {
+            setSubscriptionOpen(true);
+            return;
+        }
+
+        if (conversation.status === "connected" || conversation.status === "connecting") {
+            await conversation.endSession();
+        } else {
+            if (agentElevenlabsId) {
+                try {
+                    // Start audio-only call
+                    setIsVideoCall(false);
+                    vrmRef.current?.setCallMode(false);
+                    await conversation.startSession({
+                        agentId: agentElevenlabsId,
+                    });
+                } catch (e: any) {
+                    console.error("Failed to start elevenlabs session:", e);
+                }
+            } else {
+                alert("This character does not support voice calling yet.");
+            }
+        }
+    }, [conversation, isPro, agentElevenlabsId]);
+
+    // ─── Video Call toggle ───
+    const toggleVideoCall = useCallback(async () => {
+        if (!isPro) {
+            setSubscriptionOpen(true);
+            return;
+        }
+
+        if (conversation.status === "connected" || conversation.status === "connecting") {
+            await conversation.endSession();
+        } else {
+            if (agentElevenlabsId) {
+                if (!permission?.granted) {
+                    const status = await requestPermission();
+                    if (!status.granted) {
+                        alert("Camera permission is required for video call overlay.");
+                        return;
+                    }
+                }
+
+                try {
+                    // Start video call mode
+                    setIsVideoCall(true);
+                    if (!is3DMode) {
+                        setIs3DMode(true); // Always force VRM mode
+                    }
+
+                    setTimeout(() => {
+                        vrmRef.current?.setCallMode(true);
+                    }, 500);
+
+                    await conversation.startSession({
+                        agentId: agentElevenlabsId,
+                    });
+                } catch (e: any) {
+                    console.error("Failed to start elevenlabs session:", e);
+                    setIsVideoCall(false);
+                    vrmRef.current?.setCallMode(false);
+                }
+            } else {
+                alert("This character does not support voice/video calling yet.");
+            }
+        }
+    }, [conversation, isPro, agentElevenlabsId, permission, requestPermission, is3DMode]);
 
     // Typing indicator
     useEffect(() => {
@@ -422,14 +523,19 @@ export default function PlayScreen() {
 
             {/* VRM Viewer (PRO) or Static Image (non-PRO) */}
             {is3DMode && isPro ? (
-                <VRMViewer
-                    ref={vrmRef}
-                    onReady={() => {
-                        setVrmReady(true);
-                        vrmRef.current?.setControlsEnabled(true);
-                    }}
-                    style={styles.vrmFull}
-                />
+                <View style={styles.vrmFull}>
+                    <VRMViewer
+                        ref={vrmRef}
+                        onReady={() => {
+                            setVrmReady(true);
+                            vrmRef.current?.setControlsEnabled(true);
+                            if (isVideoCall) {
+                                vrmRef.current?.setCallMode(true);
+                            }
+                        }}
+                        style={StyleSheet.absoluteFillObject}
+                    />
+                </View>
             ) : (
                 <View style={styles.vrmFull}>
                     {backgroundUrl && (
@@ -449,15 +555,25 @@ export default function PlayScreen() {
                 </View>
             )}
 
+            {/* User Front Camera floating pip for Video Call */}
+            {isVideoCall && (
+                <View style={styles.pipCameraContainer}>
+                    <CameraView style={styles.pipCamera} facing="front" />
+                </View>
+            )}
+
             {/* Top bar */}
             <View style={styles.topBar}>
                 <View>
                     <Text style={styles.charNameTop}>{characterName}</Text>
                     <Text style={styles.statusText}>● Online</Text>
                 </View>
-                <TouchableOpacity style={styles.settingsBtn} activeOpacity={0.7} onPress={() => setSettingsSheetOpen(true)}>
-                    <IconSettings size={22} color="rgba(255,255,255,0.7)" />
-                </TouchableOpacity>
+                <Button
+                    variant="liquid"
+                    onPress={() => setSettingsSheetOpen(true)}
+                    startIcon={IconSettings}
+                    isIconOnly
+                />
             </View>
 
             {/* ─── Left side bubble actions ─── */}
@@ -514,6 +630,7 @@ export default function PlayScreen() {
                             if (!isPro) {
                                 setSubscriptionOpen(true);
                             } else {
+                                setVrmReady(false); // Reset so VRM re-triggers model+bg load on mount
                                 setIs3DMode(prev => !prev);
                             }
                         }}
@@ -522,6 +639,35 @@ export default function PlayScreen() {
                     </Button>
                     {!isPro && <View style={styles.proBadgeMini}><Text style={styles.proBadgeMiniText}>PRO</Text></View>}
                 </View>
+
+                {agentElevenlabsId && (
+                    <>
+                        <View>
+                            <Button
+                                variant="liquid"
+                                size="sm"
+                                startIcon={IconPhoneCall}
+                                startIconColor={conversation.status === "connected" && !isVideoCall ? '#8B5CF6' : undefined}
+                                onPress={toggleCall}
+                            >
+                                {["connected", "connecting"].includes(conversation.status) && !isVideoCall ? "End Call" : "Call"}
+                            </Button>
+                            {!isPro && <View style={styles.proBadgeMini}><Text style={styles.proBadgeMiniText}>PRO</Text></View>}
+                        </View>
+                        <View>
+                            <Button
+                                variant="liquid"
+                                size="sm"
+                                startIcon={IconVideo}
+                                startIconColor={conversation.status === "connected" && isVideoCall ? '#8B5CF6' : undefined}
+                                onPress={toggleVideoCall}
+                            >
+                                {["connected", "connecting"].includes(conversation.status) && isVideoCall ? "End Video" : "Video"}
+                            </Button>
+                            {!isPro && <View style={styles.proBadgeMini}><Text style={styles.proBadgeMiniText}>PRO</Text></View>}
+                        </View>
+                    </>
+                )}
                 {!isPro && (
                     <Button
                         variant="liquid"
@@ -538,9 +684,16 @@ export default function PlayScreen() {
 
             {/* Chat FAB */}
             {!isChatOpen && (
-                <TouchableOpacity style={styles.chatFab} onPress={toggleChat} activeOpacity={0.8}>
-                    <IconMessageCircle size={26} color="#FFFFFF" />
-                </TouchableOpacity>
+                <View style={styles.chatFab}>
+                    <Button
+                        variant="liquid"
+                        size="sm"
+                        onPress={toggleChat}
+                        startIcon={IconMessageCircle}
+                    >
+                        Chat
+                    </Button>
+                </View>
             )}
 
             {/* ─── Chat overlay ─── */}
@@ -659,10 +812,29 @@ export default function PlayScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: "#0a0a1a" },
-    vrmFull: { ...StyleSheet.absoluteFillObject },
+    container: {
+        flex: 1,
+        backgroundColor: "#000000",
+    },
+    vrmFull: {
+        ...StyleSheet.absoluteFillObject,
+    },
+    pipCameraContainer: {
+        position: 'absolute',
+        top: 100,
+        right: 20,
+        width: 100,
+        height: 140,
+        borderRadius: 16,
+        overflow: 'hidden',
+        borderWidth: 2,
+        borderColor: 'rgba(255,255,255,0.3)',
+        zIndex: 50,
+    },
+    pipCamera: {
+        flex: 1,
+    },
 
-    // Top bar
     topBar: {
         position: "absolute", top: Platform.OS === "ios" ? 60 : 40,
         left: 20, right: 20,
@@ -675,9 +847,7 @@ const styles = StyleSheet.create({
     },
     statusText: { fontSize: 12, color: "#48BB78", fontWeight: "500", marginTop: 2 },
     settingsBtn: {
-        width: 44, height: 44, borderRadius: 22,
-        backgroundColor: "rgba(0,0,0,0.3)", justifyContent: "center", alignItems: "center",
-        borderWidth: 1, borderColor: "rgba(255,255,255,0.08)",
+        // kept for potential reuse
     },
 
     // Left bubble actions
@@ -707,9 +877,6 @@ const styles = StyleSheet.create({
     chatFab: {
         position: "absolute",
         bottom: Platform.OS === "ios" ? 44 : 28, right: 20,
-        width: 60, height: 60, borderRadius: 30,
-        backgroundColor: "#9B59FF", justifyContent: "center", alignItems: "center",
-        shadowColor: "#9B59FF", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.5, shadowRadius: 12, elevation: 8,
         zIndex: 10,
     },
 

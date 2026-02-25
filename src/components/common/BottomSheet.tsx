@@ -1,8 +1,7 @@
 import React, { useRef, useCallback, useImperativeHandle, forwardRef, useEffect, ReactNode, useMemo } from 'react';
-import { View, Text, Pressable, StyleSheet, ViewStyle, StyleProp, Platform, Modal, PanResponder, Animated, Dimensions } from 'react-native';
+import { View, Text, Pressable, TouchableOpacity, StyleSheet, ViewStyle, StyleProp, Platform, Modal, PanResponder, Animated, Dimensions } from 'react-native';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import Button from '@/components/common/Button';
 
 export type BottomSheetRef = {
     present: (index?: number) => void;
@@ -212,12 +211,13 @@ export const BottomSheet = forwardRef<BottomSheetRef, BottomSheetProps>(({
                 <View style={styles.headerRight}>
                     {headerRight ?? (
                         showCloseButton && (
-                            <Button
+                            <TouchableOpacity
                                 style={[styles.closeButton, { backgroundColor: closeButtonBg }]}
                                 onPress={handleClose}
-                                startIcon={() => <Ionicons name="close" size={20} color={textColor} />}
-                                isIconOnly
-                            />
+                                activeOpacity={0.7}
+                            >
+                                <Ionicons name="close" size={20} color={textColor} />
+                            </TouchableOpacity>
                         )
                     )}
                 </View>
@@ -269,7 +269,7 @@ export const BottomSheet = forwardRef<BottomSheetRef, BottomSheetProps>(({
 
     // Calculate content height for iOS TrueSheet (flex:1 doesn't work inside TrueSheet)
     const largestDetent = Math.max(...detents.map(d => typeof d === 'number' ? d : 0.6));
-    const sheetContentHeight = screenHeight * largestDetent - 100; // subtract header + grabber + safe area
+    const sheetContentHeight = screenHeight * largestDetent - 60; // subtract header + grabber + safe area
 
     return (
         <TrueSheet

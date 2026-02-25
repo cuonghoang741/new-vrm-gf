@@ -8,8 +8,8 @@ const PROJECT_SLUG = "truefeel";
 const APP_NAME = "TrueFeel";
 const BUNDLE_IDENTIFIER = "com.eduto.truefeel";
 const PACKAGE_NAME = "com.eduto.truefeel";
-const ICON = "./assets/icon.png";
-const ANDROID_ICON_FOREGROUND = "./assets/icon.png";
+const ICON = "./assets/logo.png";
+const ANDROID_ICON_FOREGROUND = "./assets/logo.png";
 const SCHEME = "truefeel";
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
@@ -70,7 +70,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     },
 
     web: {
-        favicon: "./assets/favicon.png",
+        favicon: "./assets/logo.png",
     },
 
     plugins: [
@@ -92,6 +92,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
                     "Allow TrueFeel to access your Face ID for secure authentication.",
             },
         ],
+        [
+            "@livekit/react-native-expo-plugin",
+            {
+                "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera.",
+                "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone."
+            }
+        ]
     ],
 
     experiments: {

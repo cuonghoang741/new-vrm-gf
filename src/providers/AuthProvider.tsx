@@ -7,25 +7,30 @@ export default function AuthProvider({ children }: PropsWithChildren) {
     const [session, setSession] = useState<Session | null>(null);
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(true);
-    const [isOnboarded, setIsOnboarded] = useState<boolean>(false);
+    const [isOnboarded, setIsOnboarded] = useState<boolean>(true); // Default true → show Play while checking
 
     // Check onboarding status from database
     const checkOnboarding = useCallback(async (userId: string) => {
         try {
+            console.log("[Auth] Checking onboarding for user:", userId);
             const { data, error } = await supabase
-                .from("user_preferences")
-                .select("onboarding_completed")
+                .from("user_assets")
+                .select("id")
                 .eq("user_id", userId)
-                .order("created_at", { ascending: false })
-                .limit(1)
-                .maybeSingle();
+                .eq("item_type", "character")
+                .limit(1);
 
-            if (!error && data?.onboarding_completed) {
+            console.log("[Auth] user_assets query result:", { data, error });
+
+            if (!error && data && data.length > 0) {
+                console.log("[Auth] User is onboarded ✅");
                 setIsOnboarded(true);
             } else {
+                console.log("[Auth] User NOT onboarded ❌");
                 setIsOnboarded(false);
             }
-        } catch {
+        } catch (e) {
+            console.error("[Auth] checkOnboarding error:", e);
             setIsOnboarded(false);
         }
     }, []);
