@@ -20,7 +20,9 @@ import {
     IconStar,
     IconRefresh,
     IconTrash,
+    IconCrown,
 } from "@tabler/icons-react-native";
+import { useSubscription } from "../../contexts/SubscriptionContext";
 import * as Haptics from "expo-haptics";
 import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
 import { supabase } from "../../config/supabase";
@@ -32,6 +34,7 @@ interface SettingsSheetProps {
     userId?: string;
     userEmail?: string | null;
     onResetOnboarding?: () => void;
+    onOpenSubscription?: () => void;
 }
 
 export type SettingsSheetRef = BottomSheetRef;
@@ -66,8 +69,10 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
     userId,
     userEmail,
     onResetOnboarding,
+    onOpenSubscription,
 }, ref) => {
     const sheetRef = useRef<BottomSheetRef>(null);
+    const { isPro } = useSubscription();
     const [displayName, setDisplayName] = useState<string | null>(null);
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
@@ -245,9 +250,17 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                                     </View>
                                 )}
                                 <View style={styles.profileInfo}>
-                                    <Text style={styles.profileName} numberOfLines={1}>
-                                        {displayName ?? "Set your name"}
-                                    </Text>
+                                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                                        <Text style={styles.profileName} numberOfLines={1}>
+                                            {displayName ?? "Set your name"}
+                                        </Text>
+                                        {isPro && (
+                                            <View style={styles.proBadgeInline}>
+                                                <IconCrown size={12} color="#F59E0B" fill="#F59E0B" />
+                                                <Text style={styles.proBadgeInlineText}>PRO</Text>
+                                            </View>
+                                        )}
+                                    </View>
                                     <Text style={styles.profileEmail} numberOfLines={1}>
                                         {userEmail ?? "Unknown"}
                                     </Text>
@@ -261,10 +274,13 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                             <Text style={styles.sectionTitle}>GENERAL</Text>
                             <View style={styles.sectionCard}>
                                 <SettingItem
-                                    icon={<IconStar size={20} color="#F59E0B" />}
-                                    label="Upgrade to PRO"
-                                    subtitle="Unlock all characters & costumes"
-                                    onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+                                    icon={isPro ? <IconCrown size={20} color="#F59E0B" fill="#F59E0B" /> : <IconStar size={20} color="#F59E0B" />}
+                                    label={isPro ? "Pro Active ✓" : "Upgrade to PRO"}
+                                    subtitle={isPro ? "You have full access to all features" : "Unlock all characters & costumes"}
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        onOpenSubscription?.();
+                                    }}
                                 />
                                 <View style={styles.separator} />
                                 <SettingItem
@@ -415,4 +431,23 @@ const styles = StyleSheet.create({
     settingSubtitle: { fontSize: 13, color: "rgba(255,255,255,0.4)", marginTop: 2 },
 
     footer: { textAlign: "center", fontSize: 12, color: "rgba(255,255,255,0.2)", marginTop: 8, marginBottom: 20 },
+
+    // Pro badge inline
+    proBadgeInline: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 3,
+        backgroundColor: "rgba(245, 158, 11, 0.15)",
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: "rgba(245, 158, 11, 0.3)",
+    },
+    proBadgeInlineText: {
+        fontSize: 10,
+        fontWeight: "800",
+        color: "#F59E0B",
+        letterSpacing: 0.5,
+    },
 });

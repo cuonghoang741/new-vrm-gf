@@ -31,6 +31,7 @@ import {
     IconMusic,
     IconChevronLeft,
     IconChevronRight,
+    IconCrown,
 } from "@tabler/icons-react-native";
 import { useSubscription } from "../../contexts/SubscriptionContext";
 import VRMViewer, { VRMViewerHandle } from "../VRMViewer";
@@ -197,13 +198,27 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
         }
     }, [packages, selectedPackage, yearlyPackage, monthlyPackage]);
 
-    // Active product
+    // Active product - find which product the user is currently subscribed to
     useEffect(() => {
-        if (customerInfo) {
-            const ent =
-                customerInfo.entitlements.active["pro"] || customerInfo.entitlements.active["Pro"];
-            if (ent) setActiveProductId(ent.productIdentifier);
+        if (!customerInfo) return;
+
+        // 1. Check all active entitlements for a productIdentifier
+        const activeEntKeys = Object.keys(customerInfo.entitlements.active);
+        if (activeEntKeys.length > 0) {
+            const firstEnt = customerInfo.entitlements.active[activeEntKeys[0]];
+            setActiveProductId(firstEnt.productIdentifier);
+            console.log("[SubscriptionSheet] Active product from entitlement:", firstEnt.productIdentifier);
+            return;
         }
+
+        // 2. Fallback: check activeSubscriptions array
+        if (customerInfo.activeSubscriptions && customerInfo.activeSubscriptions.length > 0) {
+            setActiveProductId(customerInfo.activeSubscriptions[0]);
+            console.log("[SubscriptionSheet] Active product from activeSubscriptions:", customerInfo.activeSubscriptions[0]);
+            return;
+        }
+
+        console.log("[SubscriptionSheet] No active product found. Entitlements:", JSON.stringify(customerInfo.entitlements, null, 2));
     }, [customerInfo]);
 
     const handleSubscribe = async () => {
@@ -402,7 +417,7 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                                 </View>
                             ))}
                         </View>
-                        <View style={{ height: 200 }} />
+                        <View style={{ height: 350 }} />
                     </ScrollView>
 
                     {/* Bottom panel */}
@@ -417,47 +432,67 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                                 <Pressable
                                     style={[
                                         styles.planCard,
-                                        selectedPackage?.identifier === monthlyPackage.identifier && styles.planCardSelected,
+                                        !isPro && selectedPackage?.identifier === monthlyPackage.identifier && styles.planCardSelected,
+                                        isPro && activeProductId === monthlyPackage.product.identifier && styles.planCardActive,
                                     ]}
-                                    onPress={() => setSelectedPackage(monthlyPackage)}
+                                    onPress={() => !isPro && setSelectedPackage(monthlyPackage)}
                                 >
-                                    <View style={styles.planInfo}>
-                                        <Text
-                                            style={[
-                                                styles.planName,
-                                                selectedPackage?.identifier === monthlyPackage.identifier && styles.textHL,
-                                            ]}
-                                        >
-                                            MONTHLY
-                                        </Text>
-                                        <Text style={styles.planPrice}>{monthlyPackage.product.priceString}</Text>
-                                    </View>
-                                    <View
-                                        style={[
-                                            styles.radio,
-                                            selectedPackage?.identifier === monthlyPackage.identifier && styles.radioSelected,
-                                        ]}
-                                    />
-                                </Pressable>
-                            )}
-                            {yearlyPackage && (
-                                <Pressable
-                                    style={[
-                                        styles.planCard,
-                                        selectedPackage?.identifier === yearlyPackage.identifier && styles.planCardSelected,
-                                    ]}
-                                    onPress={() => setSelectedPackage(yearlyPackage)}
-                                >
-                                    {discountPercentage && (
-                                        <View style={styles.discountBadge}>
-                                            <Text style={styles.discountText}>SAVE {discountPercentage}</Text>
+                                    {isPro && activeProductId === monthlyPackage.product.identifier && (
+                                        <View style={styles.activeBadge}>
+                                            <Text style={styles.activeText}>ACTIVE</Text>
                                         </View>
                                     )}
                                     <View style={styles.planInfo}>
                                         <Text
                                             style={[
                                                 styles.planName,
-                                                selectedPackage?.identifier === yearlyPackage.identifier && styles.textHL,
+                                                !isPro && selectedPackage?.identifier === monthlyPackage.identifier && styles.textHL,
+                                                isPro && activeProductId === monthlyPackage.product.identifier && styles.textActive,
+                                            ]}
+                                        >
+                                            MONTHLY
+                                        </Text>
+                                        <Text style={styles.planPrice}>{monthlyPackage.product.priceString}</Text>
+                                    </View>
+                                    {!isPro && (
+                                        <View
+                                            style={[
+                                                styles.radio,
+                                                selectedPackage?.identifier === monthlyPackage.identifier && styles.radioSelected,
+                                            ]}
+                                        />
+                                    )}
+                                    {isPro && activeProductId === monthlyPackage.product.identifier && (
+                                        <IconCrown size={18} color="#F59E0B" fill="#F59E0B" />
+                                    )}
+                                </Pressable>
+                            )}
+                            {yearlyPackage && (
+                                <Pressable
+                                    style={[
+                                        styles.planCard,
+                                        !isPro && selectedPackage?.identifier === yearlyPackage.identifier && styles.planCardSelected,
+                                        isPro && activeProductId === yearlyPackage.product.identifier && styles.planCardActive,
+                                    ]}
+                                    onPress={() => !isPro && setSelectedPackage(yearlyPackage)}
+                                >
+                                    {isPro && activeProductId === yearlyPackage.product.identifier ? (
+                                        <View style={styles.activeBadge}>
+                                            <Text style={styles.activeText}>ACTIVE</Text>
+                                        </View>
+                                    ) : (
+                                        discountPercentage && !isPro && (
+                                            <View style={styles.discountBadge}>
+                                                <Text style={styles.discountText}>SAVE {discountPercentage}</Text>
+                                            </View>
+                                        )
+                                    )}
+                                    <View style={styles.planInfo}>
+                                        <Text
+                                            style={[
+                                                styles.planName,
+                                                !isPro && selectedPackage?.identifier === yearlyPackage.identifier && styles.textHL,
+                                                isPro && activeProductId === yearlyPackage.product.identifier && styles.textActive,
                                             ]}
                                         >
                                             YEARLY
@@ -471,34 +506,48 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                                             /mo
                                         </Text>
                                     </View>
-                                    <View
-                                        style={[
-                                            styles.radio,
-                                            selectedPackage?.identifier === yearlyPackage.identifier && styles.radioSelected,
-                                        ]}
-                                    />
+                                    {!isPro && (
+                                        <View
+                                            style={[
+                                                styles.radio,
+                                                selectedPackage?.identifier === yearlyPackage.identifier && styles.radioSelected,
+                                            ]}
+                                        />
+                                    )}
+                                    {isPro && activeProductId === yearlyPackage.product.identifier && (
+                                        <IconCrown size={18} color="#F59E0B" fill="#F59E0B" />
+                                    )}
                                 </Pressable>
                             )}
                         </View>
 
                         {/* CTA */}
-                        <Pressable
-                            style={[styles.ctaButton, (isProcessing || contextLoading) && { opacity: 0.6 }]}
-                            onPress={isProcessing || contextLoading ? undefined : handleSubscribe}
-                        >
-                            <LinearGradient
-                                colors={["#8b5cf6", "#7c3aed"]}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 0 }}
-                                style={styles.ctaGradient}
+                        {isPro ? (
+                            <Pressable
+                                style={styles.ctaButtonManage}
+                                onPress={() => Linking.openURL("https://apps.apple.com/account/subscriptions")}
                             >
-                                {isProcessing ? (
-                                    <ActivityIndicator color="#fff" />
-                                ) : (
-                                    <Text style={styles.ctaText}>{isPro ? "Update Plan" : "Unlock Pro"}</Text>
-                                )}
-                            </LinearGradient>
-                        </Pressable>
+                                <Text style={styles.ctaTextManage}>Manage Subscription</Text>
+                            </Pressable>
+                        ) : (
+                            <Pressable
+                                style={[styles.ctaButton, (isProcessing || contextLoading) && { opacity: 0.6 }]}
+                                onPress={isProcessing || contextLoading ? undefined : handleSubscribe}
+                            >
+                                <LinearGradient
+                                    colors={["#8b5cf6", "#7c3aed"]}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 0 }}
+                                    style={styles.ctaGradient}
+                                >
+                                    {isProcessing ? (
+                                        <ActivityIndicator color="#fff" />
+                                    ) : (
+                                        <Text style={styles.ctaText}>Unlock Pro</Text>
+                                    )}
+                                </LinearGradient>
+                            </Pressable>
+                        )}
 
                         {/* Footer */}
                         <View style={styles.footerLinks}>
@@ -518,17 +567,6 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                                 <Text style={styles.footerLink}>EULA</Text>
                             </Pressable>
                         </View>
-
-                        {isPro && activeProductId && (
-                            <Pressable
-                                onPress={() => Linking.openURL("https://apps.apple.com/account/subscriptions")}
-                                style={{ marginTop: 8 }}
-                            >
-                                <Text style={[styles.footerLink, { opacity: 0.5, fontSize: 11 }]}>
-                                    Manage Subscription
-                                </Text>
-                            </Pressable>
-                        )}
                     </BlurView>
                 </View>
             </View>
@@ -755,4 +793,33 @@ const styles = StyleSheet.create({
     },
     footerLink: { color: "#fff", fontSize: 12, fontWeight: "500" },
     footerDot: { color: "#fff", marginHorizontal: 10, fontSize: 10 },
+
+    // Active plan states
+    planCardActive: {
+        borderColor: "rgba(245, 158, 11, 0.5)",
+        backgroundColor: "rgba(245, 158, 11, 0.08)",
+    },
+    activeBadge: {
+        position: "absolute",
+        top: -10,
+        right: 12,
+        backgroundColor: "#F59E0B",
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 8,
+    },
+    activeText: { color: "#fff", fontSize: 10, fontWeight: "800" },
+    textActive: { color: "#F59E0B" },
+
+    // Manage subscription CTA
+    ctaButtonManage: {
+        borderRadius: 28,
+        borderWidth: 1.5,
+        borderColor: "rgba(255,255,255,0.15)",
+        paddingVertical: 18,
+        alignItems: "center",
+        justifyContent: "center",
+        marginBottom: 16,
+    },
+    ctaTextManage: { color: "rgba(255,255,255,0.7)", fontSize: 16, fontWeight: "600" },
 });

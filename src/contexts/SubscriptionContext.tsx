@@ -5,9 +5,22 @@ import Purchases, {
 } from "react-native-purchases";
 import { Platform } from "react-native";
 
-const REVENUECAT_API_KEY_IOS = "appl_YOUR_KEY_HERE"; // TODO: replace
-const REVENUECAT_API_KEY_ANDROID = "goog_YOUR_KEY_HERE"; // TODO: replace
-const PRO_ENTITLEMENT_ID = "pro";
+const REVENUECAT_API_KEY_IOS = "test_gnnCBUoBlRDSIdXbWzzRZoTPwOW";
+const REVENUECAT_API_KEY_ANDROID = "test_gnnCBUoBlRDSIdXbWzzRZoTPwOW";
+
+export const checkIsPro = (info: CustomerInfo | null) => {
+    if (!info) return false;
+    console.log("[SubscriptionContext] Checking entitlements:", JSON.stringify(info.entitlements.active, null, 2));
+    // Some configurations may not even have entitlements mapped correctly, check if we own anything
+    const activeKeys = Object.keys(info.entitlements.active);
+
+    // Fallback: If RevenueCat says we have an active entitlement of ANY name, just give pro!
+    if (activeKeys.length > 0) return true;
+
+    return activeKeys.some(
+        (key) => key.toLowerCase() === "pro" || key.toLowerCase() === "premium"
+    );
+};
 
 interface SubscriptionContextData {
     isPro: boolean;
@@ -40,7 +53,7 @@ export function SubscriptionProvider({ children, userId }: { children: ReactNode
 
     const updateFromInfo = useCallback((info: CustomerInfo) => {
         setCustomerInfo(info);
-        setIsPro(info.entitlements.active[PRO_ENTITLEMENT_ID] !== undefined);
+        setIsPro(checkIsPro(info));
     }, []);
 
     // Configure RevenueCat SDK exactly once
@@ -96,10 +109,11 @@ export function SubscriptionProvider({ children, userId }: { children: ReactNode
 
     const purchasePackage = useCallback(async (pkg: PurchasesPackage) => {
         try {
+            console.log("[SubscriptionProvider] Attempting purchase of:", pkg.identifier);
             const { customerInfo: info } = await Purchases.purchasePackage(pkg);
+            console.log("[SubscriptionProvider] Purchase success, returned info:", JSON.stringify(info, null, 2));
             updateFromInfo(info);
-            const hasPro = info.entitlements.active[PRO_ENTITLEMENT_ID] !== undefined;
-            return { success: hasPro };
+            return { success: checkIsPro(info) };
         } catch (e: any) {
             if (e.userCancelled) {
                 return { success: false, error: "cancelled" };
@@ -112,8 +126,7 @@ export function SubscriptionProvider({ children, userId }: { children: ReactNode
         try {
             const info = await Purchases.restorePurchases();
             updateFromInfo(info);
-            const hasPro = info.entitlements.active[PRO_ENTITLEMENT_ID] !== undefined;
-            return { isPro: hasPro };
+            return { isPro: checkIsPro(info) };
         } catch (e: any) {
             return { isPro: false, error: e.message || "Restore failed" };
         }
@@ -130,7 +143,7 @@ export function SubscriptionProvider({ children, userId }: { children: ReactNode
 
     return (
         <SubscriptionContext.Provider
-            value={{ isPro: true, isLoading, packages, customerInfo, purchasePackage, restorePurchases, refreshStatus }}
+            value={{ isPro, isLoading, packages, customerInfo, purchasePackage, restorePurchases, refreshStatus }}
         >
             {children}
         </SubscriptionContext.Provider>

@@ -1,7 +1,8 @@
+// @ts-nocheck - This file runs in Deno Edge Runtime, not browser/Vite
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || "";
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-001:generateContent";
+const GEMINI_STREAM_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-001:streamGenerateContent";
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-client-id',
@@ -11,7 +12,6 @@ const corsHeaders = {
 // Hardcoded Telegram Credentials to match client service
 const TELEGRAM_BOT_TOKEN = '8014102522:AAG5vWRg3UGi7phtyQmoEWygwSOcDrak9vs';
 const TELEGRAM_CHAT_ID = '-5289533975';
-const TELEGRAM_MESSAGE_THREAD_ID = '1';
 
 async function sendTelegramError(error: string, context: string) {
     try {
@@ -21,7 +21,6 @@ async function sendTelegramError(error: string, context: string) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 chat_id: TELEGRAM_CHAT_ID,
-                // message_thread_id: TELEGRAM_MESSAGE_THREAD_ID,
                 text: message,
                 parse_mode: 'HTML'
             })
@@ -31,76 +30,26 @@ async function sendTelegramError(error: string, context: string) {
     }
 }
 
-// Retry helper function for Gemini API calls
-async function fetchWithRetry(
-    url: string,
-    options: RequestInit,
-    maxRetries: number = 1, // Reduced to 1 retry (2 attempts total)
-    initialDelayMs: number = 1000,
-    contextInfo: string = ''
-): Promise<Response> {
-    let lastError: Error | null = null;
-
-    for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
-        try {
-            const response = await fetch(url, options);
-
-            // If response is ok or it's a client error (4xx), don't retry, return immediately
-            if (response.ok || (response.status >= 400 && response.status < 500)) {
-                return response;
-            }
-
-            // Server error (5xx) - retry
-            const errorText = await response.text();
-            lastError = new Error(`Gemini API error: ${response.status} - ${errorText}`);
-            console.log(`[gemini-chat] Attempt ${attempt}/${maxRetries + 1} failed with status ${response.status}`);
-        } catch (error) {
-            // Network error - retry
-            lastError = error instanceof Error ? error : new Error(String(error));
-            console.log(`[gemini-chat] Attempt ${attempt}/${maxRetries + 1} failed with error: ${lastError.message}`);
-        }
-
-        // Wait before retrying (exponential backoff)
-        if (attempt <= maxRetries) {
-            const delay = initialDelayMs * Math.pow(2, attempt - 1);
-            console.log(`[gemini-chat] Retrying in ${delay}ms...`);
-            await new Promise(resolve => setTimeout(resolve, delay));
-        }
-    }
-
-    // If we reach here, all attempts failed
-    const finalErrorMessage = lastError ? lastError.message : 'Unknown error after retries';
-    console.error(`[gemini-chat] All retry attempts failed: ${finalErrorMessage}`);
-
-    // Send Telegram Notification
-    await sendTelegramError(finalErrorMessage, contextInfo);
-
-    throw lastError || new Error('All retry attempts failed');
-}
-
 serve(async (req) => {
     if (req.method === 'OPTIONS') {
-        return new Response('ok', {
-            headers: corsHeaders
-        });
+        return new Response('ok', { headers: corsHeaders });
     }
 
     let requestBody: any = {};
 
     try {
         const clientIdHeader = req.headers.get('X-Client-Id') || req.headers.get('x-client-id') || '';
+        const authHeader = req.headers.get('Authorization') || '';
         const supabaseClient = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_ANON_KEY') ?? '', {
             global: {
                 headers: {
-                    Authorization: req.headers.get('Authorization'),
-                    ...clientIdHeader ? {
-                        'X-Client-Id': clientIdHeader
-                    } : {}
+                    Authorization: authHeader,
+                    ...clientIdHeader ? { 'X-Client-Id': clientIdHeader } : {}
                 }
             }
         });
         const body = await req.json();
-        requestBody = body; // Store for context
+        requestBody = body;
         const { message, character_id, user_id, client_id, conversation_history } = body;
 
         if (!message || !character_id) {
@@ -108,18 +57,17 @@ serve(async (req) => {
                 error: "Missing required fields: message and character_id"
             }), {
                 status: 400,
-                headers: {
-                    ...corsHeaders,
-                    'Content-Type': 'application/json'
-                }
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
             });
         }
+
         // Character instruction
         let characterInstruction = null;
         try {
             const { data: characterData } = await supabaseClient.from('characters').select('instruction').eq('id', character_id).single();
             if (characterData?.instruction) characterInstruction = characterData.instruction;
         } catch { }
+
         // Memory
         let currentMemory = null;
         try {
@@ -129,36 +77,24 @@ serve(async (req) => {
             const { data: uc } = await memoryQuery.maybeSingle();
             if (uc) currentMemory = uc.memory || null;
         } catch { }
+
+        // Build conversation contents
         const contents = [];
         if (Array.isArray(conversation_history) && conversation_history.length > 0) {
             for (const msg of conversation_history) {
                 const text = msg?.parts?.[0]?.text || '';
                 if (text) contents.push({
                     role: msg.role === 'model' ? 'model' : 'user',
-                    parts: [
-                        {
-                            text
-                        }
-                    ]
+                    parts: [{ text }]
                 });
             }
         }
-        contents.push({
-            role: 'user',
-            parts: [
-                {
-                    text: message
-                }
-            ]
-        });
-        const geminiRequestBody = {
-            contents
-        };
+        contents.push({ role: 'user', parts: [{ text: message }] });
+
         // Check for Pro subscription
         let isPro = false;
         const bodyIsPro = body.is_pro;
         if (typeof bodyIsPro === 'boolean') {
-            // Trust the client to save a DB query
             isPro = bodyIsPro;
         } else if (user_id) {
             try {
@@ -169,135 +105,167 @@ serve(async (req) => {
                     .in('status', ['active', 'trialing'])
                     .gt('expires_at', new Date().toISOString())
                     .maybeSingle();
-
                 if (subData) isPro = true;
             } catch { }
         }
 
+        // Build system instruction
         let systemInstructionText = '';
         if (characterInstruction) systemInstructionText = characterInstruction;
-
-        // Append User Status
-        const userStatusInfo = `\n\n[User Status: ${isPro ? 'Pro' : 'Free'}]`;
-        systemInstructionText += userStatusInfo;
-
+        systemInstructionText += `\n\n[User Status: ${isPro ? 'Pro' : 'Free'}]`;
         systemInstructionText += `\n\nIf a user requests nude photos, say you can provide them if they are a pro member. Or, if the user is already a pro member, simply say it's suggestive and that you're nude.`;
+        if (currentMemory) {
+            systemInstructionText = systemInstructionText
+                ? `${systemInstructionText}\n\n## Previous Memory/Context:\n${currentMemory}`
+                : `## Previous Memory/Context:\n${currentMemory}`;
+        }
 
-        if (currentMemory) systemInstructionText = systemInstructionText ? `${systemInstructionText}\n\n## Previous Memory/Context:\n${currentMemory}` : `## Previous Memory/Context:\n${currentMemory}`;
+        const geminiRequestBody: any = { contents };
+        if (systemInstructionText) {
+            geminiRequestBody.systemInstruction = { parts: [{ text: systemInstructionText }] };
+        }
 
-        if (systemInstructionText) geminiRequestBody.systemInstruction = {
-            parts: [
-                {
-                    text: systemInstructionText
-                }
-            ]
+        // Save user message to DB before streaming
+        const userMsgData: any = {
+            character_id,
+            message,
+            is_agent: false,
+            is_seen: true
         };
+        if (user_id) userMsgData.user_id = user_id;
+        if (client_id) userMsgData.client_id = client_id;
+        try {
+            await supabaseClient.from('conversation').insert(userMsgData);
+        } catch { }
 
-        // Context info for error reporting
         const contextInfo = `User: ${user_id || client_id || 'Unknown'}\nCharacter: ${character_id}`;
 
-        const geminiResponse = await fetchWithRetry(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(geminiRequestBody)
-        }, 1, 1000, contextInfo);
+        // Call Gemini streaming endpoint
+        const geminiResponse = await fetch(
+            `${GEMINI_STREAM_URL}?alt=sse&key=${GEMINI_API_KEY}`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(geminiRequestBody)
+            }
+        );
 
         if (!geminiResponse.ok) {
             const errorText = await geminiResponse.text();
-
-            // Send Telegram Notification for API level errors (after retries returned non-ok)
             await sendTelegramError(`${geminiResponse.status} - ${errorText}`, contextInfo);
-
             return new Response(JSON.stringify({
                 error: `Gemini API error: ${geminiResponse.status}`,
                 details: errorText
             }), {
                 status: geminiResponse.status,
-                headers: {
-                    ...corsHeaders,
-                    'Content-Type': 'application/json'
-                }
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
             });
         }
-        const geminiData = await geminiResponse.json();
-        let responseText = '';
-        try {
-            const candidate = geminiData.candidates?.[0];
-            if (candidate?.content?.parts?.[0]?.text) responseText = candidate.content.parts[0].text;
-            else throw new Error('Unexpected Gemini response structure');
-        } catch (error: any) {
-            // Send Telegram Notification for parsing errors
-            await sendTelegramError(`Parsing Error: ${error?.message || String(error)}\nData: ${JSON.stringify(geminiData)}`, contextInfo);
 
-            return new Response(JSON.stringify({
-                error: 'Failed to parse Gemini response',
-                details: JSON.stringify(geminiData)
-            }), {
-                status: 500,
-                headers: {
-                    ...corsHeaders,
-                    'Content-Type': 'application/json'
+        // Transform Gemini SSE stream into our own SSE stream
+        let fullResponse = '';
+        const geminiReader = geminiResponse.body!.getReader();
+        const decoder = new TextDecoder();
+        const encoder = new TextEncoder();
+        let buffer = '';
+
+        const stream = new ReadableStream({
+            async pull(controller) {
+                try {
+                    const { done, value } = await geminiReader.read();
+                    if (done) {
+                        // Send DONE event
+                        controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
+                        controller.close();
+
+                        // Background: save AI message to DB and update memory
+                        const cleanedResponse = fullResponse.trimEnd();
+                        if (cleanedResponse) {
+                            const bgTask = (async () => {
+                                try {
+                                    const aiMessageData: any = {
+                                        character_id,
+                                        message: cleanedResponse,
+                                        is_agent: true,
+                                        is_seen: false
+                                    };
+                                    if (user_id) aiMessageData.user_id = user_id;
+                                    if (client_id) aiMessageData.client_id = client_id;
+                                    await supabaseClient.from('conversation').insert(aiMessageData);
+                                } catch (e) {
+                                    console.error('[gemini-chat] Failed to save AI message:', e);
+                                }
+                                // Fire-and-forget memory update
+                                try {
+                                    fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/update-memory`, {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                            Authorization: authHeader
+                                        },
+                                        body: JSON.stringify({
+                                            character_id,
+                                            user_id,
+                                            client_id,
+                                            message,
+                                            agent_reply: cleanedResponse
+                                        })
+                                    }).catch(() => { });
+                                } catch { }
+                            })();
+                            try {
+                                EdgeRuntime.waitUntil(bgTask);
+                            } catch {
+                                // EdgeRuntime.waitUntil may not be available in all environments
+                                bgTask.catch(() => { });
+                            }
+                        }
+                        return;
+                    }
+
+                    // Decode chunk and process SSE lines
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const jsonStr = line.slice(6).trim();
+                            if (!jsonStr || jsonStr === '[DONE]') continue;
+                            try {
+                                const parsed = JSON.parse(jsonStr);
+                                const text = parsed?.candidates?.[0]?.content?.parts?.[0]?.text;
+                                if (text) {
+                                    fullResponse += text;
+                                    controller.enqueue(
+                                        encoder.encode(`data: ${JSON.stringify({ token: text })}\n\n`)
+                                    );
+                                }
+                            } catch {
+                                // Skip unparseable lines
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.error('[gemini-chat] Stream error:', err);
+                    controller.error(err);
                 }
-            });
-        }
-        const cleanedResponse = responseText.trimEnd();
-        // Save AI message
-        const aiMessageData = {
-            character_id,
-            message: cleanedResponse,
-            is_agent: true,
-            is_seen: false
-        };
-        if (user_id) aiMessageData.user_id = user_id;
-        if (client_id) aiMessageData.client_id = client_id;
-        try {
-            await supabaseClient.from('conversation').insert(aiMessageData);
-        } catch { }
-        // Fire-and-forget async memory update
-        try {
-            const updatePayload = {
-                character_id,
-                user_id,
-                client_id,
-                message,
-                agent_reply: cleanedResponse
-            };
-            fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/update-memory`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: req.headers.get('Authorization') || ''
-                },
-                body: JSON.stringify(updatePayload)
-            }).catch(() => { });
-        } catch { }
-        // unseen count
-        let unseenCount = 0;
-        try {
-            let query = supabaseClient.from('conversation').select('id', {
-                count: 'exact',
-                head: true
-            }).eq('is_agent', true).eq('is_seen', false);
-            if (user_id) query = query.eq('user_id', user_id);
-            else if (client_id) query = query.eq('client_id', client_id);
-            const { count } = await query;
-            if (typeof count === 'number') unseenCount = count;
-        } catch { }
-        return new Response(JSON.stringify({
-            response: cleanedResponse,
-            unseen_count: unseenCount,
-            character_id
-        }), {
+            },
+            cancel() {
+                geminiReader.cancel();
+            }
+        });
+
+        return new Response(stream, {
             headers: {
                 ...corsHeaders,
-                'Content-Type': 'application/json'
-            },
-            status: 200
+                'Content-Type': 'text/event-stream',
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+            }
         });
+
     } catch (error: any) {
-        // Top level catch - unexpected errors
         try {
             const contextInfo = `Request Body: ${JSON.stringify(requestBody).substring(0, 200)}...`;
             await sendTelegramError(error?.message || String(error), contextInfo);
@@ -307,10 +275,7 @@ serve(async (req) => {
             error: error?.message || String(error)
         }), {
             status: 500,
-            headers: {
-                ...corsHeaders,
-                'Content-Type': 'application/json'
-            }
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
     }
 });

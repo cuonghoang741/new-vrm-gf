@@ -16,6 +16,7 @@ import {
     Dimensions,
     Animated,
     Keyboard,
+    Pressable,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Image } from "expo-image";
@@ -418,17 +419,36 @@ export default function PlayScreen() {
         setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
 
         try {
-            // Fire both in parallel: chat response + action detection
-            const [result, suggestedAction] = await Promise.all([
-                chatService.sendMessage(text, characterId, user.id, [...messages, userMsg]),
-                chatService.suggestAction(text),
-            ]);
+            // Fire action detection in background
+            chatService.suggestAction(text).then(action => {
+                executeAction(action);
+            }).catch(() => { });
 
-            const aiMsg: ChatMessage = { id: `ai-${Date.now()}`, role: "model", text: result.response, createdAt: new Date() };
-            setMessages((prev) => [...prev, aiMsg]);
+            const aiMsgStartId = `ai-${Date.now()}`;
 
-            // Execute the suggested action from Gemini
-            executeAction(suggestedAction);
+            // Add a temporary empty message
+            setMessages((prev) => [...prev, { id: `${aiMsgStartId}-0`, role: "model", text: "", createdAt: new Date() }]);
+
+            // Stream response
+            await chatService.streamMessage(text, characterId, user.id, [...messages, userMsg], (token, fullText) => {
+                // Split AI response into multiple parts by line breaks
+                const parts = fullText.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+
+                setMessages((prev) => {
+                    const nonStreamingMsgs = prev.filter(m => !m.id.startsWith(aiMsgStartId));
+                    if (parts.length === 0) {
+                        return [...nonStreamingMsgs, { id: `${aiMsgStartId}-0`, role: "model", text: fullText, createdAt: new Date() }];
+                    }
+                    const newMsgs: ChatMessage[] = parts.map((part, idx) => ({
+                        id: `${aiMsgStartId}-${idx}`,
+                        role: "model",
+                        text: part,
+                        createdAt: new Date()
+                    }));
+                    return [...nonStreamingMsgs, ...newMsgs];
+                });
+                flatListRef.current?.scrollToEnd({ animated: false });
+            });
 
             setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
         } catch (error) {
@@ -565,7 +585,14 @@ export default function PlayScreen() {
             {/* Top bar */}
             <View style={styles.topBar}>
                 <View>
-                    <Text style={styles.charNameTop}>{characterName}</Text>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                        <Text style={styles.charNameTop}>{characterName}</Text>
+                        {isPro && (
+                            <Pressable onPress={() => setSubscriptionOpen(true)} hitSlop={8}>
+                                <IconCrown size={18} color="#F59E0B" fill="#F59E0B" />
+                            </Pressable>
+                        )}
+                    </View>
                     <Text style={styles.statusText}>● Online</Text>
                 </View>
                 <Button
@@ -785,6 +812,7 @@ export default function PlayScreen() {
                 onIsOpenedChange={setSettingsSheetOpen}
                 userId={user?.id}
                 userEmail={user?.email}
+                onOpenSubscription={() => setSubscriptionOpen(true)}
                 onResetOnboarding={async () => {
                     if (!user?.id) return;
                     await supabase.from("user_preferences").update({
