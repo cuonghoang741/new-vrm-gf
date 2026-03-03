@@ -10,6 +10,7 @@ import {
     Animated,
     Image,
     Alert,
+    ActivityIndicator,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
@@ -159,116 +160,56 @@ export default function OnboardingScreen({
 
         setIsClaiming(true);
 
-        // 1. Write to SecureStore FIRST so PlayScreen has character data instantly
         try {
+            const userId = user.id;
+            const charId = matchedCharacter.id;
+            const bgDefaultId = matchedCharacter.background_default_id;
+
+            // Cache to SecureStore for instant PlayScreen load
             const bgData = (matchedCharacter as any).backgrounds;
-            const cacheData = {
-                characterId: matchedCharacter.id,
+            await SecureStore.setItemAsync("play_last_character", JSON.stringify({
+                characterId: charId,
                 characterName: matchedCharacter.name,
                 modelUrl: matchedCharacter.base_model_url ?? "",
                 backgroundUrl: bgData?.image ?? null,
-                backgroundId: matchedCharacter.background_default_id ?? null,
+                backgroundId: bgDefaultId ?? null,
                 thumbnailUrl: matchedCharacter.thumbnail_url ?? null,
-            };
-            await SecureStore.setItemAsync("play_last_character", JSON.stringify(cacheData));
-            console.log("[Onboarding] Cache written to SecureStore");
+            }));
+
+            // Save assets (this is what checkOnboarding queries)
+            const assetsToGrant: any[] = [
+                { user_id: userId, item_id: charId, item_type: "character" },
+            ];
+            if (bgDefaultId) {
+                assetsToGrant.push({ user_id: userId, item_id: bgDefaultId, item_type: "background" });
+            }
+
+            const { error: assetsError } = await supabase
+                .from("user_assets")
+                .insert(assetsToGrant);
+
+            if (assetsError) {
+                console.error("[Onboarding] Assets save error:", assetsError.message);
+            }
+
+            // Save preferences (only columns that exist: user_id, current_character_id, updated_at)
+            const { error: prefsError } = await supabase
+                .from("user_preferences")
+                .insert({
+                    user_id: userId,
+                    current_character_id: charId,
+                    updated_at: new Date().toISOString(),
+                });
+
+            if (prefsError) {
+                console.warn("[Onboarding] Prefs save error:", prefsError.message);
+            }
         } catch (e) {
-            console.warn("[Onboarding] Cache write error:", e);
+            console.error("[Onboarding] Save error:", e);
         }
 
-        // 2. Navigate to PlayScreen immediately — don't wait for DB
         setIsClaiming(false);
         onComplete();
-
-        // 3. Fire-and-forget DB operations in background with timeout
-        const userId = user.id;
-        const charId = matchedCharacter.id;
-        const bgDefaultId = matchedCharacter.background_default_id;
-
-        const withTimeout = <T,>(promise: PromiseLike<T>, ms: number): Promise<T> =>
-            Promise.race([
-                Promise.resolve(promise),
-                new Promise<T>((_, reject) => setTimeout(() => reject(new Error("timeout")), ms)),
-            ]);
-
-        (async () => {
-            try {
-                const payload = {
-                    age_range: selectedAge,
-                    personality: selectedPersonalities,
-                    interests: selectedInterests,
-                    current_character_id: charId,
-                    matched_character_id: charId,
-                    matched_background_id: bgDefaultId,
-                    onboarding_completed: true,
-                    updated_at: new Date().toISOString(),
-                };
-
-                // Save preferences with 5s timeout
-                console.log("[Onboarding BG] Saving preferences...");
-                try {
-                    const res = await withTimeout(
-                        supabase
-                            .from("user_preferences")
-                            .update(payload)
-                            .eq("user_id", userId)
-                            .select("id")
-                            .maybeSingle()
-                            .then(r => r),
-                        5000
-                    );
-                    console.log("[Onboarding BG] Prefs update result:", JSON.stringify({ data: res.data, error: res.error }));
-                    if (!res.data) {
-                        const insertRes = await withTimeout(
-                            supabase
-                                .from("user_preferences")
-                                .insert({ user_id: userId, ...payload })
-                                .select()
-                                .then(r => r),
-                            5000
-                        );
-                        console.log("[Onboarding BG] Prefs insert result:", JSON.stringify({ data: insertRes.data, error: insertRes.error }));
-                    }
-                    console.log("[Onboarding BG] Preferences saved ✅");
-                } catch (e) {
-                    console.warn("[Onboarding BG] Preferences save failed:", e);
-                }
-
-                // Grant assets with 5s timeout
-                console.log("[Onboarding BG] Granting assets...");
-                try {
-                    const assetsToGrant: any[] = [
-                        { user_id: userId, item_id: charId, item_type: "character" },
-                    ];
-                    if (bgDefaultId) {
-                        assetsToGrant.push({
-                            user_id: userId,
-                            item_id: bgDefaultId,
-                            item_type: "background",
-                        });
-                    }
-                    console.log("[Onboarding BG] Assets payload:", JSON.stringify(assetsToGrant));
-                    const result = await withTimeout(
-                        supabase
-                            .from("user_assets")
-                            .insert(assetsToGrant)
-                            .select()
-                            .then(r => r),
-                        5000
-                    );
-                    console.log("[Onboarding BG] Assets result:", JSON.stringify(result));
-                    if (result.error) {
-                        console.error("[Onboarding BG] Assets upsert ERROR:", result.error);
-                    } else {
-                        console.log("[Onboarding BG] Assets granted ✅", result.data?.length, "rows");
-                    }
-                } catch (e) {
-                    console.warn("[Onboarding BG] Assets grant failed (will retry on next launch):", e);
-                }
-            } catch (e) {
-                console.warn("[Onboarding BG] Background save error:", e);
-            }
-        })();
     }, [
         matchedCharacter,
         user?.id,
@@ -500,24 +441,36 @@ export default function OnboardingScreen({
                                         </View>
 
                                         <TouchableOpacity
-                                            style={styles.startButton}
+                                            style={[styles.startButton, isClaiming && { opacity: 0.7 }]}
                                             onPress={handleClaim}
                                             activeOpacity={0.8}
+                                            disabled={isClaiming}
                                         >
                                             <LinearGradient
-                                                colors={["#6633CC", "#8855EE"]}
+                                                colors={isClaiming ? ["#4a2599", "#6633BB"] : ["#6633CC", "#8855EE"]}
                                                 style={styles.startButtonGradient}
                                                 start={{ x: 0, y: 0 }}
                                                 end={{ x: 1, y: 0 }}
                                             >
-                                                <Text style={styles.startButtonText}>
-                                                    Start chatting with {matchedCharacter.name}
-                                                </Text>
-                                                <IconArrowRight
-                                                    size={20}
-                                                    color="#FFFFFF"
-                                                    style={{ marginLeft: 8 }}
-                                                />
+                                                {isClaiming ? (
+                                                    <>
+                                                        <ActivityIndicator size="small" color="#FFFFFF" style={{ marginRight: 10 }} />
+                                                        <Text style={styles.startButtonText}>
+                                                            Setting up...
+                                                        </Text>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Text style={styles.startButtonText}>
+                                                            Start chatting with {matchedCharacter.name}
+                                                        </Text>
+                                                        <IconArrowRight
+                                                            size={20}
+                                                            color="#FFFFFF"
+                                                            style={{ marginLeft: 8 }}
+                                                        />
+                                                    </>
+                                                )}
                                             </LinearGradient>
                                         </TouchableOpacity>
                                     </Animated.View>

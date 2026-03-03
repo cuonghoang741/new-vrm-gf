@@ -148,6 +148,24 @@ export const chatService = {
     },
 
     /**
+     * Save a completed message (e.g. from a voice call transcript) directly to DB
+     */
+    async saveCallMessage(message: string, characterId: string, userId: string, isAgent: boolean) {
+        if (!message || !characterId || !userId) return;
+        try {
+            await supabase.from("conversation").insert({
+                character_id: characterId,
+                user_id: userId,
+                message,
+                is_agent: isAgent,
+                is_seen: true,
+            });
+        } catch (e) {
+            console.error("Failed to save call message:", e);
+        }
+    },
+
+    /**
      * Call gemini-suggest-action to determine what VRM action to perform
      */
     async suggestAction(message: string): Promise<SuggestedAction> {

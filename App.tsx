@@ -5,6 +5,7 @@ import { ThemeProvider } from "./src/contexts/ThemeContext";
 import { SubscriptionProvider } from "./src/contexts/SubscriptionContext";
 import { useAuth } from "./src/hooks/useAuth";
 import { ElevenLabsProvider } from "@elevenlabs/react-native";
+import { OTAAutoUpdate } from "./src/components/OTA-update/OTAAutoUpdate";
 
 function AppWithSubscription() {
   const { user } = useAuth();
@@ -12,6 +13,7 @@ function AppWithSubscription() {
     <SubscriptionProvider userId={user?.id}>
       <ElevenLabsProvider audioSessionConfig={{ allowMixingWithOthers: true }}>
         <AppNavigator />
+        <OTAAutoUpdate />
       </ElevenLabsProvider>
     </SubscriptionProvider>
   );

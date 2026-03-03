@@ -20,6 +20,7 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Image } from "expo-image";
+import { BlurView } from "expo-blur";
 
 import {
     IconSend,
@@ -35,8 +36,10 @@ import {
     IconCube,
     IconPhoneCall,
     IconVideo,
+    IconPhone,
 } from "@tabler/icons-react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
+import { Audio } from 'expo-av';
 import { useConversation } from "@elevenlabs/react-native";
 import { useAuth } from "../hooks/useAuth";
 import Button from "../components/common/Button";
@@ -95,13 +98,79 @@ export default function PlayScreen() {
     const [isVideoCall, setIsVideoCall] = useState(false);
     const [permission, requestPermission] = useCameraPermissions();
 
+    // Chat state
+    const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const [inputText, setInputText] = useState("");
+    const [isSending, setIsSending] = useState(false);
+    const [isChatOpen, setIsChatOpen] = useState(false);
+
+    // Call duration tracking
+    const callStartTimeRef = useRef<number | null>(null);
+    const [callQuota, setCallQuota] = useState<number>(0);
+    const callQuotaRef = useRef<number>(0);
+
+    const formatTime = (totalSecs: number) => {
+        const m = Math.floor(Math.max(0, totalSecs) / 60);
+        const s = Math.floor(Math.max(0, totalSecs)) % 60;
+        return `${m}:${s.toString().padStart(2, '0')}`;
+    };
+
+    // Load user quota
+    useEffect(() => {
+        if (!user?.id) return;
+        supabase.from("user_call_quota").select("remaining_seconds").eq("user_id", user.id).single()
+            .then(({ data }) => {
+                if (data?.remaining_seconds !== undefined) {
+                    setCallQuota(data.remaining_seconds);
+                    callQuotaRef.current = data.remaining_seconds;
+                }
+            });
+    }, [user?.id, subscriptionOpen]);
+
     const conversation = useConversation({
-        onConnect: () => console.log("ElevenLabs Connected"),
+        onConnect: () => {
+            console.log("ElevenLabs Connected");
+            callStartTimeRef.current = Date.now();
+            if (!isChatOpen) setIsChatOpen(true);
+            Animated.spring(chatSlideAnim, {
+                toValue: 1,
+                tension: 65,
+                friction: 11,
+                useNativeDriver: true,
+            }).start();
+        },
         onDisconnect: () => {
             console.log("ElevenLabs Disconnected");
             vrmRef.current?.setMouthOpen(0);
             vrmRef.current?.setCallMode(false);
             setIsVideoCall(false);
+
+            if (callStartTimeRef.current && characterId && user?.id) {
+                const durationSeconds = Math.floor((Date.now() - callStartTimeRef.current) / 1000);
+                const minutes = Math.floor(durationSeconds / 60);
+                const seconds = durationSeconds % 60;
+                const formattedDuration = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                const endMessage = `📞 Call ended (${formattedDuration})`;
+
+                const newMsg: ChatMessage = {
+                    id: `call-end-${Date.now()}`,
+                    role: "model",
+                    text: endMessage,
+                    createdAt: new Date(),
+                };
+
+                setMessages((prev) => [...prev, newMsg]);
+                setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+                chatService.saveCallMessage(endMessage, characterId, user.id, true);
+
+                // Save quota DB
+                supabase.from("user_call_quota")
+                    .update({ remaining_seconds: Math.max(0, callQuotaRef.current), updated_at: new Date().toISOString() })
+                    .eq("user_id", user.id)
+                    .then(() => { });
+
+                callStartTimeRef.current = null;
+            }
         },
         onError: (err) => console.error("ElevenLabs Error:", err),
         onModeChange: ({ mode }) => {
@@ -111,17 +180,61 @@ export default function PlayScreen() {
                 vrmRef.current?.setMouthOpen(0);
             }
         },
-    });
+        onMessage: (props: { message: string; source: string }) => {
+            if (!props.message || !characterId || !user?.id) return;
+            const isAI = props.source === 'ai';
+            const newMsg: ChatMessage = {
+                id: `call-${Date.now()}-${Math.random()}`,
+                role: isAI ? "model" : "user",
+                text: props.message,
+                createdAt: new Date(),
+            };
+            setMessages((prev) => [...prev, newMsg]);
+            setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
 
-    // Chat state
-    const [messages, setMessages] = useState<ChatMessage[]>([]);
-    const [inputText, setInputText] = useState("");
-    const [isSending, setIsSending] = useState(false);
-    const [isChatOpen, setIsChatOpen] = useState(false);
+            // Save to DB
+            chatService.saveCallMessage(props.message, characterId, user.id, isAI);
+        }
+    });
 
     // Animations
     const chatSlideAnim = useRef(new Animated.Value(0)).current;
     const typingDots = useRef(new Animated.Value(0)).current;
+    const pulseAnim = useRef(new Animated.Value(0)).current;
+
+    // Live countdown
+    useEffect(() => {
+        let interval: NodeJS.Timeout;
+        if (conversation.status === "connected") {
+            interval = setInterval(() => {
+                setCallQuota(prev => {
+                    const next = prev - 1;
+                    callQuotaRef.current = next;
+                    if (next <= 0) {
+                        conversation.endSession();
+                        setSubscriptionOpen(true);
+                        return 0;
+                    }
+                    return next;
+                });
+            }, 1000);
+        }
+        return () => clearInterval(interval);
+    }, [conversation.status, conversation.endSession]);
+
+    // Pulsing effect for "Calling..." state
+    useEffect(() => {
+        if (conversation.status === "connecting") {
+            const loop = Animated.loop(
+                Animated.sequence([
+                    Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+                    Animated.timing(pulseAnim, { toValue: 0.3, duration: 800, useNativeDriver: true })
+                ])
+            );
+            loop.start();
+            return () => loop.stop();
+        }
+    }, [conversation.status, pulseAnim]);
 
     // Save cache helper
     const saveCache = useCallback((data: CachedCharacter) => {
@@ -157,13 +270,13 @@ export default function PlayScreen() {
             try {
                 const { data: prefs } = await supabase
                     .from("user_preferences")
-                    .select("current_character_id, matched_character_id, matched_background_id")
+                    .select("current_character_id")
                     .eq("user_id", user.id)
                     .order("created_at", { ascending: false })
                     .limit(1)
                     .maybeSingle();
 
-                const charId = prefs?.current_character_id || prefs?.matched_character_id;
+                const charId = prefs?.current_character_id;
                 if (!charId) return;
 
                 setCharacterId(charId);
@@ -185,7 +298,7 @@ export default function PlayScreen() {
                     }
                 }
 
-                const bgId = prefs?.matched_background_id || char?.background_default_id;
+                const bgId = char?.background_default_id;
                 let bgUrl: string | null = null;
                 if (bgId) {
                     setBackgroundId(bgId);
@@ -254,17 +367,24 @@ export default function PlayScreen() {
 
     // ─── Call toggle ───
     const toggleCall = useCallback(async () => {
-        if (!isPro) {
-            setSubscriptionOpen(true);
-            return;
-        }
-
         if (conversation.status === "connected" || conversation.status === "connecting") {
             await conversation.endSession();
+            setIsVideoCall(false);
+            vrmRef.current?.setCallMode(false);
         } else {
+            if (callQuotaRef.current <= 0) {
+                setSubscriptionOpen(true);
+                return;
+            }
             if (agentElevenlabsId) {
+                const audioPerm = await Audio.requestPermissionsAsync();
+                if (audioPerm.status !== 'granted') {
+                    alert("Microphone permission is required to make calls.");
+                    return;
+                }
+
                 try {
-                    // Start audio-only call
+                    // Start audio-only call by default
                     setIsVideoCall(false);
                     vrmRef.current?.setCallMode(false);
                     await conversation.startSession({
@@ -279,49 +399,33 @@ export default function PlayScreen() {
         }
     }, [conversation, isPro, agentElevenlabsId]);
 
-    // ─── Video Call toggle ───
-    const toggleVideoCall = useCallback(async () => {
+    // ─── Video Call / Camera Toggle ───
+    const toggleCamera = useCallback(async () => {
         if (!isPro) {
             setSubscriptionOpen(true);
             return;
         }
 
-        if (conversation.status === "connected" || conversation.status === "connecting") {
-            await conversation.endSession();
+        if (isVideoCall) {
+            // Turn off camera
+            setIsVideoCall(false);
+            // vrmRef.current?.setCallMode(false); // Optional: if you want to exit close-up
         } else {
-            if (agentElevenlabsId) {
-                if (!permission?.granted) {
-                    const status = await requestPermission();
-                    if (!status.granted) {
-                        alert("Camera permission is required for video call overlay.");
-                        return;
-                    }
+            // Turn on camera
+            if (!permission?.granted) {
+                const status = await requestPermission();
+                if (!status.granted) {
+                    alert("Camera permission is required for video call overlay.");
+                    return;
                 }
-
-                try {
-                    // Start video call mode
-                    setIsVideoCall(true);
-                    if (!is3DMode) {
-                        setIs3DMode(true); // Always force VRM mode
-                    }
-
-                    setTimeout(() => {
-                        vrmRef.current?.setCallMode(true);
-                    }, 500);
-
-                    await conversation.startSession({
-                        agentId: agentElevenlabsId,
-                    });
-                } catch (e: any) {
-                    console.error("Failed to start elevenlabs session:", e);
-                    setIsVideoCall(false);
-                    vrmRef.current?.setCallMode(false);
-                }
-            } else {
-                alert("This character does not support voice/video calling yet.");
             }
+            setIsVideoCall(true);
+            if (!is3DMode) {
+                setIs3DMode(true); // Ensure VRM is visible
+            }
+            vrmRef.current?.setCallMode(true);
         }
-    }, [conversation, isPro, agentElevenlabsId, permission, requestPermission, is3DMode]);
+    }, [isPro, isVideoCall, permission, requestPermission, is3DMode]);
 
     // Typing indicator
     useEffect(() => {
@@ -486,7 +590,7 @@ export default function PlayScreen() {
         if (user?.id) {
             await supabase.from("user_preferences").update({ current_character_id: char.id, updated_at: new Date().toISOString() }).eq("user_id", user.id);
             supabase.from("user_assets")
-                .upsert({ user_id: user.id, owner_key: user.id, item_id: char.id, item_type: "character" }, { onConflict: "owner_key,item_type,item_id", ignoreDuplicates: true });
+                .insert({ user_id: user.id, item_id: char.id, item_type: "character" });
         }
 
         // Reload chat
@@ -504,7 +608,7 @@ export default function PlayScreen() {
         // Cache ownership
         if (user?.id && costume.id) {
             supabase.from("user_assets")
-                .upsert({ user_id: user.id, owner_key: user.id, item_id: costume.id, item_type: "character_costume" }, { onConflict: "owner_key,item_type,item_id", ignoreDuplicates: true });
+                .insert({ user_id: user.id, item_id: costume.id, item_type: "character_costume" });
         }
     }, [user?.id]);
 
@@ -516,10 +620,9 @@ export default function PlayScreen() {
         vrmRef.current?.setBackgroundImage(bgSource);
 
         if (user?.id) {
-            supabase.from("user_preferences").update({ matched_background_id: bg.id, updated_at: new Date().toISOString() }).eq("user_id", user.id);
             // Cache ownership
             supabase.from("user_assets")
-                .upsert({ user_id: user.id, owner_key: user.id, item_id: bg.id, item_type: "background" }, { onConflict: "owner_key,item_type,item_id", ignoreDuplicates: true });
+                .insert({ user_id: user.id, item_id: bg.id, item_type: "background" });
         }
     }, [user?.id]);
 
@@ -582,6 +685,30 @@ export default function PlayScreen() {
                 </View>
             )}
 
+            {/* Visual Overlay when connecting (Setup Call Screen) */}
+            {conversation.status === "connecting" && (
+                <BlurView intensity={90} tint="dark" style={[StyleSheet.absoluteFill, { zIndex: 999, justifyContent: 'center', alignItems: 'center' }]}>
+                    {/* Pulsing rings */}
+                    <Animated.View style={{ transform: [{ scale: pulseAnim.interpolate({ inputRange: [0.3, 1], outputRange: [0.9, 1.4] }) }], opacity: pulseAnim, position: 'absolute', width: 220, height: 220, borderRadius: 110, backgroundColor: 'rgba(255, 255, 255, 0.05)' }} />
+                    <Animated.View style={{ transform: [{ scale: pulseAnim.interpolate({ inputRange: [0.3, 1], outputRange: [0.8, 1.2] }) }], opacity: pulseAnim, position: 'absolute', width: 170, height: 170, borderRadius: 85, backgroundColor: 'rgba(255, 255, 255, 0.1)' }} />
+
+                    {characterThumbnail && (
+                        <Image source={{ uri: characterThumbnail }} style={{ width: 140, height: 140, borderRadius: 70, borderWidth: 3, borderColor: '#fff' }} contentFit="cover" />
+                    )}
+
+                    <Text style={{ fontSize: 32, fontWeight: 'bold', color: '#fff', marginTop: 30 }}>{characterName}</Text>
+                    <Animated.Text style={{ fontSize: 18, color: 'rgba(255,255,255,0.7)', opacity: pulseAnim, marginTop: 10 }}>Calling...</Animated.Text>
+
+                    {/* End Call Button */}
+                    <Pressable
+                        style={{ width: 70, height: 70, borderRadius: 35, backgroundColor: '#EF4444', justifyContent: 'center', alignItems: 'center', position: 'absolute', bottom: 100, elevation: 5, shadowColor: '#EF4444', shadowOpacity: 0.5, shadowRadius: 10, shadowOffset: { width: 0, height: 5 } }}
+                        onPress={() => conversation.endSession()}
+                    >
+                        <IconPhone size={32} color="#FFF" style={{ transform: [{ rotate: '135deg' }] }} />
+                    </Pressable>
+                </BlurView>
+            )}
+
             {/* Top bar */}
             <View style={styles.topBar}>
                 <View>
@@ -593,107 +720,112 @@ export default function PlayScreen() {
                             </Pressable>
                         )}
                     </View>
-                    <Text style={styles.statusText}>● Online</Text>
+                    <Text style={styles.statusText}>
+                        ● Online {callQuota > 0 ? `| 📞 ${formatTime(callQuota)}` : ''}
+                    </Text>
                 </View>
-                <Button
-                    variant="liquid"
-                    onPress={() => setSettingsSheetOpen(true)}
-                    startIcon={IconSettings}
-                    isIconOnly
-                />
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    {conversation.status === "connected" && (
+                        <Button
+                            variant="liquid"
+                            size="sm"
+                            onPress={toggleCamera}
+                            startIcon={isVideoCall ? IconVideo : IconVideo}
+                            startIconColor={isVideoCall ? "#8B5CF6" : "rgba(255,255,255,0.7)"}
+                        >
+                            {isVideoCall ? "Cam On" : "Cam Off"}
+                        </Button>
+                    )}
+                    <Button
+                        variant="liquid"
+                        onPress={() => setSettingsSheetOpen(true)}
+                        startIcon={IconSettings}
+                        isIconOnly
+                    />
+                </View>
             </View>
 
             {/* ─── Left side bubble actions ─── */}
             <View style={styles.leftActions}>
-                <Button
-                    variant="liquid"
-                    size="sm"
-                    startIcon={IconUser}
-                    onPress={() => setCharSheetOpen(true)}
-                >
-                    Character
-                </Button>
-                <Button
-                    variant="liquid"
-                    size="sm"
-                    startIcon={IconHanger}
-                    onPress={() => setCostumeSheetOpen(true)}
-                >
-                    Costume
-                </Button>
-                <Button
-                    variant="liquid"
-                    size="sm"
-                    startIcon={IconPhoto}
-                    onPress={() => setBgSheetOpen(true)}
-                >
-                    Scene
-                </Button>
-                <Button
-                    variant="liquid"
-                    size="sm"
-                    startIcon={IconPhotoFilled}
-                    onPress={() => setMediaSheetOpen(true)}
-                >
-                    Gallery
-                </Button>
-                {is3DMode && isPro && (
-                    <Button
-                        variant="liquid"
-                        size="sm"
-                        startIcon={IconMusic}
-                        onPress={() => vrmRef.current?.loadNextAnimation()}
-                    >
-                        Dance
-                    </Button>
-                )}
-                <View>
-                    <Button
-                        variant="liquid"
-                        size="sm"
-                        startIcon={IconCube}
-                        startIconColor={is3DMode && isPro ? '#8B5CF6' : undefined}
-                        onPress={() => {
-                            if (!isPro) {
-                                setSubscriptionOpen(true);
-                            } else {
-                                setVrmReady(false); // Reset so VRM re-triggers model+bg load on mount
-                                setIs3DMode(prev => !prev);
-                            }
-                        }}
-                    >
-                        3D
-                    </Button>
-                    {!isPro && <View style={styles.proBadgeMini}><Text style={styles.proBadgeMiniText}>PRO</Text></View>}
-                </View>
-
-                {agentElevenlabsId && (
+                {!["connected", "connecting"].includes(conversation.status) && (
                     <>
-                        <View>
+                        <Button
+                            variant="liquid"
+                            size="sm"
+                            startIcon={IconUser}
+                            onPress={() => setCharSheetOpen(true)}
+                        >
+                            Character
+                        </Button>
+                        <Button
+                            variant="liquid"
+                            size="sm"
+                            startIcon={IconHanger}
+                            onPress={() => setCostumeSheetOpen(true)}
+                        >
+                            Costume
+                        </Button>
+                        <Button
+                            variant="liquid"
+                            size="sm"
+                            startIcon={IconPhoto}
+                            onPress={() => setBgSheetOpen(true)}
+                        >
+                            Scene
+                        </Button>
+                        <Button
+                            variant="liquid"
+                            size="sm"
+                            startIcon={IconPhotoFilled}
+                            onPress={() => setMediaSheetOpen(true)}
+                        >
+                            Gallery
+                        </Button>
+                        {is3DMode && isPro && (
                             <Button
                                 variant="liquid"
                                 size="sm"
-                                startIcon={IconPhoneCall}
-                                startIconColor={conversation.status === "connected" && !isVideoCall ? '#8B5CF6' : undefined}
-                                onPress={toggleCall}
+                                startIcon={IconMusic}
+                                onPress={() => vrmRef.current?.loadNextAnimation()}
                             >
-                                {["connected", "connecting"].includes(conversation.status) && !isVideoCall ? "End Call" : "Call"}
+                                Dance
                             </Button>
-                            {!isPro && <View style={styles.proBadgeMini}><Text style={styles.proBadgeMiniText}>PRO</Text></View>}
-                        </View>
+                        )}
                         <View>
                             <Button
                                 variant="liquid"
                                 size="sm"
-                                startIcon={IconVideo}
-                                startIconColor={conversation.status === "connected" && isVideoCall ? '#8B5CF6' : undefined}
-                                onPress={toggleVideoCall}
+                                startIcon={IconCube}
+                                startIconColor={is3DMode && isPro ? '#8B5CF6' : undefined}
+                                onPress={() => {
+                                    if (!isPro) {
+                                        setSubscriptionOpen(true);
+                                    } else {
+                                        setVrmReady(false); // Reset so VRM re-triggers model+bg load on mount
+                                        setIs3DMode(prev => !prev);
+                                    }
+                                }}
                             >
-                                {["connected", "connecting"].includes(conversation.status) && isVideoCall ? "End Video" : "Video"}
+                                3D
                             </Button>
                             {!isPro && <View style={styles.proBadgeMini}><Text style={styles.proBadgeMiniText}>PRO</Text></View>}
                         </View>
                     </>
+                )}
+
+                {agentElevenlabsId && (
+                    <View>
+                        <Button
+                            variant="liquid"
+                            size="sm"
+                            startIcon={IconPhoneCall}
+                            startIconColor={conversation.status === "connected" ? '#8B5CF6' : undefined}
+                            onPress={toggleCall}
+                        >
+                            {["connected", "connecting"].includes(conversation.status) ? "End Call" : "Call"}
+                        </Button>
+                        {!isPro && <View style={styles.proBadgeMini}><Text style={styles.proBadgeMiniText}>PRO</Text></View>}
+                    </View>
                 )}
                 {!isPro && (
                     <Button
@@ -812,13 +944,15 @@ export default function PlayScreen() {
                 onIsOpenedChange={setSettingsSheetOpen}
                 userId={user?.id}
                 userEmail={user?.email}
-                onOpenSubscription={() => setSubscriptionOpen(true)}
+                onOpenSubscription={() => {
+                    setSettingsSheetOpen(false);
+                    setTimeout(() => setSubscriptionOpen(true), 400);
+                }}
                 onResetOnboarding={async () => {
                     if (!user?.id) return;
-                    await supabase.from("user_preferences").update({
-                        onboarding_completed: false,
-                        updated_at: new Date().toISOString(),
-                    }).eq("user_id", user.id);
+                    // Delete user_assets (checkOnboarding checks this table)
+                    await supabase.from("user_assets").delete().eq("user_id", user.id);
+                    await supabase.from("user_preferences").delete().eq("user_id", user.id);
                     setIsOnboarded(false);
                 }}
             />
