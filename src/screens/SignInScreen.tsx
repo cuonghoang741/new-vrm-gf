@@ -241,6 +241,7 @@ export default function SignInScreen() {
                             </TouchableOpacity>
 
                             <FlatList
+                                style={{ flex: 1, marginHorizontal: 10 }}
                                 data={characters}
                                 horizontal
                                 showsHorizontalScrollIndicator={false}
@@ -257,7 +258,7 @@ export default function SignInScreen() {
                                     >
                                         <Image
                                             source={{ uri: item.thumbnail_url ?? undefined }}
-                                            style={styles.thumbnail}
+                                            style={[styles.thumbnail, { borderRadius: THUMBNAIL_SIZE / 2 }]}
                                             resizeMode="cover"
                                         />
                                     </TouchableOpacity>
