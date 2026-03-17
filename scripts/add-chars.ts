@@ -188,8 +188,8 @@ async function main() {
             // Note: prompt said "Costume 1" but existing logic used "Outfit 01".
             // Since we are "updating or inserting", we stick to our generated naming for consistency if exists.
 
-            const cThumb = `${BASE_URL}/${charNum}/${charNum}_thumb/${charNum}_${costNum}.png`;
-            const cVrm = `${BASE_URL}/${charNum}/${charNum}_vrm/${charNum}_${costNum}.vrm`;
+            const cThumb = `${BASE_URL}/${charNum}/thumb/${charNum}_${costNum}.png`;
+            const cVrm = `${BASE_URL}/${charNum}/vrm/${charNum}_${costNum}.vrm`;
 
             // Check if costume exists by name for this character
             const { data: existingCostumes } = await supabase

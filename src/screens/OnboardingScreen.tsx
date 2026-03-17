@@ -184,26 +184,15 @@ export default function OnboardingScreen({
                 assetsToGrant.push({ user_id: userId, item_id: bgDefaultId, item_type: "background" });
             }
 
-            const { error: assetsError } = await supabase
-                .from("user_assets")
-                .insert(assetsToGrant);
-
-            if (assetsError) {
-                console.error("[Onboarding] Assets save error:", assetsError.message);
-            }
-
-            // Save preferences (only columns that exist: user_id, current_character_id, updated_at)
-            const { error: prefsError } = await supabase
-                .from("user_preferences")
-                .insert({
-                    user_id: userId,
+            // Run DB operations concurrently to avoid blocking
+            // For preferences, use update with eq() instead of insert as the row is likely created by a trigger on sign up
+            await Promise.all([
+                supabase.from("user_assets").insert(assetsToGrant),
+                supabase.from("user_preferences").update({
                     current_character_id: charId,
                     updated_at: new Date().toISOString(),
-                });
-
-            if (prefsError) {
-                console.warn("[Onboarding] Prefs save error:", prefsError.message);
-            }
+                }).eq("user_id", userId)
+            ]);
         } catch (e) {
             console.error("[Onboarding] Save error:", e);
         }
