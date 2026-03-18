@@ -8,6 +8,7 @@ import {
     Linking,
     ScrollView,
     Platform,
+    ActivityIndicator,
 } from "react-native";
 import { Image } from "expo-image";
 import * as WebBrowser from "expo-web-browser";
@@ -75,6 +76,7 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
     const { isPro } = useSubscription();
     const [displayName, setDisplayName] = useState<string | null>(null);
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+    const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
     // Edit profile sub-sheet
     const editProfileRef = useRef<BottomSheetRef>(null);
@@ -136,10 +138,15 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                                 onPress: async () => {
                                     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
                                     try {
-                                        await supabase.functions.invoke("delete-user");
+                                        setIsDeletingAccount(true);
+                                        const { error } = await supabase.functions.invoke("delete-user");
+                                        if (error) throw error;
                                         await supabase.auth.signOut();
-                                    } catch {
-                                        Alert.alert("Error", "Failed to delete account. Please contact support.");
+                                    } catch (e: any) {
+                                        console.error("Delete user error:", e);
+                                        Alert.alert("Error", `Failed to delete account. Details: ${e.message}`);
+                                    } finally {
+                                        setIsDeletingAccount(false);
                                     }
                                     onIsOpenedChange(false);
                                     sheetRef.current?.dismiss();
@@ -283,12 +290,12 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                                     }}
                                 />
                                 <View style={styles.separator} />
-                                <SettingItem
+                                {/* <SettingItem
                                     icon={<IconRefresh size={20} color="#60A5FA" />}
                                     label="Reset Onboarding"
                                     subtitle="Re-match with a new character"
                                     onPress={handleResetOnboarding}
-                                />
+                                /> */}
                             </View>
                         </View>
 
@@ -352,17 +359,17 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                                 />
                                 <View style={styles.separator} />
                                 <SettingItem
-                                    icon={<IconTrash size={20} color="#EF4444" />}
-                                    label="Delete Account"
+                                    icon={isDeletingAccount ? <ActivityIndicator size="small" color="#EF4444" /> : <IconTrash size={20} color="#EF4444" />}
+                                    label={isDeletingAccount ? "Deleting Account..." : "Delete Account"}
                                     subtitle="Permanently delete all data"
-                                    onPress={handleDeleteAccount}
+                                    onPress={isDeletingAccount ? () => { } : handleDeleteAccount}
                                     danger
-                                    showChevron={false}
+                                    showChevron={!isDeletingAccount}
                                 />
                             </View>
                         </View>
 
-                        <Text style={styles.footer}>Made with ❤️ by Eduto</Text>
+                        {/* <Text style={styles.footer}>Made with ❤️ </Text> */}
                     </ScrollView>
                 </View>
             </BottomSheet>

@@ -184,15 +184,22 @@ export default function OnboardingScreen({
                 assetsToGrant.push({ user_id: userId, item_id: bgDefaultId, item_type: "background" });
             }
 
-            // Run DB operations concurrently to avoid blocking
-            // For preferences, use update with eq() instead of insert as the row is likely created by a trigger on sign up
-            await Promise.all([
+            // Run DB operations in the background to avoid blocking the UI, 
+            // completely fixing the network/cold-start or lock timeout issue on the first run.
+            Promise.all([
                 supabase.from("user_assets").insert(assetsToGrant),
                 supabase.from("user_preferences").update({
                     current_character_id: charId,
                     updated_at: new Date().toISOString(),
-                }).eq("user_id", userId)
-            ]);
+                }).eq("user_id", userId).select().then(({ data }) => {
+                    if (data && data.length === 0) {
+                        supabase.from("user_preferences").insert({ user_id: userId, current_character_id: charId, updated_at: new Date().toISOString() }).then();
+                    }
+                })
+            ]).catch(err => console.warn("[Onboarding] Background save error:", err));
+
+            // Add a small 800ms artificial delay for the UX "Setting up..." animation
+            await new Promise(resolve => setTimeout(resolve, 800));
         } catch (e) {
             console.error("[Onboarding] Save error:", e);
         }

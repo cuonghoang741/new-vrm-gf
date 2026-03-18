@@ -18,6 +18,8 @@ export interface VRMViewerHandle {
     loadAnimationByName: (name: string) => void;
     /** Play the next random animation */
     loadNextAnimation: () => void;
+    /** Stop the current animation and return back to idle */
+    stopAnimation: () => void;
     /** Load random VRM + animation */
     loadRandomFiles: () => void;
     /** Set background image or video URL */
@@ -104,6 +106,9 @@ const VRMViewer = forwardRef<VRMViewerHandle, VRMViewerProps>(
                 },
                 loadNextAnimation: () => {
                     injectJS(`window.loadNextAnimation && window.loadNextAnimation()`);
+                },
+                stopAnimation: () => {
+                    injectJS(`window.stopAnimation && window.stopAnimation()`);
                 },
                 loadRandomFiles: () => {
                     injectJS(`window.loadRandomFiles && window.loadRandomFiles()`);

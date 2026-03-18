@@ -18,7 +18,7 @@
 
         body {
             /* background-image: url('https://s3.cloudfly.vn/new-colorme/files/witp3HuLYIdFtEcmdn5WUbChPdCEleqKuUSmdmnE.png'); */
-            background-color: pink;
+            background-color: #8B5CF6;
             background-size: cover;
             background-position: center center;
             background-repeat: no-repeat;
@@ -1353,21 +1353,34 @@
 
         window.loadNextAnimation = async function () {
             if (!currentVrm || !currentMixer) {
-                alert('Please load a VRM model first');
+                // alert('Please load a VRM model first');
                 return;
             }
             const nextFBX = getNextAnimation();
             if (nextFBX) {
                 const fbxUrl = await getAnimationURL(nextFBX);
                 const btn = document.getElementById('nextAnimBtn');
-                const originalText = btn.textContent;
-                btn.textContent = 'Loading...';
-                btn.disabled = true;
+                if (btn) {
+                    const originalText = btn.textContent;
+                    btn.textContent = 'Loading...';
+                    btn.disabled = true;
+                    setTimeout(() => {
+                        if (btn) {
+                            btn.textContent = originalText;
+                            btn.disabled = false;
+                        }
+                    }, 1500);
+                }
                 loadFBX(fbxUrl, nextFBX, 0.8);
-                setTimeout(() => {
-                    btn.textContent = originalText;
-                    btn.disabled = false;
-                }, 1500);
+            }
+        }
+
+        window.stopAnimation = async function () {
+            if (!currentVrm || !currentMixer) return;
+            const idleName = getDefaultIdleAnimation();
+            if (idleName) {
+                const fbxUrl = await getAnimationURL(idleName);
+                loadFBX(fbxUrl, idleName, 0.5);
             }
         }
 
@@ -1561,7 +1574,7 @@
                 if (currentVrm && currentMixer) {
                     loadFBX(url, file.name);
                 } else {
-                    alert('Please load a VRM model first before loading animation');
+                    // alert('Please load a VRM model first before loading animation');
                 }
             } else if (fileType === 'vrm' || fileType === 'glb' || fileType === 'gltf') {
                 loadVRM(url, file.name);

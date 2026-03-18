@@ -5,7 +5,7 @@ import Purchases, {
 } from "react-native-purchases";
 import { Platform } from "react-native";
 
-const REVENUECAT_API_KEY_IOS = "test_gnnCBUoBlRDSIdXbWzzRZoTPwOW";
+const REVENUECAT_API_KEY_IOS = "appl_NaXLvvZfTtuEAgTeAAuXUYCgTpD";
 const REVENUECAT_API_KEY_ANDROID = "test_gnnCBUoBlRDSIdXbWzzRZoTPwOW";
 
 export const checkIsPro = (info: CustomerInfo | null) => {

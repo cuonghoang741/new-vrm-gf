@@ -1,12 +1,12 @@
 import { ConfigContext, ExpoConfig } from "expo/config";
 
 // EAS config
-const EAS_PROJECT_ID = ""; // Will be set after running 'eas init'
+const EAS_PROJECT_ID = "763d2cb3-8cdf-4678-bed6-b4baabdacdf9"; // Set from 'eas init'
 const PROJECT_SLUG = "truefeel";
 
 // App production config
 const APP_NAME = "TrueFeel";
-const BUNDLE_IDENTIFIER = "com.eduto.truefeel";
+const BUNDLE_IDENTIFIER = "com.truefeel";
 const PACKAGE_NAME = "com.eduto.truefeel";
 const ICON = "./assets/logo.png";
 const ANDROID_ICON_FOREGROUND = "./assets/logo.png";
@@ -31,7 +31,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     splash: {
         image: "./assets/splash-icon.png",
         resizeMode: "contain",
-        backgroundColor: "#0a0a1a",
+        backgroundColor: "#8B5CF6",
     },
 
     ios: {
@@ -47,7 +47,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
 
     android: {
         adaptiveIcon: {
-            backgroundColor: "#0a0a1a",
+            backgroundColor: "#8B5CF6",
             foregroundImage: ANDROID_ICON_FOREGROUND,
         },
         package: PACKAGE_NAME,
@@ -82,7 +82,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
             {
                 image: "./assets/splash-icon.png",
                 resizeMode: "contain",
-                backgroundColor: "#0a0a1a",
+                backgroundColor: "#8B5CF6",
             },
         ],
         [

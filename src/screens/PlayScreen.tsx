@@ -96,6 +96,7 @@ export default function PlayScreen() {
     const [is3DMode, setIs3DMode] = useState(false); // Only PRO can enable
     const [agentElevenlabsId, setAgentElevenlabsId] = useState<string | null>(null);
     const [isVideoCall, setIsVideoCall] = useState(false);
+    const [isDancing, setIsDancing] = useState(false);
     const [permission, requestPermission] = useCameraPermissions();
 
     // Chat state
@@ -199,7 +200,9 @@ export default function PlayScreen() {
 
     // Animations
     const chatSlideAnim = useRef(new Animated.Value(0)).current;
-    const typingDots = useRef(new Animated.Value(0)).current;
+    const dot1Anim = useRef(new Animated.Value(0)).current;
+    const dot2Anim = useRef(new Animated.Value(0)).current;
+    const dot3Anim = useRef(new Animated.Value(0)).current;
     const pulseAnim = useRef(new Animated.Value(0)).current;
 
     // Live countdown
@@ -276,7 +279,37 @@ export default function PlayScreen() {
                     .limit(1)
                     .maybeSingle();
 
-                const charId = prefs?.current_character_id;
+                let charId = prefs?.current_character_id;
+
+                // Self-healing: If user bypassed Onboarding but their preference failed to save previously
+                if (!charId) {
+                    console.log("[PlayScreen] No current_character_id found. Attempting to heal...");
+                    const { data: firstAsset } = await supabase
+                        .from("user_assets")
+                        .select("item_id")
+                        .eq("user_id", user.id)
+                        .eq("item_type", "character")
+                        .limit(1)
+                        .maybeSingle();
+
+                    if (firstAsset?.item_id) {
+                        charId = firstAsset.item_id;
+                    } else {
+                        // Extreme fallback
+                        const { data: firstPublic } = await supabase.from("characters").select("id").eq("is_public", true).limit(1).maybeSingle();
+                        if (firstPublic?.id) charId = firstPublic.id;
+                    }
+
+                    if (charId) {
+                        // Patch the missing user_preferences
+                        supabase.from("user_preferences").update({ current_character_id: charId, updated_at: new Date().toISOString() }).eq("user_id", user.id).select().then(({ data }) => {
+                            if (data && data.length === 0) {
+                                supabase.from("user_preferences").insert({ user_id: user.id, current_character_id: charId, updated_at: new Date().toISOString() }).then();
+                            }
+                        });
+                    }
+                }
+
                 if (!charId) return;
 
                 setCharacterId(charId);
@@ -287,11 +320,36 @@ export default function PlayScreen() {
                     .eq("id", charId)
                     .single();
 
+                console.log("Character found:", char);
+
+                let finalModelUrl = char ? (char.base_model_url ?? "") : "";
+                let finalThumbnailUrl = char ? (char.thumbnail_url ?? null) : null;
+
                 if (char) {
+                    // Lấy trang phục đang mặc hiện tại (nếu có)
+                    const { data: userChar } = await supabase
+                        .from("user_character")
+                        .select("current_costume_id")
+                        .eq("user_id", user.id)
+                        .eq("character_id", charId)
+                        .maybeSingle();
+
+                    if (userChar?.current_costume_id) {
+                        const { data: costume } = await supabase
+                            .from("character_costumes")
+                            .select("model_url, thumbnail")
+                            .eq("id", userChar.current_costume_id)
+                            .maybeSingle();
+                        if (costume) {
+                            if (costume.model_url) finalModelUrl = costume.model_url;
+                            if (costume.thumbnail) finalThumbnailUrl = costume.thumbnail;
+                        }
+                    }
+
                     setCharacterName(char.name);
-                    if (char.thumbnail_url) setCharacterThumbnail(char.thumbnail_url);
-                    if (char.base_model_url?.endsWith(".vrm")) {
-                        setCharacterModelUrl(char.base_model_url);
+                    setCharacterThumbnail(finalThumbnailUrl);
+                    if (finalModelUrl.endsWith(".vrm")) {
+                        setCharacterModelUrl(finalModelUrl);
                     }
                     if (char.agent_elevenlabs_id) {
                         setAgentElevenlabsId(char.agent_elevenlabs_id);
@@ -314,10 +372,10 @@ export default function PlayScreen() {
                     saveCache({
                         characterId: charId,
                         characterName: char.name,
-                        modelUrl: char.base_model_url ?? "",
+                        modelUrl: finalModelUrl,
                         backgroundUrl: bgUrl,
                         backgroundId: bgId ?? null,
-                        thumbnailUrl: char.thumbnail_url ?? null,
+                        thumbnailUrl: finalThumbnailUrl,
                         agentElevenlabsId: char.agent_elevenlabs_id ?? null,
                     });
                 }
@@ -427,19 +485,24 @@ export default function PlayScreen() {
         }
     }, [isPro, isVideoCall, permission, requestPermission, is3DMode]);
 
-    // Typing indicator
+    // Typing indicator - 3 bouncing dots
     useEffect(() => {
         if (isSending) {
-            const loop = Animated.loop(
-                Animated.sequence([
-                    Animated.timing(typingDots, { toValue: 1, duration: 600, useNativeDriver: true }),
-                    Animated.timing(typingDots, { toValue: 0, duration: 600, useNativeDriver: true }),
-                ])
-            );
-            loop.start();
-            return () => loop.stop();
+            const createBounce = (anim: Animated.Value, delay: number) =>
+                Animated.loop(
+                    Animated.sequence([
+                        Animated.delay(delay),
+                        Animated.timing(anim, { toValue: -6, duration: 300, useNativeDriver: true }),
+                        Animated.timing(anim, { toValue: 0, duration: 300, useNativeDriver: true }),
+                    ])
+                );
+            const a1 = createBounce(dot1Anim, 0);
+            const a2 = createBounce(dot2Anim, 150);
+            const a3 = createBounce(dot3Anim, 300);
+            a1.start(); a2.start(); a3.start();
+            return () => { a1.stop(); a2.stop(); a3.stop(); dot1Anim.setValue(0); dot2Anim.setValue(0); dot3Anim.setValue(0); };
         }
-    }, [isSending, typingDots]);
+    }, [isSending, dot1Anim, dot2Anim, dot3Anim]);
 
     // ─── Execute action from gemini-suggest-action ───
     const executeAction = useCallback((action: SuggestedAction) => {
@@ -528,37 +591,44 @@ export default function PlayScreen() {
                 executeAction(action);
             }).catch(() => { });
 
-            const aiMsgStartId = `ai-${Date.now()}`;
+            const aiMsgBaseId = `ai-${Date.now()}`;
 
-            // Add a temporary empty message
-            setMessages((prev) => [...prev, { id: `${aiMsgStartId}-0`, role: "model", text: "", createdAt: new Date() }]);
+            // Call the edge function (returns pre-split messages)
+            const result = await chatService.sendMessage(text, characterId, user.id, [...messages, userMsg]);
 
-            // Stream response
-            await chatService.streamMessage(text, characterId, user.id, [...messages, userMsg], (token, fullText) => {
-                // Split AI response into multiple parts by line breaks
-                const parts = fullText.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+            console.log("[PlayScreen] AI result:", JSON.stringify(result));
 
-                setMessages((prev) => {
-                    const nonStreamingMsgs = prev.filter(m => !m.id.startsWith(aiMsgStartId));
-                    if (parts.length === 0) {
-                        return [...nonStreamingMsgs, { id: `${aiMsgStartId}-0`, role: "model", text: fullText, createdAt: new Date() }];
-                    }
-                    const newMsgs: ChatMessage[] = parts.map((part, idx) => ({
-                        id: `${aiMsgStartId}-${idx}`,
-                        role: "model",
-                        text: part,
-                        createdAt: new Date()
-                    }));
-                    return [...nonStreamingMsgs, ...newMsgs];
-                });
-                flatListRef.current?.scrollToEnd({ animated: false });
-            });
+            const validMessages = (result.messages || []).filter((msg: string) => msg && msg.trim().length > 0);
+            const finalMsgs = validMessages.length > 0 ? validMessages : (result.response?.trim() ? [result.response.trim()] : []);
+
+            if (finalMsgs.length === 0) {
+                setIsSending(false);
+                return;
+            }
+
+            setIsSending(false);
+
+            // Show each message sequentially with a short delay
+            for (let msgIdx = 0; msgIdx < finalMsgs.length; msgIdx++) {
+                setMessages((prev) => [...prev, {
+                    id: `${aiMsgBaseId}-${msgIdx}`,
+                    role: "model" as const,
+                    text: finalMsgs[msgIdx],
+                    createdAt: new Date(),
+                }]);
+                flatListRef.current?.scrollToEnd({ animated: true });
+
+                // Pause between messages for natural feel
+                if (msgIdx < finalMsgs.length - 1) {
+                    await new Promise(r => setTimeout(r, 500));
+                }
+            }
 
             setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
         } catch (error) {
+            console.error("[PlayScreen] Chat error:", error);
             const errMsg: ChatMessage = { id: `err-${Date.now()}`, role: "model", text: "Sorry, I couldn't respond right now. Please try again. 💫", createdAt: new Date() };
             setMessages((prev) => [...prev, errMsg]);
-        } finally {
             setIsSending(false);
         }
     }, [inputText, isSending, characterId, user?.id, messages, executeAction]);
@@ -588,9 +658,13 @@ export default function PlayScreen() {
 
         // Update user preference + cache ownership
         if (user?.id) {
-            await supabase.from("user_preferences").update({ current_character_id: char.id, updated_at: new Date().toISOString() }).eq("user_id", user.id);
+            const { data } = await supabase.from("user_preferences").update({ current_character_id: char.id, updated_at: new Date().toISOString() }).eq("user_id", user.id).select();
+            if (data && data.length === 0) {
+                await supabase.from("user_preferences").insert({ user_id: user.id, current_character_id: char.id, updated_at: new Date().toISOString() });
+            }
             supabase.from("user_assets")
-                .insert({ user_id: user.id, item_id: char.id, item_type: "character" });
+                .insert({ user_id: user.id, item_id: char.id, item_type: "character" })
+                .then(() => { }, () => { });
         }
 
         // Reload chat
@@ -605,12 +679,40 @@ export default function PlayScreen() {
             setCharacterModelUrl(costume.model_url);
             vrmRef.current?.loadModelByURL(costume.model_url, costume.costume_name);
         }
+        if (costume.thumbnail) {
+            setCharacterThumbnail(costume.thumbnail);
+        }
+
+        // Cập nhật lại cache offline cho mượt
+        if (characterId) {
+            saveCache({
+                characterId,
+                characterName,
+                modelUrl: costume.model_url || characterModelUrl || "",
+                backgroundUrl,
+                backgroundId,
+                thumbnailUrl: costume.thumbnail || characterThumbnail,
+                agentElevenlabsId,
+            });
+        }
+
         // Cache ownership
         if (user?.id && costume.id) {
             supabase.from("user_assets")
-                .insert({ user_id: user.id, item_id: costume.id, item_type: "character_costume" });
+                .insert({ user_id: user.id, item_id: costume.id, item_type: "character_costume" })
+                .then(() => { }, () => { });
+
+            // Lưu trang phục cuối cùng của nhân vật này lên DB
+            if (characterId) {
+                supabase.from("user_character")
+                    .upsert(
+                        { user_id: user.id, character_id: characterId, current_costume_id: costume.id },
+                        { onConflict: "user_id,character_id" }
+                    )
+                    .then();
+            }
         }
-    }, [user?.id]);
+    }, [user?.id, characterId, characterName, characterModelUrl, characterThumbnail, backgroundUrl, backgroundId, agentElevenlabsId, saveCache]);
 
     const handleBackgroundSelect = useCallback((bg: any) => {
         setBackgroundId(bg.id);
@@ -622,7 +724,8 @@ export default function PlayScreen() {
         if (user?.id) {
             // Cache ownership
             supabase.from("user_assets")
-                .insert({ user_id: user.id, item_id: bg.id, item_type: "background" });
+                .insert({ user_id: user.id, item_id: bg.id, item_type: "background" })
+                .then(() => { }, () => { });
         }
     }, [user?.id]);
 
@@ -654,6 +757,11 @@ export default function PlayScreen() {
                             vrmRef.current?.setControlsEnabled(true);
                             if (isVideoCall) {
                                 vrmRef.current?.setCallMode(true);
+                            }
+                            if (isDancing) {
+                                setTimeout(() => {
+                                    vrmRef.current?.loadNextAnimation();
+                                }, 500);
                             }
                         }}
                         style={StyleSheet.absoluteFillObject}
@@ -781,16 +889,36 @@ export default function PlayScreen() {
                         >
                             Gallery
                         </Button>
-                        {is3DMode && isPro && (
+                        <View>
                             <Button
                                 variant="liquid"
                                 size="sm"
-                                startIcon={IconMusic}
-                                onPress={() => vrmRef.current?.loadNextAnimation()}
+                                startIcon={isDancing ? IconX : IconMusic}
+                                startIconColor={isDancing ? "#EF4444" : undefined}
+                                onPress={() => {
+                                    if (!isPro) {
+                                        setSubscriptionOpen(true);
+                                        return;
+                                    }
+                                    if (!is3DMode) {
+                                        setVrmReady(false);
+                                        setIs3DMode(true);
+                                        setIsDancing(true);
+                                    } else {
+                                        if (isDancing) {
+                                            vrmRef.current?.stopAnimation();
+                                            setIsDancing(false);
+                                        } else {
+                                            vrmRef.current?.loadNextAnimation();
+                                            setIsDancing(true);
+                                        }
+                                    }
+                                }}
                             >
-                                Dance
+                                {isDancing ? "Stop" : "Dance"}
                             </Button>
-                        )}
+                            {!isPro && <View style={styles.proBadgeMini}><Text style={styles.proBadgeMiniText}>PRO</Text></View>}
+                        </View>
                         <View>
                             <Button
                                 variant="liquid"
@@ -882,7 +1010,16 @@ export default function PlayScreen() {
                             <View style={styles.emptyChat}><Text style={styles.emptyChatEmoji}>💬</Text><Text style={styles.emptyChatText}>Say hello to {characterName}!</Text></View>
                         }
                         ListFooterComponent={
-                            isSending ? <View style={[styles.messageBubble, styles.aiBubble]}><Text style={styles.aiName}>{characterName}</Text><Animated.Text style={[styles.aiText, { opacity: typingDots }]}>typing...</Animated.Text></View> : null
+                            isSending ? (
+                                <View style={[styles.messageBubble, styles.aiBubble]}>
+                                    <Text style={styles.aiName}>{characterName}</Text>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', height: 20, paddingTop: 4 }}>
+                                        {[dot1Anim, dot2Anim, dot3Anim].map((anim, i) => (
+                                            <Animated.View key={i} style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: 'rgba(255,255,255,0.5)', marginHorizontal: 2, transform: [{ translateY: anim }] }} />
+                                        ))}
+                                    </View>
+                                </View>
+                            ) : null
                         }
                     />
 
@@ -976,7 +1113,7 @@ export default function PlayScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: "#000000",
+        backgroundColor: "#8B5CF6", // Background tím
     },
     vrmFull: {
         ...StyleSheet.absoluteFillObject,

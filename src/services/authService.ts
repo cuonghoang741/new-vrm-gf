@@ -24,16 +24,10 @@ export class AuthService {
     /**
      * Sign in with Apple ID Token (iOS native)
      */
-    async signInWithAppleIdToken(
-        identityToken: string,
-        nonce: string,
-        authorizationCode: string
-    ) {
+    async signInWithAppleIdToken(identityToken: string) {
         const { data, error } = await supabase.auth.signInWithIdToken({
             provider: "apple",
             token: identityToken,
-            nonce,
-            access_token: authorizationCode,
         });
 
         if (error) throw error;

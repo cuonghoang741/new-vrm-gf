@@ -56,95 +56,58 @@ export const chatService = {
     },
 
     /**
-     * Save user message to DB and call Gemini edge function via streaming
+     * Send a message and get AI response (multi-message format).
+     * The edge function handles saving both user and AI messages to DB,
+     * so we only need to save the user message here for immediate UI feedback.
      */
-    streamMessage(
+    async sendMessage(
         message: string,
         characterId: string,
         userId: string,
         conversationHistory: ChatMessage[],
-        onChunk: (text: string, fullText: string) => void
-    ): Promise<string> {
-        return new Promise(async (resolve, reject) => {
-            try {
-                // Save user message
-                await supabase.from("conversation").insert({
-                    character_id: characterId,
-                    user_id: userId,
-                    message,
-                    is_agent: false,
-                    is_seen: true,
-                });
-
-                // Build Gemini conversation history
-                const geminiHistory = conversationHistory.slice(-20).map((msg) => ({
-                    role: msg.role === "model" ? "model" : "user",
-                    parts: [{ text: msg.text }],
-                }));
-
-                const { data: { session } } = await supabase.auth.getSession();
-                const token = session?.access_token;
-                if (!token) throw new Error("No session");
-
-                const body = {
-                    message,
-                    character_id: characterId,
-                    user_id: userId,
-                    conversation_history: geminiHistory,
-                };
-
-                const xhr = new XMLHttpRequest();
-                const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-                if (!supabaseUrl) throw new Error("No SUPABASE_URL");
-
-                xhr.open('POST', `${supabaseUrl}/functions/v1/${EDGE_FUNCTION_URL}`, true);
-                xhr.setRequestHeader('Content-Type', 'application/json');
-                xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-
-                let seenBytes = 0;
-                let fullText = "";
-
-                xhr.onreadystatechange = () => {
-                    if (xhr.readyState === XMLHttpRequest.LOADING || xhr.readyState === XMLHttpRequest.DONE) {
-                        const newText = xhr.responseText.substring(seenBytes);
-                        seenBytes = xhr.responseText.length;
-
-                        if (newText) {
-                            const lines = newText.split('\n');
-                            for (const line of lines) {
-                                if (line.startsWith('data: ')) {
-                                    const dataStr = line.replace('data: ', '').trim();
-                                    if (dataStr === '[DONE]') {
-                                        resolve(fullText);
-                                        return;
-                                    }
-                                    if (dataStr) {
-                                        try {
-                                            const parsed = JSON.parse(dataStr);
-                                            if (parsed.token) {
-                                                fullText += parsed.token;
-                                                onChunk(parsed.token, fullText);
-                                            }
-                                        } catch (e) {
-                                            // Handle split JSON chunks or non-JSON data
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        if (xhr.readyState === XMLHttpRequest.DONE) {
-                            resolve(fullText);
-                        }
-                    }
-                };
-
-                xhr.onerror = () => reject(new Error('Network request failed'));
-                xhr.send(JSON.stringify(body));
-            } catch (err) {
-                reject(err);
-            }
+        isPro?: boolean
+    ): Promise<{ messages: string[]; response: string; unseenCount: number }> {
+        // Save user message to DB
+        await supabase.from("conversation").insert({
+            character_id: characterId,
+            user_id: userId,
+            message,
+            is_agent: false,
+            is_seen: true,
         });
+
+        // Build Gemini conversation history (last 20 messages)
+        const geminiHistory = conversationHistory.slice(-20).map((msg) => ({
+            role: msg.role === "model" ? "model" : "user",
+            parts: [{ text: msg.text }],
+        }));
+
+        const { data, error } = await supabase.functions.invoke(EDGE_FUNCTION_URL, {
+            body: {
+                message,
+                character_id: characterId,
+                user_id: userId,
+                conversation_history: geminiHistory,
+                is_pro: isPro,
+            },
+        });
+
+        if (error) throw error;
+
+        // supabase.functions.invoke may return a string if content-type isn't detected correctly
+        let parsed = data;
+        if (typeof data === "string") {
+            try { parsed = JSON.parse(data); } catch { parsed = { response: data, messages: [data] }; }
+        }
+
+        console.log("[chatService] AI response:", parsed);
+
+        // Edge function returns: { response, messages, unseen_count, character_id }
+        return {
+            messages: parsed?.messages ?? [parsed?.response ?? ""],
+            response: parsed?.response ?? "",
+            unseenCount: parsed?.unseen_count ?? 0,
+        };
     },
 
     /**

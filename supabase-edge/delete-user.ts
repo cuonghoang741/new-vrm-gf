@@ -8,7 +8,17 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
  * auth.users record via the admin API.  Must be called by the
  * authenticated user who wants to delete their own account.
  */
+const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS'
+};
+
 Deno.serve(async (req: Request) => {
+    if (req.method === 'OPTIONS') {
+        return new Response('ok', { headers: corsHeaders });
+    }
+
     try {
         // ── Auth check ──────────────────────────────────────────────
         const authHeader = req.headers.get("Authorization") ?? "";
@@ -27,7 +37,7 @@ Deno.serve(async (req: Request) => {
         if (authError || !user) {
             return new Response(JSON.stringify({ error: "Unauthorized" }), {
                 status: 401,
-                headers: { "Content-Type": "application/json" },
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
         }
 
@@ -129,19 +139,19 @@ Deno.serve(async (req: Request) => {
                     message: "Account partially deleted. Some data may remain.",
                     errors,
                 }),
-                { status: 207, headers: { "Content-Type": "application/json" } }
+                { status: 207, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }
 
         return new Response(
             JSON.stringify({ success: true, message: "Account and all data deleted." }),
-            { status: 200, headers: { "Content-Type": "application/json" } }
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
     } catch (err) {
         console.error("[delete-user] Unexpected error:", err);
         return new Response(
             JSON.stringify({ error: "Internal server error" }),
-            { status: 500, headers: { "Content-Type": "application/json" } }
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
     }
 });

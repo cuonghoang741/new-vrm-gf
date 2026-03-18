@@ -104,12 +104,8 @@ export default function SignInScreen() {
                     AppleAuthentication.AppleAuthenticationScope.EMAIL,
                 ],
             });
-            if (credential.identityToken && credential.authorizationCode) {
-                await authService.signInWithAppleIdToken(
-                    credential.identityToken,
-                    credential.authorizationCode,
-                    credential.authorizationCode
-                );
+            if (credential.identityToken) {
+                await authService.signInWithAppleIdToken(credential.identityToken);
             }
         } catch (error: any) {
             if (error.code !== "ERR_REQUEST_CANCELED") {

@@ -35,7 +35,7 @@ import {
 } from "@tabler/icons-react-native";
 import { useSubscription } from "../../contexts/SubscriptionContext";
 import VRMViewer, { VRMViewerHandle } from "../VRMViewer";
-import { fetchAndCacheCharacters } from "../../cache/charactersCache";
+import { getCharacters } from "../../cache/charactersCache";
 import { supabase } from "../../config/supabase";
 
 const FEATURES = [
@@ -78,7 +78,7 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
         if (!isOpened) return;
         const loadCharacters = async () => {
             try {
-                const chars = await fetchAndCacheCharacters();
+                const chars = await getCharacters();
                 if (chars && chars.length > 0) {
                     setCharacters(chars);
                 }
@@ -312,7 +312,7 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                                 end={{ x: 1, y: 0 }}
                                 style={styles.proBadge}
                             >
-                                <Text style={styles.proBadgeText}>PRO</Text>
+                                <Text style={styles.proBadgeText}>TRUEFEEL PRO</Text>
                             </LinearGradient>
 
                             <Text style={styles.heroTitle}>{"Unlock Your\nUltimate Experience"}</Text>
@@ -633,15 +633,28 @@ const styles = StyleSheet.create({
     arrowBtn: { padding: 8 },
     thumbnailList: { flexGrow: 1, gap: 10, paddingHorizontal: 4, alignItems: "center", justifyContent: "center" },
     thumbnailWrap: {
-        width: 46,
-        height: 46,
-        borderRadius: 23,
-        padding: 2,
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        justifyContent: "center",
+        alignItems: "center",
+        overflow: "hidden",
         borderWidth: 2,
-        borderColor: "transparent",
+        borderColor: "rgba(150, 100, 255, 0.2)",
     },
-    thumbnailWrapActive: { borderColor: "#8b5cf6" },
-    thumbnail: { width: 38, height: 38, borderRadius: 19 },
+    thumbnailWrapActive: {
+        borderColor: "#9B59FF",
+        borderWidth: 2.5,
+        shadowColor: "#9B59FF",
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.7,
+        shadowRadius: 12,
+        elevation: 8,
+    },
+    thumbnail: {
+        width: "100%",
+        height: "100%",
+    },
 
     actionsRow: {
         flexDirection: "row",
