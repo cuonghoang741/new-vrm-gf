@@ -38,6 +38,8 @@ import {
     IconVideo,
     IconPhone,
 } from "@tabler/icons-react-native";
+
+const diamondIcon = require("../../assets/diamond-upgrade.png");
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { Audio } from 'expo-av';
 import { useConversation } from "@elevenlabs/react-native";
@@ -819,18 +821,29 @@ export default function PlayScreen() {
 
             {/* Top bar */}
             <View style={styles.topBar}>
-                <View>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                        <Text style={styles.charNameTop}>{characterName}</Text>
-                        {isPro && (
-                            <Pressable onPress={() => setSubscriptionOpen(true)} hitSlop={8}>
-                                <IconCrown size={18} color="#F59E0B" fill="#F59E0B" />
-                            </Pressable>
-                        )}
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                    {!isPro && (
+                        <Pressable
+                            style={styles.upgradeProInner}
+                            onPress={() => setSubscriptionOpen(true)}
+                            hitSlop={8}
+                        >
+                            <Image source={diamondIcon} style={styles.upgradeProIcon} contentFit="contain" />
+                        </Pressable>
+                    )}
+                    <View>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                            <Text style={styles.charNameTop}>{characterName}</Text>
+                            {isPro && (
+                                <Pressable onPress={() => setSubscriptionOpen(true)} hitSlop={8}>
+                                    <IconCrown size={18} color="#F59E0B" fill="#F59E0B" />
+                                </Pressable>
+                            )}
+                        </View>
+                        <Text style={styles.statusText}>
+                            ● Online {callQuota > 0 ? `| 📞 ${formatTime(callQuota)}` : ''}
+                        </Text>
                     </View>
-                    <Text style={styles.statusText}>
-                        ● Online {callQuota > 0 ? `| 📞 ${formatTime(callQuota)}` : ''}
-                    </Text>
                 </View>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                     {conversation.status === "connected" && (
@@ -1145,6 +1158,16 @@ const styles = StyleSheet.create({
         textShadowColor: "rgba(0,0,0,0.5)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4,
     },
     statusText: { fontSize: 12, color: "#48BB78", fontWeight: "500", marginTop: 2 },
+    upgradeProInner: {
+        width: 38,
+        height: 38,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    upgradeProIcon: {
+        width: 34,
+        height: 34,
+    },
     settingsBtn: {
         // kept for potential reuse
     },

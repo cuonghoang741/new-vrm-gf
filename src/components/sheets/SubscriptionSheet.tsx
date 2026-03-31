@@ -44,7 +44,6 @@ const FEATURES = [
     // { icon: IconLock, text: "Unlock all secret & exclusive content", color: "#FF9800" },
     { icon: IconUsers, text: "Access every character instantly", color: "#4CAF50" },
     { icon: IconSparkles, text: "Premium costumes & animations", color: "#2196F3" },
-    { icon: IconHeart, text: "Deeper intimacy & special moments", color: "#a78bfa" },
 ];
 
 interface Props {
