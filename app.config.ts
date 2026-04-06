@@ -40,6 +40,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         buildNumber: "1",
         infoPlist: {
             ITSAppUsesNonExemptEncryption: false,
+            NSCameraUsageDescription: "Allow $(PRODUCT_NAME) to access your camera to enable video calls with your AI.",
+            NSMicrophoneUsageDescription: "Allow $(PRODUCT_NAME) to access your microphone to enable voice and video calls with your AI.",
         },
         requireFullScreen: false,
         usesAppleSignIn: true,
@@ -95,8 +97,21 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         [
             "@livekit/react-native-expo-plugin",
             {
-                "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera.",
-                "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone."
+                "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to enable video calls with your AI.",
+                "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone to enable voice and video calls with your AI."
+            }
+        ],
+        [
+            "expo-camera",
+            {
+                "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to enable video calls with your AI.",
+                "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone to enable voice and video calls with your AI."
+            }
+        ],
+        [
+            "expo-av",
+            {
+                "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone to enable voice and video calls with your AI."
             }
         ]
     ],
