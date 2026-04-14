@@ -124,9 +124,13 @@ export default function OnboardingScreen({
                 return;
             }
 
-            // Random pick
-            const matched = chars[Math.floor(Math.random() * Math.min(4, chars.length))];
-            console.log("[Onboarding] Matched:", matched.name, matched.id);
+            // Suggest top 3 characters with the most costumes
+            const sortedByCostumes = [...chars].sort((a, b) => (b.total_costumes || 0) - (a.total_costumes || 0));
+            const top3 = sortedByCostumes.slice(0, 3);
+            
+            // Random pick from the top 3
+            const matched = top3[Math.floor(Math.random() * top3.length)];
+            console.log("[Onboarding] Matched (from top 3 costumes):", matched.name, matched.id, "Costumes:", matched.total_costumes);
             setMatchedCharacter(matched as Characters);
 
             // NOW transition to step 3 (only after we have a character)

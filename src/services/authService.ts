@@ -89,6 +89,26 @@ export class AuthService {
     }
 
     /**
+     * Update user profile with country (based on timezone) if not set
+     */
+    async updateCountryIfMissing(userId: string) {
+        try {
+            // Check if country is already set
+            const { data, error } = await supabase.from('profiles').select('country').eq('id', userId).maybeSingle();
+            if (error || data?.country) return;
+
+            // Get timezone (e.g., "Asia/Ho_Chi_Minh")
+            const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            
+            if (timeZone) {
+                await supabase.from('profiles').update({ country: timeZone }).eq('id', userId);
+            }
+        } catch (e) {
+            console.warn("Timezone detection failed:", e);
+        }
+    }
+
+    /**
      * Subscribe to auth state changes
      */
     onAuthStateChange(
@@ -97,7 +117,12 @@ export class AuthService {
             session: Session | null
         ) => void
     ) {
-        return supabase.auth.onAuthStateChange(callback as any);
+        return supabase.auth.onAuthStateChange((event, session) => {
+            if (session?.user) {
+                this.updateCountryIfMissing(session.user.id);
+            }
+            callback(event, session);
+        });
     }
 }
 

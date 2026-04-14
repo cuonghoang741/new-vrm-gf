@@ -37,27 +37,28 @@ const withFirebaseSetup = (config) => {
 
     // A. Fix didFinishLaunchingWithOptions (Add Firebase + Fix Return)
     if (!contents.includes('FirebaseApp.configure()')) {
-      const insertionPoint = 'super.application(application, didFinishLaunchingWithOptions: launchOptions)';
-      contents = contents.replace(
-        insertionPoint,
-        `FirebaseApp.configure()\n    ${insertionPoint}\n    return true`
-      );
+      const launchMethodRegex = /(func\s+application\([\s\S]*?didFinishLaunchingWithOptions[\s\S]*?->\s+Bool\s+\{)([\s\S]*?)(return\s+super\.application\(application,\s+didFinishLaunchingWithOptions:\s+launchOptions\))/m;
+      if (launchMethodRegex.test(contents)) {
+        contents = contents.replace(launchMethodRegex, (match, signature, body, oldReturn) => {
+          return `${signature}${body}\n    FirebaseApp.configure()\n    super.application(application, didFinishLaunchingWithOptions: launchOptions)\n    return true`;
+        });
+      }
     }
 
     // B. Fix Link return type (Void to Bool)
-    const linkSearch = 'return super.application(app, open: url, options: options) || RCTLinkingManager.application(app, open: url, options: options)';
-    if (contents.includes(linkSearch)) {
+    const linkRegex = /return\s+super\.application\(app,\s+open:\s+url,\s+options:\s+options\)\s+\|\|\s+RCTLinkingManager\.application\(app,\s+open:\s+url,\s+options:\s+options\)/g;
+    if (linkRegex.test(contents)) {
       contents = contents.replace(
-        linkSearch,
+        linkRegex,
         'super.application(app, open: url, options: options)\n    return RCTLinkingManager.application(app, open: url, options: options)'
       );
     }
 
     // C. Fix Universal Link return type (Void to Bool)
-    const universalLinkSearch = 'return super.application(application, continue: userActivity, restorationHandler: restorationHandler) || result';
-    if (contents.includes(universalLinkSearch)) {
+    const universalLinkRegex = /return\s+super\.application\(application,\s+continue:\s+userActivity,\s+restorationHandler:\s+restorationHandler\)\s+\|\|\s+result/g;
+    if (universalLinkRegex.test(contents)) {
       contents = contents.replace(
-        universalLinkSearch,
+        universalLinkRegex,
         'super.application(application, continue: userActivity, restorationHandler: restorationHandler)\n    return result'
       );
     }

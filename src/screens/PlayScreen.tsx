@@ -103,6 +103,8 @@ export default function PlayScreen() {
     const [isVideoCall, setIsVideoCall] = useState(false);
     const [isDancing, setIsDancing] = useState(false);
     const [permission, requestPermission] = useCameraPermissions();
+    const [userProfile, setUserProfile] = useState<{ display_name?: string; country?: string } | null>(null);
+    const [userCreatedAt, setUserCreatedAt] = useState<string | null>(null);
 
     // Chat state
     const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -130,6 +132,15 @@ export default function PlayScreen() {
                     callQuotaRef.current = data.remaining_seconds;
                 }
             });
+
+        // Parallel fetch for profile and stats to optimize Telegram notifications
+        Promise.all([
+            supabase.from("profiles").select("display_name, country").eq("id", user.id).maybeSingle(),
+            supabase.from("user_stats").select("created_at").eq("user_id", user.id).maybeSingle()
+        ]).then(([profileRes, statsRes]) => {
+            if (profileRes.data) setUserProfile(profileRes.data);
+            if (statsRes.data?.created_at) setUserCreatedAt(statsRes.data.created_at);
+        });
     }, [user?.id, subscriptionOpen]);
 
     const conversation = useConversation({
@@ -599,7 +610,12 @@ export default function PlayScreen() {
             const aiMsgBaseId = `ai-${Date.now()}`;
 
             // Call the edge function (returns pre-split messages)
-            const result = await chatService.sendMessage(text, characterId, user.id, [...messages, userMsg]);
+            const daysUsed = userCreatedAt ? Math.floor((Date.now() - new Date(userCreatedAt).getTime()) / (1000 * 60 * 60 * 24)) : 0;
+            const result = await chatService.sendMessage(text, characterId, user.id, [...messages, userMsg], isPro, {
+                userName: userProfile?.display_name,
+                country: userProfile?.country,
+                daysUsed
+            });
 
             console.log("[PlayScreen] AI result:", JSON.stringify(result));
 

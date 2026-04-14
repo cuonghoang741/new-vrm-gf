@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 
@@ -6,7 +5,28 @@ const REVENUECAT_WEBHOOK_SECRET = Deno.env.get("REVENUECAT_WEBHOOK_SECRET");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+const TELEGRAM_BOT_TOKEN = '8626302744:AAG_mIQj8pu3g9thuE7kC7fd0Jq1abA0UjE';
+const TELEGRAM_CHAT_ID = '-1003649975869';
+const TELEGRAM_MESSAGE_THREAD_ID = ''; // Removed thread id as per new chat structure if needed
+
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+async function sendTelegramNotification(message: string) {
+    try {
+        await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: TELEGRAM_CHAT_ID,
+                message_thread_id: TELEGRAM_MESSAGE_THREAD_ID,
+                text: message,
+                parse_mode: 'HTML'
+            })
+        });
+    } catch (e) {
+        console.error('Failed to send Telegram notification:', e);
+    }
+}
 
 serve(async (req) => {
     try {
@@ -20,7 +40,7 @@ serve(async (req) => {
         }
 
         // 2. Parse the body
-        const { event, api_version } = await req.json();
+        const { event } = await req.json();
         if (!event) {
             return new Response("No event found", { status: 400 });
         }
@@ -28,10 +48,6 @@ serve(async (req) => {
         console.log(`Received Event: ${event.type} for User: ${event.app_user_id}`);
 
         const userId = event.app_user_id;
-
-        // Filter out anonymous IDs if you only care about authenticated users
-        // But sometimes you want to store it anyway.
-        // Assuming app_user_id is the supabase user_id (UUID)
 
         // RevenueCat event types: https://www.revenuecat.com/docs/webhooks/event-types
         let updateData: any = {};
@@ -45,7 +61,7 @@ serve(async (req) => {
                 updateData = {
                     tier: 'pro',
                     status: 'active',
-                    plan: event.product_id || 'pro', // Fallback to 'pro' if product_id is missing
+                    plan: event.product_id || 'pro',
                     current_period_end: new Date(event.expiration_at_ms).toISOString(),
                     expires_at: new Date(event.expiration_at_ms).toISOString(),
                     updated_at: new Date().toISOString(),
@@ -54,12 +70,6 @@ serve(async (req) => {
                 break;
 
             case "CANCELLATION":
-                // User turned off auto-renew. Status might still be active until expiration.
-                // We often keep it 'active' but maybe mark auto_renew = false if we tracked it.
-                // For simplicity, we just rely on expiration date, but let's update updated_at.
-                // Or if it was a refund, it might be immediate.
-
-                // If it sends expiration_at_ms, rely on that.
                 if (event.expiration_at_ms) {
                     updateData = {
                         current_period_end: new Date(event.expiration_at_ms).toISOString(),
@@ -89,16 +99,13 @@ serve(async (req) => {
         }
 
         if (shouldUpdate && userId) {
-            // Check if user exists first to avoid foreign key errors if RC sends garbage
-            // or use upsert if we trust the ID.
-
             // Upsert into subscriptions table
             const { error } = await supabase
                 .from('subscriptions')
                 .upsert({
                     user_id: userId,
                     ...updateData
-                }, { onConflict: 'user_id' }); // Assuming user_id is PK or unique
+                }, { onConflict: 'user_id' });
 
             if (error) {
                 console.error("Failed to update subscription:", error);
@@ -120,9 +127,32 @@ serve(async (req) => {
 
                 if (quotaError) {
                     console.error("Failed to update user call quota:", quotaError);
-                } else {
-                    console.log(`Granted 30 mins call quota to user ${userId}`);
                 }
+            }
+
+            // --- Telegram Notification ---
+            const type = event.type;
+            if (type === 'INITIAL_PURCHASE' || type === 'RENEWAL') {
+                // Fetch User Info
+                const { data: profile } = await supabase.from('profiles').select('display_name, country').eq('id', userId).maybeSingle();
+                const { data: stats } = await supabase.from('user_stats').select('created_at').eq('user_id', userId).maybeSingle();
+                const { data: authUser } = await supabase.auth.admin.getUserById(userId).then(res => res.data).catch(() => ({ user: null }));
+                
+                const userName = profile?.display_name || authUser?.user?.email || 'N/A';
+                const country = profile?.country || 'N/A';
+                let daysUsed = 0;
+                if (stats?.created_at) {
+                    daysUsed = Math.floor((Date.now() - new Date(stats.created_at).getTime()) / (1000 * 60 * 60 * 24));
+                }
+
+                const price = event.price_in_purchased_currency || 0;
+                const currency = event.currency || 'USD';
+                const emoji = type === 'INITIAL_PURCHASE' ? '💰' : '🔄';
+                const actionText = type === 'INITIAL_PURCHASE' ? 'MUA GÓI MỚI' : 'GIA HẠN GÓI';
+                
+                const message = `${emoji} <b>THÔNG BÁO DOANH THU</b>\n\n📌 Hành động: <b>${actionText}</b>\n👤 User: <b>${userName}</b>\n🌍 Country: <code>${country}</code>\n📅 Days used: <code>${daysUsed}</code>\n📦 Gói: ${event.product_id || 'pro'}\n💵 Giá: ${price} ${currency}`;
+                
+                await sendTelegramNotification(message);
             }
         }
 

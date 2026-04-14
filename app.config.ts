@@ -102,19 +102,28 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     },
 
     plugins: [
+        './withCustomPodfile',
         "./plugins/withFirebaseSetup",
         "@react-native-firebase/app",
         "expo-apple-authentication",
         "expo-web-browser",
         "expo-asset",
+        // [
+        //     "react-native-fbsdk-next",
+        //     {
+        //         "appID": FB_APP_ID,
+        //         "clientToken": FB_CLIENT_TOKEN,
+        //         "displayName": APP_NAME,
+        //         "scheme": `fb${FB_APP_ID}`
+        //     }
+        // ],
         [
-            "react-native-fbsdk-next",
+            './withFacebookConfig',
             {
-                "appID": FB_APP_ID,
-                "clientToken": FB_CLIENT_TOKEN,
-                "displayName": APP_NAME,
-                "scheme": `fb${FB_APP_ID}`
-            }
+                appId: FB_APP_ID,
+                displayName: APP_NAME,
+                clientToken: FB_CLIENT_TOKEN,
+            },
         ],
         "expo-tracking-transparency",
         [

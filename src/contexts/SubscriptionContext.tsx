@@ -6,6 +6,7 @@ import Purchases, {
 import { Platform } from "react-native";
 import { analyticsService } from "../services/AnalyticsService";
 
+// const REVENUECAT_API_KEY_IOS = "appl_NaXLvvZfTtuEAgTeAAuXUYCgTpD";
 const REVENUECAT_API_KEY_IOS = "appl_NaXLvvZfTtuEAgTeAAuXUYCgTpD";
 const REVENUECAT_API_KEY_ANDROID = "test_gnnCBUoBlRDSIdXbWzzRZoTPwOW";
 
@@ -113,9 +114,7 @@ export function SubscriptionProvider({ children, userId }: { children: ReactNode
     const purchasePackage = useCallback(async (pkg: PurchasesPackage) => {
         try {
             analyticsService.logPurchaseStart('subscription', pkg.product.identifier);
-            console.log("[SubscriptionProvider] Attempting purchase of:", pkg.identifier);
             const { customerInfo: info } = await Purchases.purchasePackage(pkg);
-            console.log("[SubscriptionProvider] Purchase success, returned info:", JSON.stringify(info, null, 2));
             updateFromInfo(info);
 
             const isSuccess = checkIsPro(info);

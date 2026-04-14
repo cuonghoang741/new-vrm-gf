@@ -9,13 +9,49 @@ const corsHeaders = {
 };
 
 // Hardcoded Telegram Credentials to match client service
-const TELEGRAM_BOT_TOKEN = '7450216881:AAEfiWq4TGQ371gixL2oVKBepBH3BTAfDUA';
-const TELEGRAM_CHAT_ID = '-1003509600397';
-const TELEGRAM_MESSAGE_THREAD_ID = '686';
+const TELEGRAM_BOT_TOKEN = '8626302744:AAG_mIQj8pu3g9thuE7kC7fd0Jq1abA0UjE';
+const TELEGRAM_CHAT_ID = '-1003649975869';
+const TELEGRAM_MESSAGE_THREAD_ID = ''; // Removed thread id as per new chat structure if needed
 
 async function sendTelegramError(error: string, context: string) {
     try {
         const message = `<b>🚨 GEMINI API ERROR</b>\n\nContext: ${context}\nError: ${error}`;
+        await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: TELEGRAM_CHAT_ID,
+                message_thread_id: TELEGRAM_MESSAGE_THREAD_ID,
+                text: message,
+                parse_mode: 'HTML'
+            })
+        });
+    } catch (e) {
+        console.error('Failed to send Telegram notification:', e);
+    }
+}
+
+async function sendTelegramInteraction(userMessage: string, aiResponse: string, userId: string, characterId: string, supabase: any, userInfo?: { name?: string, country?: string, daysUsed?: number }) {
+    try {
+        let name = userInfo?.name;
+        let country = userInfo?.country;
+        let daysUsed = userInfo?.daysUsed;
+
+        // Fallback to DB if info not provided by app
+        if (!name || !country || daysUsed === undefined) {
+            const { data: profile } = await supabase.from('profiles').select('display_name, country').eq('id', userId).maybeSingle();
+            const { data: stats } = await supabase.from('user_stats').select('created_at').eq('user_id', userId).maybeSingle();
+            const { data: authUser } = await supabase.auth.admin.getUserById(userId).then(res => res.data).catch(() => ({ user: null }));
+            
+            if (!name) name = profile?.display_name || authUser?.user?.email || 'N/A';
+            if (!country) country = profile?.country || 'N/A';
+            if (daysUsed === undefined && stats?.created_at) {
+                daysUsed = Math.floor((Date.now() - new Date(stats.created_at).getTime()) / (1000 * 60 * 60 * 24));
+            }
+        }
+
+        const message = `<b>💬 TIN NHẮN MỚI</b>\n\n👤 User: <b>${name}</b>\n🌍 Country: <code>${country}</code>\n📅 Days used: <code>${daysUsed || 0}</code>\n🤖 Nhân vật: <code>${characterId}</code>\n\n<b>Người dùng:</b> ${userMessage}\n\n<b>AI:</b> ${aiResponse}`;
+        
         await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -101,7 +137,7 @@ serve(async (req) => {
         });
         const body = await req.json();
         requestBody = body; // Store for context
-        const { message, character_id, user_id, client_id, conversation_history } = body;
+        const { message, character_id, user_id, client_id, conversation_history, user_name, country, days_used } = body;
 
         if (!message || !character_id) {
             return new Response(JSON.stringify({
@@ -273,6 +309,14 @@ serve(async (req) => {
                 await supabaseClient.from('conversation').insert(aiMessageData);
             } catch { }
         }
+
+        // --- Telegram Notification ---
+        try {
+            // Use service role client if we need to fetch info from DB
+            const serviceClient = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
+            const userInfo = (user_name || country || days_used !== undefined) ? { name: user_name, country, daysUsed: days_used } : undefined;
+            sendTelegramInteraction(message, cleanedResponse, user_id || client_id, character_id, serviceClient, userInfo).catch(() => { });
+        } catch (e) { }
 
         // Fire-and-forget async memory update (use full response for memory)
         try {

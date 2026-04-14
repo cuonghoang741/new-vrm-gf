@@ -66,7 +66,8 @@ export const chatService = {
         characterId: string,
         userId: string,
         conversationHistory: ChatMessage[],
-        isPro?: boolean
+        isPro?: boolean,
+        userInfo?: { userName?: string; country?: string; daysUsed?: number }
     ): Promise<{ messages: string[]; response: string; unseenCount: number }> {
         // Save user message to DB
         await supabase.from("conversation").insert({
@@ -90,6 +91,9 @@ export const chatService = {
                 user_id: userId,
                 conversation_history: geminiHistory,
                 is_pro: isPro,
+                user_name: userInfo?.userName,
+                country: userInfo?.country,
+                days_used: userInfo?.daysUsed,
             },
         });
 
