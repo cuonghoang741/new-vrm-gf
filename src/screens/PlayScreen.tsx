@@ -37,6 +37,7 @@ import {
     IconPhoneCall,
     IconVideo,
     IconPhone,
+    IconChevronDown,
 } from "@tabler/icons-react-native";
 
 const diamondIcon = require("../../assets/diamond-upgrade.png");
@@ -54,7 +55,9 @@ import BackgroundSheet from "../components/sheets/BackgroundSheet";
 import SettingsSheet from "../components/sheets/SettingsSheet";
 import SubscriptionSheet from "../components/sheets/SubscriptionSheet";
 import MediaSheet from "../components/sheets/MediaSheet";
+import ActionsBubble from "../components/ActionsBubble";
 import { useSubscription } from "../contexts/SubscriptionContext";
+import { analyticsService } from "../services/AnalyticsService";
 
 import * as SecureStore from "expo-secure-store";
 
@@ -105,7 +108,6 @@ export default function PlayScreen() {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [inputText, setInputText] = useState("");
     const [isSending, setIsSending] = useState(false);
-    const [isChatOpen, setIsChatOpen] = useState(false);
 
     // Call duration tracking
     const callStartTimeRef = useRef<number | null>(null);
@@ -134,13 +136,6 @@ export default function PlayScreen() {
         onConnect: () => {
             console.log("ElevenLabs Connected");
             callStartTimeRef.current = Date.now();
-            if (!isChatOpen) setIsChatOpen(true);
-            Animated.spring(chatSlideAnim, {
-                toValue: 1,
-                tension: 65,
-                friction: 11,
-                useNativeDriver: true,
-            }).start();
         },
         onDisconnect: () => {
             console.log("ElevenLabs Disconnected");
@@ -201,7 +196,6 @@ export default function PlayScreen() {
     });
 
     // Animations
-    const chatSlideAnim = useRef(new Animated.Value(0)).current;
     const dot1Anim = useRef(new Animated.Value(0)).current;
     const dot2Anim = useRef(new Animated.Value(0)).current;
     const dot3Anim = useRef(new Animated.Value(0)).current;
@@ -298,7 +292,7 @@ export default function PlayScreen() {
                         charId = firstAsset.item_id;
                     } else {
                         // Extreme fallback
-                        const { data: firstPublic } = await supabase.from("characters").select("id").eq("is_public", true).limit(1).maybeSingle();
+                        const { data: firstPublic } = await supabase.from("characters").select("id").eq("is_public", true).eq("available", true).limit(1).maybeSingle();
                         if (firstPublic?.id) charId = firstPublic.id;
                     }
 
@@ -316,11 +310,24 @@ export default function PlayScreen() {
 
                 setCharacterId(charId);
 
-                const { data: char } = await supabase
+                let { data: char } = await supabase
                     .from("characters")
                     .select("name, base_model_url, background_default_id, thumbnail_url, agent_elevenlabs_id")
                     .eq("id", charId)
-                    .single();
+                    .maybeSingle();
+
+                if (!char) {
+                    console.log("[PlayScreen] Character not found in DB! Attempting to fallback to public character...");
+                    const { data: firstPublic } = await supabase.from("characters").select("id, name, base_model_url, background_default_id, thumbnail_url, agent_elevenlabs_id").eq("is_public", true).eq("available", true).limit(1).maybeSingle();
+                    if (firstPublic) {
+                        charId = firstPublic.id;
+                        char = firstPublic;
+                        supabase.from("user_preferences").update({ current_character_id: charId, updated_at: new Date().toISOString() }).eq("user_id", user.id).then();
+                        setCharacterId(charId);
+                    } else {
+                        return;
+                    }
+                }
 
                 console.log("Character found:", char);
 
@@ -413,24 +420,16 @@ export default function PlayScreen() {
         loadHistory();
     }, [characterId, user?.id]);
 
-    const toggleChat = useCallback(() => {
-        const opening = !isChatOpen;
-        setIsChatOpen(opening);
-        Animated.spring(chatSlideAnim, {
-            toValue: opening ? 1 : 0,
-            tension: 65,
-            friction: 11,
-            useNativeDriver: true,
-        }).start();
-        if (!opening) Keyboard.dismiss();
-    }, [isChatOpen, chatSlideAnim]);
-
     // ─── Call toggle ───
     const toggleCall = useCallback(async () => {
         if (conversation.status === "connected" || conversation.status === "connecting") {
             await conversation.endSession();
             setIsVideoCall(false);
             vrmRef.current?.setCallMode(false);
+            if (callStartTimeRef.current) {
+                const duration = Math.floor((Date.now() - callStartTimeRef.current) / 1000);
+                analyticsService.logVoiceCallEnd(duration);
+            }
         } else {
             if (callQuotaRef.current <= 0) {
                 setSubscriptionOpen(true);
@@ -450,6 +449,10 @@ export default function PlayScreen() {
                     await conversation.startSession({
                         agentId: agentElevenlabsId,
                     });
+                    
+                    if (characterId) {
+                        analyticsService.logVoiceCallStart(characterId);
+                    }
                 } catch (e: any) {
                     console.error("Failed to start elevenlabs session:", e);
                 }
@@ -457,7 +460,7 @@ export default function PlayScreen() {
                 alert("This character does not support voice calling yet.");
             }
         }
-    }, [conversation, isPro, agentElevenlabsId]);
+    }, [conversation, isPro, agentElevenlabsId, characterId]);
 
     // ─── Video Call / Camera Toggle ───
     const toggleCamera = useCallback(async () => {
@@ -647,6 +650,9 @@ export default function PlayScreen() {
             setCharacterModelUrl(data.base_model_url);
             vrmRef.current?.loadModelByURL(data.base_model_url, char.name);
 
+            // Log Analytics
+            analyticsService.logCharacterSelect(char.id, char.name);
+
             // Update cache
             saveCache({
                 characterId: char.id,
@@ -730,10 +736,6 @@ export default function PlayScreen() {
                 .then(() => { }, () => { });
         }
     }, [user?.id]);
-
-    // Chat animation
-    const chatTranslateY = chatSlideAnim.interpolate({ inputRange: [0, 1], outputRange: [height * 0.6, 0] });
-    const chatOpacity = chatSlideAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, 0.8, 1] });
 
     const renderMessage = useCallback(({ item }: { item: ChatMessage }) => {
         const isAI = item.role === "model";
@@ -866,175 +868,83 @@ export default function PlayScreen() {
                 </View>
             </View>
 
-            {/* ─── Left side bubble actions ─── */}
-            <View style={styles.leftActions}>
-                {!["connected", "connecting"].includes(conversation.status) && (
-                    <>
-                        <Button
-                            variant="liquid"
-                            size="sm"
-                            startIcon={IconUser}
-                            onPress={() => setCharSheetOpen(true)}
-                        >
-                            Character
-                        </Button>
-                        <Button
-                            variant="liquid"
-                            size="sm"
-                            startIcon={IconHanger}
-                            onPress={() => setCostumeSheetOpen(true)}
-                        >
-                            Costume
-                        </Button>
-                        <Button
-                            variant="liquid"
-                            size="sm"
-                            startIcon={IconPhoto}
-                            onPress={() => setBgSheetOpen(true)}
-                        >
-                            Scene
-                        </Button>
-                        <Button
-                            variant="liquid"
-                            size="sm"
-                            startIcon={IconPhotoFilled}
-                            onPress={() => setMediaSheetOpen(true)}
-                        >
-                            Gallery
-                        </Button>
-                        <View>
-                            <Button
-                                variant="liquid"
-                                size="sm"
-                                startIcon={isDancing ? IconX : IconMusic}
-                                startIconColor={isDancing ? "#EF4444" : undefined}
-                                onPress={() => {
-                                    if (!isPro) {
-                                        setSubscriptionOpen(true);
-                                        return;
-                                    }
-                                    if (!is3DMode) {
-                                        setVrmReady(false);
-                                        setIs3DMode(true);
-                                        setIsDancing(true);
-                                    } else {
-                                        if (isDancing) {
-                                            vrmRef.current?.stopAnimation();
-                                            setIsDancing(false);
-                                        } else {
-                                            vrmRef.current?.loadNextAnimation();
-                                            setIsDancing(true);
-                                        }
-                                    }
-                                }}
-                            >
-                                {isDancing ? "Stop" : "Dance"}
-                            </Button>
-                            {!isPro && <View style={styles.proBadgeMini}><Text style={styles.proBadgeMiniText}>PRO</Text></View>}
-                        </View>
-                        <View>
-                            <Button
-                                variant="liquid"
-                                size="sm"
-                                startIcon={IconCube}
-                                startIconColor={is3DMode && isPro ? '#8B5CF6' : undefined}
-                                onPress={() => {
-                                    if (!isPro) {
-                                        setSubscriptionOpen(true);
-                                    } else {
-                                        setVrmReady(false); // Reset so VRM re-triggers model+bg load on mount
-                                        setIs3DMode(prev => !prev);
-                                    }
-                                }}
-                            >
-                                3D
-                            </Button>
-                            {!isPro && <View style={styles.proBadgeMini}><Text style={styles.proBadgeMiniText}>PRO</Text></View>}
-                        </View>
-                    </>
-                )}
+            {/* ─── Top right bubble actions ─── */}
+            <ActionsBubble
+                conversationStatus={conversation.status}
+                agentElevenlabsId={agentElevenlabsId}
+                isPro={isPro}
+                is3DMode={is3DMode}
+                isDancing={isDancing}
+                onOpenCharacter={() => setCharSheetOpen(true)}
+                onOpenCostume={() => setCostumeSheetOpen(true)}
+                onOpenScene={() => setBgSheetOpen(true)}
+                onOpenGallery={() => setMediaSheetOpen(true)}
+                onToggleDance={() => {
+                    if (!isPro) {
+                        setSubscriptionOpen(true);
+                        return;
+                    }
+                    if (!is3DMode) {
+                        setVrmReady(false);
+                        setIs3DMode(true);
+                        setIsDancing(true);
+                    } else {
+                        if (isDancing) {
+                            vrmRef.current?.stopAnimation();
+                            setIsDancing(false);
+                        } else {
+                            vrmRef.current?.loadNextAnimation();
+                            setIsDancing(true);
+                        }
+                    }
+                }}
+                onToggle3D={() => {
+                    if (!isPro) {
+                        setSubscriptionOpen(true);
+                    } else {
+                        setVrmReady(false);
+                        setIs3DMode(prev => !prev);
+                    }
+                }}
+                onToggleCall={toggleCall}
+                onOpenSubscription={() => setSubscriptionOpen(true)}
+            />
 
-                {agentElevenlabsId && (
-                    <View>
-                        <Button
-                            variant="liquid"
-                            size="sm"
-                            startIcon={IconPhoneCall}
-                            startIconColor={conversation.status === "connected" ? '#8B5CF6' : undefined}
-                            onPress={toggleCall}
-                        >
-                            {["connected", "connecting"].includes(conversation.status) ? "End Call" : "Call"}
-                        </Button>
-                        {!isPro && <View style={styles.proBadgeMini}><Text style={styles.proBadgeMiniText}>PRO</Text></View>}
-                    </View>
-                )}
-                {!isPro && (
-                    <Button
-                        variant="liquid"
-                        size="sm"
-                        startIcon={IconCrown}
-                        startIconColor="#F59E0B"
-                        onPress={() => setSubscriptionOpen(true)}
-                    >
-                        PRO
-                    </Button>
-                )}
-            </View>
-
-
-            {/* Chat FAB */}
-            {!isChatOpen && (
-                <View style={styles.chatFab}>
-                    <Button
-                        variant="liquid"
-                        size="sm"
-                        onPress={toggleChat}
-                        startIcon={IconMessageCircle}
-                    >
-                        Chat
-                    </Button>
-                </View>
-            )}
 
             {/* ─── Chat overlay ─── */}
-            <Animated.View
-                style={[styles.chatOverlay, { transform: [{ translateY: chatTranslateY }], opacity: chatOpacity }]}
-                pointerEvents={isChatOpen ? "auto" : "none"}
+            <View
+                style={styles.chatOverlay}
+                pointerEvents="box-none"
             >
-                <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.chatContainer} keyboardVerticalOffset={0}>
-                    <View style={styles.chatHeader}>
-                        <View style={styles.chatHeaderHandle} />
-                        <View style={styles.chatHeaderRow}>
-                            <Text style={styles.chatHeaderTitle}>Chat with {characterName}</Text>
-                            <TouchableOpacity onPress={toggleChat} activeOpacity={0.7}><IconX size={22} color="rgba(255,255,255,0.6)" /></TouchableOpacity>
-                        </View>
-                    </View>
+                <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.chatContainer} keyboardVerticalOffset={0} pointerEvents="box-none">
 
-                    <FlatList
-                        ref={flatListRef}
-                        data={messages}
-                        renderItem={renderMessage}
-                        keyExtractor={(item) => item.id}
-                        style={styles.messageList}
-                        contentContainerStyle={styles.messageListContent}
-                        showsVerticalScrollIndicator={false}
-                        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
-                        ListEmptyComponent={
-                            <View style={styles.emptyChat}><Text style={styles.emptyChatEmoji}>💬</Text><Text style={styles.emptyChatText}>Say hello to {characterName}!</Text></View>
-                        }
-                        ListFooterComponent={
-                            isSending ? (
-                                <View style={[styles.messageBubble, styles.aiBubble]}>
-                                    <Text style={styles.aiName}>{characterName}</Text>
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', height: 20, paddingTop: 4 }}>
-                                        {[dot1Anim, dot2Anim, dot3Anim].map((anim, i) => (
-                                            <Animated.View key={i} style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: 'rgba(255,255,255,0.5)', marginHorizontal: 2, transform: [{ translateY: anim }] }} />
-                                        ))}
+                    <View style={styles.chatMessagesWrapper} pointerEvents="box-none">
+                        <FlatList
+                            ref={flatListRef}
+                            data={messages}
+                            renderItem={renderMessage}
+                            keyExtractor={(item) => item.id}
+                            style={styles.messageList}
+                            contentContainerStyle={styles.messageListContent}
+                            showsVerticalScrollIndicator={false}
+                            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
+                            ListEmptyComponent={
+                                <View style={styles.emptyChat}><Text style={styles.emptyChatEmoji}>💬</Text><Text style={styles.emptyChatText}>Say hello to {characterName}!</Text></View>
+                            }
+                            ListFooterComponent={
+                                isSending ? (
+                                    <View style={[styles.messageBubble, styles.aiBubble]}>
+                                        <Text style={styles.aiName}>{characterName}</Text>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', height: 20, paddingTop: 4 }}>
+                                            {[dot1Anim, dot2Anim, dot3Anim].map((anim, i) => (
+                                                <Animated.View key={i} style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: 'rgba(255,255,255,0.5)', marginHorizontal: 2, transform: [{ translateY: anim }] }} />
+                                            ))}
+                                        </View>
                                     </View>
-                                </View>
-                            ) : null
-                        }
-                    />
+                                ) : null
+                            }
+                        />
+                    </View>
 
                     <View style={styles.inputBar}>
                         <TextInput
@@ -1058,7 +968,7 @@ export default function PlayScreen() {
                         </TouchableOpacity>
                     </View>
                 </KeyboardAvoidingView>
-            </Animated.View>
+            </View>
 
             {/* ─── Sheets ─── */}
             <CharacterSheet
@@ -1195,34 +1105,28 @@ const styles = StyleSheet.create({
     },
 
 
-    // Chat FAB
-    chatFab: {
-        position: "absolute",
-        bottom: Platform.OS === "ios" ? 44 : 28, right: 20,
-        zIndex: 10,
-    },
-
     // Chat overlay
     chatOverlay: {
-        position: "absolute", bottom: 0, left: 0, right: 0, height: height * 0.6, zIndex: 20,
+        position: "absolute", bottom: 0, left: 0, right: 0, height: height * 0.75, zIndex: 20,
     },
     chatContainer: {
-        flex: 1, backgroundColor: "rgba(15, 5, 30, 0.95)",
-        borderTopLeftRadius: 24, borderTopRightRadius: 24,
-        borderWidth: 1, borderBottomWidth: 0, borderColor: "rgba(155, 89, 255, 0.15)",
+        flex: 1, backgroundColor: "transparent",
         overflow: "hidden",
+        justifyContent: "flex-end", // Push everything to bottom
     },
-    chatHeader: { paddingTop: 8, paddingHorizontal: 20, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: "rgba(155, 89, 255, 0.08)" },
-    chatHeaderHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: "rgba(155, 89, 255, 0.3)", alignSelf: "center", marginBottom: 12 },
-    chatHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-    chatHeaderTitle: { fontSize: 16, fontWeight: "600", color: "#FFFFFF" },
+    chatMessagesWrapper: {
+        width: "70%",
+        maxHeight: height * 0.3,
+        alignSelf: "flex-start", // align left
+    },
+
 
     // Messages
-    messageList: { flex: 1 },
+    messageList: { flexGrow: 1 },
     messageListContent: { padding: 16, paddingBottom: 8 },
     messageBubble: { maxWidth: "80%", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 18, marginBottom: 8 },
     userBubble: { alignSelf: "flex-end", backgroundColor: "#9B59FF", borderBottomRightRadius: 6 },
-    aiBubble: { alignSelf: "flex-start", backgroundColor: "rgba(155, 89, 255, 0.12)", borderBottomLeftRadius: 6 },
+    aiBubble: { alignSelf: "flex-start", backgroundColor: "rgba(15, 5, 30, 0.75)", borderWidth: 1, borderColor: "rgba(155, 89, 255, 0.2)", borderBottomLeftRadius: 6 },
     aiName: { fontSize: 11, fontWeight: "600", color: "rgba(155, 89, 255, 0.8)", marginBottom: 3 },
     messageText: { fontSize: 15, lineHeight: 21 },
     userText: { color: "#FFFFFF" },

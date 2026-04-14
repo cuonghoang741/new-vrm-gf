@@ -4,6 +4,7 @@ import Purchases, {
     PurchasesPackage,
 } from "react-native-purchases";
 import { Platform } from "react-native";
+import { analyticsService } from "../services/AnalyticsService";
 
 const REVENUECAT_API_KEY_IOS = "appl_NaXLvvZfTtuEAgTeAAuXUYCgTpD";
 const REVENUECAT_API_KEY_ANDROID = "test_gnnCBUoBlRDSIdXbWzzRZoTPwOW";
@@ -100,6 +101,8 @@ export function SubscriptionProvider({ children, userId }: { children: ReactNode
             try {
                 const { customerInfo: info } = await Purchases.logIn(userId);
                 updateFromInfo(info);
+                // Sync Analytics ID
+                analyticsService.setUserId(userId);
             } catch (e) {
                 console.error("[SubscriptionProvider] logIn error:", e);
             }
@@ -109,15 +112,29 @@ export function SubscriptionProvider({ children, userId }: { children: ReactNode
 
     const purchasePackage = useCallback(async (pkg: PurchasesPackage) => {
         try {
+            analyticsService.logPurchaseStart('subscription', pkg.product.identifier);
             console.log("[SubscriptionProvider] Attempting purchase of:", pkg.identifier);
             const { customerInfo: info } = await Purchases.purchasePackage(pkg);
             console.log("[SubscriptionProvider] Purchase success, returned info:", JSON.stringify(info, null, 2));
             updateFromInfo(info);
-            return { success: checkIsPro(info) };
+
+            const isSuccess = checkIsPro(info);
+            if (isSuccess) {
+                analyticsService.logPurchaseComplete(
+                    pkg.product.identifier,
+                    'subscription',
+                    pkg.product.price,
+                    pkg.product.currencyCode
+                );
+            }
+
+            return { success: isSuccess };
         } catch (e: any) {
             if (e.userCancelled) {
+                analyticsService.logPurchaseCancelled('subscription');
                 return { success: false, error: "cancelled" };
             }
+            analyticsService.logPurchaseFailed('subscription', e.message);
             return { success: false, error: e.message || "Purchase failed" };
         }
     }, [updateFromInfo]);
@@ -126,8 +143,11 @@ export function SubscriptionProvider({ children, userId }: { children: ReactNode
         try {
             const info = await Purchases.restorePurchases();
             updateFromInfo(info);
-            return { isPro: checkIsPro(info) };
+            const successful = checkIsPro(info);
+            analyticsService.logSubscriptionRestore(successful);
+            return { isPro: successful };
         } catch (e: any) {
+            analyticsService.logSubscriptionRestore(false);
             return { isPro: false, error: e.message || "Restore failed" };
         }
     }, [updateFromInfo]);

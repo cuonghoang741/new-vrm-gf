@@ -7,6 +7,8 @@ import { useAuth } from "./src/hooks/useAuth";
 import { ElevenLabsProvider } from "@elevenlabs/react-native";
 import { OTAAutoUpdate } from "./src/components/OTA-update/OTAAutoUpdate";
 
+import { AnalyticsProvider } from "./src/providers/AnalyticsProvider";
+
 function AppWithSubscription() {
   const { user } = useAuth();
   return (
@@ -23,7 +25,9 @@ export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <AppWithSubscription />
+        <AnalyticsProvider>
+          <AppWithSubscription />
+        </AnalyticsProvider>
       </AuthProvider>
     </ThemeProvider>
   );

@@ -1,6 +1,7 @@
 import { supabase } from "../config/supabase";
 import { Session, User } from "@supabase/supabase-js";
 import { clearCharactersCache } from "../cache/charactersCache";
+import { analyticsService } from "./AnalyticsService";
 
 export class AuthService {
     /**
@@ -31,6 +32,13 @@ export class AuthService {
         });
 
         if (error) throw error;
+        
+        // Log Analytics
+        if (data.user) {
+            analyticsService.setUserId(data.user.id);
+            analyticsService.logSignIn('apple');
+        }
+        
         return data;
     }
 
@@ -61,6 +69,12 @@ export class AuthService {
         });
 
         if (error) throw error;
+
+        if (data.user) {
+            analyticsService.setUserId(data.user.id);
+            analyticsService.logSignIn('google');
+        }
+
         return data;
     }
 
@@ -68,6 +82,7 @@ export class AuthService {
      * Sign out
      */
     async signOut() {
+        analyticsService.logSignOut();
         clearCharactersCache();
         const { error } = await supabase.auth.signOut();
         if (error) throw error;

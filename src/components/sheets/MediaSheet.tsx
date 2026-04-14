@@ -16,6 +16,7 @@ import * as Haptics from "expo-haptics";
 import { supabase } from "../../config/supabase";
 import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
 import { useSubscription } from "../../contexts/SubscriptionContext";
+import { analyticsService } from "../../services/AnalyticsService";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const COLUMN_COUNT = 3;
@@ -72,12 +73,10 @@ const MediaSheet = forwardRef<MediaSheetRef, MediaSheetProps>(
                     .order("created_at", { ascending: false });
                 if (error) throw error;
                 if (data) {
-                    setImages(data.filter((m) => m.media_type === "image"));
+                    setImages(data.filter((m) => m.media_type === "photo"));
                     setVideos(data.filter((m) => m.media_type === "video"));
                 }
             } catch (e: any) {
-                console.error("[MediaSheet] Failed to load:", e);
-                setErrorMessage(e.message || "Failed to load");
             } finally {
                 setLoading(false);
             }
@@ -111,6 +110,10 @@ const MediaSheet = forwardRef<MediaSheetRef, MediaSheetProps>(
                     onOpenSubscription?.();
                     return;
                 }
+
+                // Log Analytics
+                analyticsService.logMediaView(item.id, item.media_type === "photo" ? "image" : "video");
+
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 // TODO: Open full-screen viewer
             },

@@ -3139,6 +3139,11 @@ expo-structured-headers@~5.0.0:
   resolved "https://registry.yarnpkg.com/expo-structured-headers/-/expo-structured-headers-5.0.0.tgz#b3cc223a7a58964652093f088a8988316db9ed9d"
   integrity sha512-RmrBtnSphk5REmZGV+lcdgdpxyzio5rJw8CXviHE6qH5pKQQ83fhMEcigvrkBdsn2Efw2EODp4Yxl1/fqMvOZw==
 
+expo-tracking-transparency@~6.0.8:
+  version "6.0.8"
+  resolved "https://registry.yarnpkg.com/expo-tracking-transparency/-/expo-tracking-transparency-6.0.8.tgz#26db308b735ddc2e1d42720b77966ad3261aabd7"
+  integrity sha512-4/NW47Kmrtj3J0udUmzxiq01gRY+vG8wFsUop6CTOVWlk+2MypjDFwBSscHcyiS2dJGNQLOQSBZ1RNhLdgSBOQ==
+
 expo-updates-interface@~2.0.0:
   version "2.0.0"
   resolved "https://registry.yarnpkg.com/expo-updates-interface/-/expo-updates-interface-2.0.0.tgz#7721cb64c37bcb46b23827b2717ef451a9378749"
@@ -5172,6 +5177,16 @@ react-is@^19.1.0:
   version "19.2.4"
   resolved "https://registry.yarnpkg.com/react-is/-/react-is-19.2.4.tgz#a080758243c572ccd4a63386537654298c99d135"
   integrity sha512-W+EWGn2v0ApPKgKKCy/7s7WHXkboGcsrXE+2joLyVxkbyVQfO3MUEaUQDHoSmb8TFFrSKYa9mw64WZHNHSDzYA==
+
+react-native-appsflyer@^6.17.9:
+  version "6.17.9"
+  resolved "https://registry.yarnpkg.com/react-native-appsflyer/-/react-native-appsflyer-6.17.9.tgz#18c520b774166db491de7e26e3c89536840f2e85"
+  integrity sha512-oEddwSsVL8D3ki8ayWZV34GyORAxvL1BXq3mL1xB8Hdfg+xxLyjAXSvWbj0t3E3NJ2KrgLRf/hbTlsPltfo/Uw==
+
+react-native-fbsdk-next@^13.4.3:
+  version "13.4.3"
+  resolved "https://registry.yarnpkg.com/react-native-fbsdk-next/-/react-native-fbsdk-next-13.4.3.tgz#efdbe47690c7addf5b14970e565814149b00a2d5"
+  integrity sha512-xGymFmocik7/159i6x/bGx4AHuEk3MFMkVl4MlW7JDuN8LIpbGU76WljEOO+Ucdn248nDlo1EG//CXHMGxZTMg==
 
 react-native-gesture-handler@~2.28.0:
   version "2.28.0"

@@ -1,6 +1,6 @@
 {
   "name": "evee",
-  "version": "1.0.3",
+  "version": "1.0.1",
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
@@ -10,7 +10,12 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "build:ios": "eas build --platform ios --auto-submit",
-    "build:ios:local": "rm -rf ./*-*.ipa && eas build --local --platform ios && eas submit --platform ios --path $(ls build-*.ipa)"
+    "build:ios:local": "rm -rf ./*-*.ipa && eas build --local --platform ios --non-interactive && eas submit --platform ios --path $(ls build-*.ipa) --non-interactive",
+    "update:development": "eas update --channel development --message \"Development update\"",
+    "update:preview": "eas update --channel preview --message \"Preview update\"",
+    "update:production": "eas update --channel production --message \"Production update\"",
+    "update:production:ios": "eas update --channel production --message \"Production update\" --platform ios",
+    "update:production:android": "eas update --channel production --message \"Production update\" --platform android"
   },
   "dependencies": {
     "@callstack/liquid-glass": "^0.7.0",
@@ -21,6 +26,8 @@
     "@livekit/react-native-expo-plugin": "^1.0.1",
     "@livekit/react-native-webrtc": "^137.0.2",
     "@lodev09/react-native-true-sheet": "^3.9.7",
+    "@react-native-firebase/analytics": "^21.6.2",
+    "@react-native-firebase/app": "^21.6.2",
     "@react-navigation/native": "^7.0.0",
     "@react-navigation/native-stack": "^7.0.0",
     "@supabase/supabase-js": "^2.49.0",
@@ -38,12 +45,15 @@
     "expo-secure-store": "~15.0.8",
     "expo-splash-screen": "~31.0.13",
     "expo-status-bar": "~3.0.9",
+    "expo-tracking-transparency": "~6.0.8",
     "expo-updates": "~29.0.16",
     "expo-web-browser": "~15.0.10",
     "livekit-client": "^2.17.2",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-native": "0.81.5",
+    "react-native-appsflyer": "^6.17.9",
+    "react-native-fbsdk-next": "^13.4.3",
     "react-native-gesture-handler": "~2.28.0",
     "react-native-purchases": "^9.10.4",
     "react-native-reanimated": "~4.1.1",

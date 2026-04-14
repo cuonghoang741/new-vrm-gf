@@ -25,6 +25,7 @@ interface Character {
     thumbnail_url: string | null;
     description: string | null;
     tier: string | null;
+    available?: boolean;
     data?: {
         height_cm?: number;
         rounds?: { r1: number; r2: number; r3: number };
@@ -73,9 +74,8 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
         try {
             const { data, error } = await supabase
                 .from("characters")
-                .select("id, name, thumbnail_url, description, tier, data")
+                .select("id, name, thumbnail_url, description, tier, data, available")
                 .eq("is_public", true)
-                .eq("available", true)
                 .not("base_model_url", "ilike", "%.png")
                 .order("order", { ascending: true });
             if (error) throw error;
@@ -121,6 +121,7 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
 
     const handleSelect = useCallback(
         (char: Character) => {
+            if (char.available === false) return;
             const isOwned = ownedIds.has(char.id);
             // Switching characters requires PRO or ownership
             if (!isPro && !isOwned && char.id !== currentCharacterId) {
@@ -142,15 +143,18 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
         ({ item }: { item: Character }) => {
             const isSelected = item.id === currentCharacterId;
             const isOwned = ownedIds.has(item.id);
+            const isAvailable = item.available !== false;
             const isLocked = !isPro && !isOwned && !isSelected;
 
             return (
                 <Pressable
                     onPress={() => handleSelect(item)}
+                    disabled={!isAvailable}
                     style={({ pressed }) => [
                         styles.rowItem,
                         isSelected && styles.rowItemSelected,
                         pressed && styles.pressed,
+                        !isAvailable && { opacity: 0.5 },
                     ]}
                 >
                     {/* Avatar */}
@@ -174,9 +178,14 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
                             <Text style={styles.rowName} numberOfLines={1}>
                                 {item.name}
                             </Text>
-                            {isLocked && (
+                            {isLocked && isAvailable && (
                                 <View style={styles.proPill}>
                                     <Text style={styles.proPillText}>PRO</Text>
+                                </View>
+                            )}
+                            {!isAvailable && (
+                                <View style={[styles.proPill, { backgroundColor: '#64748B', borderColor: '#475569' }]}>
+                                    <Text style={styles.proPillText}>COMING SOON</Text>
                                 </View>
                             )}
                         </View>

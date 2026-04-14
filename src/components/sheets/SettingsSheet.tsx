@@ -25,6 +25,7 @@ import {
 } from "@tabler/icons-react-native";
 import { useSubscription } from "../../contexts/SubscriptionContext";
 import * as Haptics from "expo-haptics";
+import { analyticsService } from "../../services/AnalyticsService";
 import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
 import { supabase } from "../../config/supabase";
 import EditProfileSheet from "./EditProfileSheet";
@@ -112,6 +113,7 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                 style: "destructive",
                 onPress: async () => {
                     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                    analyticsService.logSignOut();
                     await supabase.auth.signOut();
                     onIsOpenedChange(false);
                     sheetRef.current?.dismiss();
@@ -139,6 +141,7 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                                     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
                                     try {
                                         setIsDeletingAccount(true);
+                                        analyticsService.logDeleteAccount();
                                         const { error } = await supabase.functions.invoke("delete-user");
                                         if (error) throw error;
                                         await supabase.auth.signOut();
@@ -199,6 +202,7 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                                 },
                             });
                             if (error) throw error;
+                            analyticsService.logError('bug_report', description.trim());
                             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                             Alert.alert("Thank you! 💜", "Your report has been submitted. We'll look into it.");
                         } catch {
@@ -315,6 +319,7 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                                     label="Privacy Policy"
                                     onPress={() => {
                                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        analyticsService.logEvent('open_privacy_policy');
                                         WebBrowser.openBrowserAsync("https://truefeel-legal-haven.lovable.app/privacy");
                                     }}
                                 />

@@ -1,4 +1,5 @@
 import { supabase } from "../config/supabase";
+import { analyticsService } from "./AnalyticsService";
 
 const EDGE_FUNCTION_URL = "gemini-chat";
 
@@ -102,6 +103,9 @@ export const chatService = {
 
         console.log("[chatService] AI response:", parsed);
 
+        // Log internal analytics
+        analyticsService.logSendMessage(characterId, message.length);
+
         // Edge function returns: { response, messages, unseen_count, character_id }
         return {
             messages: parsed?.messages ?? [parsed?.response ?? ""],
@@ -140,6 +144,11 @@ export const chatService = {
 
             if (error || !data) {
                 return { action: "none", confidence: 1, parameters: {}, reasoning: "" };
+            }
+
+            // Log analytics for action
+            if (data.action && data.action !== 'none') {
+                analyticsService.logActionSuggested(data.action, data.confidence || 0, data.parameters);
             }
 
             return {
