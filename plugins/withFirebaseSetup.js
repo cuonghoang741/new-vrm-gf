@@ -39,7 +39,7 @@ const withFirebaseSetup = (config) => {
       const insertionPoint = 'super.application(application, didFinishLaunchingWithOptions: launchOptions)';
       contents = contents.replace(
         insertionPoint,
-        `FirebaseApp.configure()\n    return ${insertionPoint}`
+        `FirebaseApp.configure()\n    ${insertionPoint}\n    return true`
       );
     }
 
