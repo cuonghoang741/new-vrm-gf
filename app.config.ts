@@ -56,7 +56,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ios: {
         supportsTablet: true,
         bundleIdentifier: BUNDLE_IDENTIFIER,
-        buildNumber: "10",
+        buildNumber: "11",
+        googleServicesFile: "./GoogleService-Info.plist",
         infoPlist: {
             ITSAppUsesNonExemptEncryption: false,
             NSCameraUsageDescription: "Allow $(PRODUCT_NAME) to access your camera to enable video calls with your AI.",
@@ -73,6 +74,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         },
         package: PACKAGE_NAME,
         versionCode: 1,
+        googleServicesFile: "./google-services.json",
         edgeToEdgeEnabled: true,
         predictiveBackGestureEnabled: false,
         permissions: [
@@ -100,6 +102,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     },
 
     plugins: [
+        "./plugins/withFirebaseSetup",
+        "@react-native-firebase/app",
         "expo-apple-authentication",
         "expo-web-browser",
         "expo-asset",
