@@ -261,7 +261,7 @@ const styles = StyleSheet.create({
     },
     avatarContainer: {
         width: "100%",
-        aspectRatio: 1,
+        aspectRatio: 0.72, // Portrait for full vertical previews
         borderRadius: 18,
         overflow: "hidden",
         position: "relative",
