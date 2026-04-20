@@ -157,7 +157,7 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
                             contentFit="cover"
                             transition={200}
                         />
-                        {isLocked && (
+                        {isLocked && !isSelected && (
                             <View style={styles.lockOverlay}>
                                 <Ionicons name="lock-closed" size={24} color="#FFF" />
                             </View>
