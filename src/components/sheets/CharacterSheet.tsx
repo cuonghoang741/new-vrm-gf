@@ -65,6 +65,7 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
     const [ownedIds, setOwnedIds] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const listRef = useRef<FlatList>(null);
     const shimmerOpacity = useRef(new Animated.Value(0.3)).current;
 
 
@@ -123,6 +124,22 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
             shimmerOpacity.setValue(0.3);
         }
     }, [loading]);
+
+    // Auto-scroll to active character
+    useEffect(() => {
+        if (isOpened && characters.length > 0 && currentCharacterId) {
+            const index = characters.findIndex(c => c.id === currentCharacterId);
+            if (index !== -1) {
+                setTimeout(() => {
+                    listRef.current?.scrollToIndex({ 
+                        index, 
+                        animated: true, 
+                        viewPosition: 0.5 
+                    });
+                }, 400);
+            }
+        }
+    }, [isOpened, characters, currentCharacterId]);
 
     const handleSelect = useCallback(
         (char: Character) => {
@@ -246,6 +263,7 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
         return (
             <View style={{ flex: 1 }}>
                 <FlatList
+                    ref={listRef}
                     data={characters}
                     renderItem={renderItem}
                     keyExtractor={(item) => item.id}
@@ -253,6 +271,14 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
                     showsVerticalScrollIndicator={false}
                     numColumns={3}
                     columnWrapperStyle={styles.columnWrapper}
+                    getItemLayout={(data, index) => {
+                        const rowHeight = ITEM_WIDTH / 0.72 + 35; 
+                        const rowIndex = Math.floor(index / 3);
+                        return { length: rowHeight, offset: rowHeight * rowIndex, index };
+                    }}
+                    onScrollToIndexFailed={(info) => {
+                        console.warn("Scroll to character index failed:", info);
+                    }}
                 />
             </View>
         );

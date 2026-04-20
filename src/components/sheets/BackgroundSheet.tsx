@@ -120,8 +120,12 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
             const index = backgrounds.findIndex(bg => bg.id === currentBackgroundId);
             if (index !== -1) {
                 setTimeout(() => {
-                    listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
-                }, 300);
+                    listRef.current?.scrollToIndex({ 
+                        index, 
+                        animated: true, 
+                        viewPosition: 0.5 
+                    });
+                }, 400);
             }
         }
     }, [isOpened, backgrounds, currentBackgroundId]);
@@ -243,8 +247,9 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
                     numColumns={3}
                     columnWrapperStyle={styles.columnWrapper}
                     getItemLayout={(data, index) => {
-                        const h = ITEM_WIDTH / 0.72 + 20; // Approx height with name
-                        return { length: h, offset: h * index, index };
+                        const rowHeight = ITEM_WIDTH / 0.72 + 35; 
+                        const rowIndex = Math.floor(index / 3);
+                        return { length: rowHeight, offset: rowHeight * rowIndex, index };
                     }}
                     onScrollToIndexFailed={(info) => {
                         console.warn("Scroll to index failed:", info);
