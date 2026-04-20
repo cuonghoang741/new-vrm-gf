@@ -1404,17 +1404,21 @@ const styles = StyleSheet.create({
     },
     proBadgeLeft: {
         position: 'absolute',
-        top: -4,
-        right: -4,
-        backgroundColor: '#F59E0B',
-        borderRadius: 6,
-        paddingHorizontal: 4,
-        paddingVertical: 1,
+        top: -6,
+        right: -6,
+        backgroundColor: "#F59E0B",
+        borderRadius: 8,
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderWidth: 1.5,
+        borderColor: '#000',
+        zIndex: 10,
     },
     proBadgeLeftText: {
-        fontSize: 7,
+        fontSize: 10,
         fontWeight: "900",
         color: "#fff",
+        letterSpacing: 0.5,
     },
 
     // 3D toggle PRO badge (legacy)
