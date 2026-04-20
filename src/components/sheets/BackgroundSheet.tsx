@@ -49,6 +49,7 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
     const [ownedIds, setOwnedIds] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const listRef = useRef<FlatList>(null);
     const shimmerOpacity = useRef(new Animated.Value(0.3)).current;
 
     useImperativeHandle(ref, () => ({
@@ -106,6 +107,18 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
             shimmerOpacity.setValue(0.3);
         }
     }, [loading]);
+
+    // Auto-scroll to active item
+    useEffect(() => {
+        if (isOpened && backgrounds.length > 0 && currentBackgroundId) {
+            const index = backgrounds.findIndex(bg => bg.id === currentBackgroundId);
+            if (index !== -1) {
+                setTimeout(() => {
+                    listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
+                }, 300);
+            }
+        }
+    }, [isOpened, backgrounds, currentBackgroundId]);
 
     const handleSelect = useCallback(
         (bg: Background) => {
@@ -171,6 +184,10 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
                                 </View>
                             )}
                         </View>
+                        <View style={item.is_dark ? styles.darkBadge : styles.lightBadge}>
+                            <Ionicons name={item.is_dark ? "moon" : "sunny"} size={10} color="#fff" />
+                            <Text style={styles.modeText}>{item.is_dark ? "Dark" : "Light"}</Text>
+                        </View>
                     </View>
 
                     <View style={styles.rowRight}>
@@ -214,12 +231,19 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
         return (
             <View style={{ flex: 1 }}>
                 <FlatList
+                    ref={listRef}
                     data={backgrounds}
                     renderItem={renderItem}
                     keyExtractor={(item) => item.id}
                     contentContainerStyle={styles.listContent}
                     showsVerticalScrollIndicator={false}
                     ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+                    getItemLayout={(data, index) => (
+                        { length: 76 + 12, offset: (76 + 12) * index, index }
+                    )}
+                    onScrollToIndexFailed={(info) => {
+                        console.warn("Scroll to index failed:", info);
+                    }}
                 />
             </View>
         );
@@ -290,5 +314,33 @@ const styles = StyleSheet.create({
     skeletonContainer: { paddingHorizontal: 20, gap: 12 },
     skeletonRow: {
         width: "100%", height: 76, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.06)",
+    },
+    darkBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.4)',
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 6,
+        marginTop: 4,
+        alignSelf: 'flex-start',
+        gap: 4,
+    },
+    lightBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(245, 158, 11, 0.4)',
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 6,
+        marginTop: 4,
+        alignSelf: 'flex-start',
+        gap: 4,
+    },
+    modeText: {
+        fontSize: 9,
+        fontWeight: '700',
+        color: '#FFF',
+        textTransform: 'uppercase',
     },
 });
