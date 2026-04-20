@@ -6,12 +6,18 @@ import {
     Pressable,
     FlatList,
     Animated,
+    Dimensions,
 } from "react-native";
 import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { supabase } from "../../config/supabase";
 import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
+
+const { width } = Dimensions.get("window");
+const GRID_PADDING = 20;
+const GRID_GAP = 10;
+const ITEM_WIDTH = (width - (GRID_PADDING * 2) - (GRID_GAP * 2)) / 3;
 
 interface Background {
     id: string;
@@ -142,28 +148,38 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
     const renderItem = useCallback(
         ({ item }: { item: Background }) => {
             const isSelected = item.id === currentBackgroundId;
-            const isPro_item = item.tier === "pro";
+            const isProItem = item.tier === "pro";
             const isOwned = ownedIds.has(item.id);
+            const isLocked = isProItem && !isPro && !isOwned;
 
             return (
                 <Pressable
                     onPress={() => handleSelect(item)}
                     style={({ pressed }) => [
-                        styles.rowItem,
-                        isSelected && styles.rowItemSelected,
+                        styles.gridItem,
                         pressed && styles.pressed,
                     ]}
                 >
-                    <View style={styles.previewContainer}>
+                    <View style={[
+                        styles.previewContainer,
+                        isSelected && { borderColor: "#8B5CF6", backgroundColor: "rgba(139, 92, 246, 0.1)" }
+                    ]}>
                         <Image
                             source={{ uri: item.thumbnail ?? item.image }}
                             style={styles.preview}
                             contentFit="cover"
                             transition={200}
                         />
-                        {isSelected && (
+                        {isLocked && !isSelected && (
+                            <View style={styles.lockOverlay}>
+                                <View style={styles.lockIconBadge}>
+                                    <Ionicons name="lock-closed" size={12} color="#FFF" />
+                                </View>
+                            </View>
+                        )}
+                        {isSelected && !isLocked && (
                             <View style={styles.selectedBadge}>
-                                <Ionicons name="checkmark" size={14} color="#fff" />
+                                <Ionicons name="checkmark" size={12} color="#fff" />
                             </View>
                         )}
                         {!!item.video_url && (
@@ -171,28 +187,15 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
                                 <Ionicons name="play" size={10} color="#fff" />
                             </View>
                         )}
-                    </View>
-
-                    <View style={styles.rowContent}>
-                        <View style={styles.rowTitleContainer}>
-                            <Text style={styles.rowName} numberOfLines={1}>
-                                {item.name}
-                            </Text>
-                            {isPro_item && !isPro && (
-                                <View style={styles.proPill}>
-                                    <Text style={styles.proPillText}>PRO</Text>
-                                </View>
-                            )}
-                        </View>
-                        <View style={item.is_dark ? styles.darkBadge : styles.lightBadge}>
+                        
+                        {/* Mode overlay icon */}
+                        <View style={item.is_dark ? styles.darkIconOverlay : styles.lightIconOverlay}>
                             <Ionicons name={item.is_dark ? "moon" : "sunny"} size={10} color={item.is_dark ? "#fff" : "#FFB800"} />
-                            <Text style={item.is_dark ? styles.modeText : styles.modeTextLight}>{item.is_dark ? "Dark" : "Light"}</Text>
                         </View>
                     </View>
-
-                    <View style={styles.rowRight}>
-                        <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.2)" />
-                    </View>
+                    <Text style={styles.bgName} numberOfLines={1}>
+                        {item.name}
+                    </Text>
                 </Pressable>
             );
         },
@@ -200,9 +203,9 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
     );
 
     const renderSkeleton = () => (
-        <View style={styles.skeletonContainer}>
-            {Array.from({ length: 5 }).map((_, i) => (
-                <Animated.View key={i} style={[styles.skeletonRow, { opacity: shimmerOpacity }]} />
+        <View style={styles.skeletonGrid}>
+            {Array.from({ length: 9 }).map((_, i) => (
+                <Animated.View key={i} style={[styles.skeletonItem, { opacity: shimmerOpacity }]} />
             ))}
         </View>
     );
@@ -237,10 +240,12 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
                     keyExtractor={(item) => item.id}
                     contentContainerStyle={styles.listContent}
                     showsVerticalScrollIndicator={false}
-                    ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
-                    getItemLayout={(data, index) => (
-                        { length: 76 + 12, offset: (76 + 12) * index, index }
-                    )}
+                    numColumns={3}
+                    columnWrapperStyle={styles.columnWrapper}
+                    getItemLayout={(data, index) => {
+                        const h = ITEM_WIDTH / 0.72 + 20; // Approx height with name
+                        return { length: h, offset: h * index, index };
+                    }}
                     onScrollToIndexFailed={(info) => {
                         console.warn("Scroll to index failed:", info);
                     }}
@@ -275,78 +280,116 @@ const styles = StyleSheet.create({
     retryText: { fontSize: 16, fontWeight: "600", color: "#8B5CF6" },
     listContent: { paddingHorizontal: 20, paddingBottom: 40, paddingTop: 8 },
 
-    rowItem: {
-        flexDirection: "row", alignItems: "center",
-        backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 20,
-        padding: 10, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)",
-    },
-    rowItemSelected: {
-        backgroundColor: "rgba(139, 92, 246, 0.15)", borderColor: "#8B5CF6",
+    gridItem: {
+        width: ITEM_WIDTH,
+        alignItems: "center",
+        marginBottom: GRID_GAP + 6,
     },
     pressed: {
-        transform: [{ scale: 0.98 }], backgroundColor: "rgba(255,255,255,0.12)",
+        transform: [{ scale: 0.95 }],
     },
-    previewContainer: { position: "relative", marginRight: 16 },
+    previewContainer: {
+        width: "100%",
+        aspectRatio: 0.72,
+        borderRadius: 18,
+        overflow: "hidden",
+        position: "relative",
+        marginBottom: 6,
+        backgroundColor: "rgba(255,255,255,0.05)",
+        borderWidth: 2,
+        borderColor: "transparent",
+    },
     preview: {
-        width: 88, height: 56, borderRadius: 12, backgroundColor: "rgba(0,0,0,0.2)",
+        width: "100%",
+        height: "100%",
+    },
+    lockOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: "rgba(0,0,0,0.35)",
+    },
+    lockIconBadge: {
+        position: "absolute",
+        top: 6,
+        right: 6,
+        backgroundColor: "rgba(0,0,0,0.6)",
+        width: 22,
+        height: 22,
+        borderRadius: 11,
+        alignItems: "center",
+        justifyContent: "center",
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.2)",
     },
     videoBadge: {
-        position: "absolute", top: 4, left: 4,
-        width: 20, height: 20, borderRadius: 10,
-        backgroundColor: "rgba(0,0,0,0.6)", alignItems: "center", justifyContent: "center",
+        position: "absolute", 
+        bottom: 6, 
+        left: 6,
+        width: 20, 
+        height: 20, 
+        borderRadius: 10,
+        backgroundColor: "rgba(0,0,0,0.6)", 
+        alignItems: "center", 
+        justifyContent: "center",
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.1)",
     },
     selectedBadge: {
-        position: "absolute", bottom: -6, right: -6,
-        backgroundColor: "#8B5CF6", width: 22, height: 22, borderRadius: 11,
-        alignItems: "center", justifyContent: "center",
-        borderWidth: 2, borderColor: "#000",
+        position: "absolute",
+        top: 6,
+        right: 6,
+        backgroundColor: "#8B5CF6",
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        alignItems: "center",
+        justifyContent: "center",
+        borderWidth: 1.5,
+        borderColor: "rgba(255,255,255,0.3)",
     },
-    rowContent: { flex: 1, justifyContent: "center" },
-    rowTitleContainer: { flexDirection: "row", alignItems: "center" },
-    rowName: { fontSize: 17, fontWeight: "700", color: "#FFFFFF" },
-    proPill: {
-        backgroundColor: "#8b5cf6", paddingHorizontal: 6, paddingVertical: 2,
-        borderRadius: 6, marginLeft: 8, borderWidth: 1, borderColor: "rgba(255,255,255,1)",
+    bgName: {
+        fontSize: 12,
+        fontWeight: "600",
+        color: "#FFFFFF",
+        textAlign: "center",
+        width: "100%",
     },
-    proPillText: { fontSize: 9, fontWeight: "900", color: "#fff" },
-    rowRight: { marginLeft: 12, alignItems: "center", justifyContent: "center" },
-
-    skeletonContainer: { paddingHorizontal: 20, gap: 12 },
-    skeletonRow: {
-        width: "100%", height: 76, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.06)",
+    columnWrapper: {
+        justifyContent: "flex-start",
+        gap: GRID_GAP,
     },
-    darkBadge: {
-        flexDirection: 'row',
+    skeletonGrid: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        paddingHorizontal: GRID_PADDING,
+        gap: GRID_GAP,
+    },
+    skeletonItem: {
+        width: ITEM_WIDTH,
+        aspectRatio: 0.72,
+        borderRadius: 18,
+        backgroundColor: "rgba(255,255,255,0.06)",
+        marginBottom: GRID_GAP,
+    },
+    darkIconOverlay: {
+        position: 'absolute',
+        bottom: 6,
+        right: 6,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        width: 20,
+        height: 20,
+        borderRadius: 10,
         alignItems: 'center',
-        backgroundColor: 'rgba(0,0,0,0.4)',
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        borderRadius: 6,
-        marginTop: 4,
-        alignSelf: 'flex-start',
-        gap: 4,
+        justifyContent: 'center',
     },
-    lightBadge: {
-        flexDirection: 'row',
+    lightIconOverlay: {
+        position: 'absolute',
+        bottom: 6,
+        right: 6,
+        backgroundColor: 'rgba(255,255,255,0.8)',
+        width: 20,
+        height: 20,
+        borderRadius: 10,
         alignItems: 'center',
-        backgroundColor: 'rgba(255, 255, 255, 0.9)',
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        borderRadius: 6,
-        marginTop: 4,
-        alignSelf: 'flex-start',
-        gap: 4,
-    },
-    modeText: {
-        fontSize: 9,
-        fontWeight: '700',
-        color: '#FFF',
-        textTransform: 'uppercase',
-    },
-    modeTextLight: {
-        fontSize: 9,
-        fontWeight: '800',
-        color: '#000',
-        textTransform: 'uppercase',
+        justifyContent: 'center',
     },
 });
