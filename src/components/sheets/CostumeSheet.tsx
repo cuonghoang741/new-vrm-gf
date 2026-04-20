@@ -159,7 +159,9 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
                         />
                         {isLocked && !isSelected && (
                             <View style={styles.lockOverlay}>
-                                <Ionicons name="lock-closed" size={24} color="#FFF" />
+                                <View style={styles.lockIconBadge}>
+                                    <Ionicons name="lock-closed" size={12} color="#FFF" />
+                                </View>
                             </View>
                         )}
                         {isSelected && !isLocked && (
@@ -276,9 +278,20 @@ const styles = StyleSheet.create({
     },
     lockOverlay: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: "rgba(0,0,0,0.5)",
+        backgroundColor: "rgba(0,0,0,0.35)",
+    },
+    lockIconBadge: {
+        position: "absolute",
+        top: 6,
+        right: 6,
+        backgroundColor: "rgba(0,0,0,0.6)",
+        width: 22,
+        height: 22,
+        borderRadius: 11,
         alignItems: "center",
         justifyContent: "center",
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.2)",
     },
     selectedBadge: {
         position: "absolute",
