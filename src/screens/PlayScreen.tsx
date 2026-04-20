@@ -1402,6 +1402,7 @@ const styles = StyleSheet.create({
     toggleLabelActive: {
         color: '#FFFFFF',
     },
+
     proBadgeLeft: {
         position: 'absolute',
         top: -6,
@@ -1410,8 +1411,6 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         paddingHorizontal: 6,
         paddingVertical: 2,
-        borderWidth: 1.5,
-        borderColor: '#000',
         zIndex: 10,
     },
     proBadgeLeftText: {
