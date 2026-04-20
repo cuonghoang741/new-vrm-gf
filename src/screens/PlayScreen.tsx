@@ -103,6 +103,7 @@ export default function PlayScreen() {
     const [characterAvatar, setCharacterAvatar] = useState<string | null>(null);
     const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null);
     const [backgroundId, setBackgroundId] = useState<string | null>(null);
+    const [isBackgroundDark, setIsBackgroundDark] = useState(true); // default dark
     const [vrmReady, setVrmReady] = useState(false);
     const [is3DMode, setIs3DMode] = useState(false); // Only PRO can enable
     const [agentElevenlabsId, setAgentElevenlabsId] = useState<string | null>(null);
@@ -401,10 +402,11 @@ export default function PlayScreen() {
                 let bgUrl: string | null = null;
                 if (bgId) {
                     setBackgroundId(bgId);
-                    const { data: bg } = await supabase.from("backgrounds").select("image").eq("id", bgId).single();
+                    const { data: bg } = await supabase.from("backgrounds").select("image, is_dark").eq("id", bgId).single();
                     if (bg?.image) {
                         bgUrl = bg.image;
                         setBackgroundUrl(bgUrl);
+                        setIsBackgroundDark(bg.is_dark ?? true);
                     }
                 }
 
@@ -1078,6 +1080,7 @@ export default function PlayScreen() {
                     agentElevenlabsId={agentElevenlabsId}
                     isPro={isPro}
                     is3DMode={is3DMode}
+                    isBackgroundDark={isBackgroundDark}
                     isDancing={isDancing}
                     isCameraMode={isCameraMode}
                     onOpenCharacter={() => setCharSheetOpen(true)}

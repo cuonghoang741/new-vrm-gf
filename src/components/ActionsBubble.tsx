@@ -25,6 +25,7 @@ interface ActionsBubbleProps {
     isPro: boolean;
     is3DMode: boolean;
     isDancing: boolean;
+    isBackgroundDark?: boolean;
     isCameraMode: boolean;
     onOpenCharacter: () => void;
     onOpenCostume: () => void;
@@ -43,6 +44,7 @@ export default function ActionsBubble({
     agentElevenlabsId,
     isPro,
     is3DMode,
+    isBackgroundDark = true,
     isDancing,
     isCameraMode,
     onOpenCharacter,
@@ -59,6 +61,8 @@ export default function ActionsBubble({
     const isInCall = ["connected", "connecting"].includes(conversationStatus);
     const [showLabels, setShowLabels] = useState(false);
 
+    const iconColor = isBackgroundDark ? '#FFFFFF' : '#0F051E';
+
     return (
         <View style={styles.actionsBubble}>
             {/* ─── Toggle Labels Button ─── */}
@@ -67,6 +71,7 @@ export default function ActionsBubble({
                 size="sm"
                 isIconOnly
                 startIcon={showLabels ? IconChevronUp : IconChevronDown}
+                startIconColor={iconColor}
                 onPress={() => setShowLabels(!showLabels)}
             />
 
@@ -77,6 +82,7 @@ export default function ActionsBubble({
                         variant="liquid"
                         size="sm"
                         startIcon={IconSettings}
+                        startIconColor={iconColor}
                         onPress={onOpenSettings}
                         isIconOnly={!showLabels}
                     >
@@ -87,6 +93,7 @@ export default function ActionsBubble({
                             variant="liquid"
                             size="sm"
                             startIcon={IconUser}
+                            startIconColor={iconColor}
                             onPress={onOpenCharacter}
                             isIconOnly={!showLabels}
                         >
@@ -100,6 +107,7 @@ export default function ActionsBubble({
                             variant="liquid"
                             size="sm"
                             startIcon={IconWoman}
+                            startIconColor={iconColor}
                             onPress={onOpenCostume}
                             isIconOnly={!showLabels}
                         >
@@ -111,6 +119,7 @@ export default function ActionsBubble({
                         variant="liquid"
                         size="sm"
                         startIcon={IconMap2}
+                        startIconColor={iconColor}
                         onPress={onOpenScene}
                         isIconOnly={!showLabels}
                     >
@@ -121,6 +130,7 @@ export default function ActionsBubble({
                             variant="liquid"
                             size="sm"
                             startIcon={IconPhoto}
+                            startIconColor={iconColor}
                             onPress={onOpenGallery}
                             isIconOnly={!showLabels}
                         >
@@ -133,7 +143,7 @@ export default function ActionsBubble({
                             variant="liquid"
                             size="sm"
                             startIcon={isDancing ? IconX : IconMusic}
-                            startIconColor={isDancing ? "#EF4444" : undefined}
+                            startIconColor={isDancing ? "#EF4444" : iconColor}
                             onPress={onToggleDance}
                             isIconOnly={!showLabels}
                         >
@@ -151,7 +161,7 @@ export default function ActionsBubble({
                     variant="liquid"
                     size="sm"
                     startIcon={IconVideo}
-                    startIconColor={isCameraMode ? '#8B5CF6' : undefined}
+                    startIconColor={isCameraMode ? '#8B5CF6' : iconColor}
                     onPress={onToggleCamera}
                     isIconOnly={!showLabels}
                 >
@@ -167,7 +177,7 @@ export default function ActionsBubble({
                         colorScheme={isInCall ? "error" : undefined}
                         size="sm"
                         startIcon={isInCall ? IconPhoneOff : IconPhoneCall}
-                        startIconColor={isInCall ? '#FFF' : undefined}
+                        startIconColor={isInCall ? '#FFF' : iconColor}
                         onPress={onToggleCall}
                         isIconOnly={!showLabels}
                     >

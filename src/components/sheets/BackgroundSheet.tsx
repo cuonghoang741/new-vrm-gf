@@ -20,6 +20,7 @@ interface Background {
     image: string;
     tier: string | null;
     video_url: string | null;
+    is_dark?: boolean;
 }
 
 interface BackgroundSheetProps {
@@ -62,7 +63,7 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
         try {
             const { data, error } = await supabase
                 .from("backgrounds")
-                .select("id, name, thumbnail, image, tier, video_url")
+                .select("id, name, thumbnail, image, tier, video_url, is_dark")
                 .eq("available", true)
                 .eq("public", true)
                 .order("created_at", { ascending: true });
