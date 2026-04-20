@@ -6,12 +6,18 @@ import {
     Pressable,
     FlatList,
     Animated,
+    Dimensions,
 } from "react-native";
 import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { supabase } from "../../config/supabase";
 import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
+
+const { width } = Dimensions.get("window");
+const GRID_PADDING = 20;
+const GRID_GAP = 12;
+const ITEM_WIDTH = (width - (GRID_PADDING * 2) - (GRID_GAP * 2)) / 3;
 
 interface Costume {
     id: string;
@@ -129,48 +135,40 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
     const renderItem = useCallback(
         ({ item }: { item: Costume }) => {
             const isSelected = item.model_url === currentCostumeUrl;
-            const isPro_item = item.tier === "pro";
+            const isProItem = item.tier === "pro";
             const isOwned = ownedIds.has(item.id);
+            const isLocked = isProItem && !isPro && !isOwned;
 
             return (
                 <Pressable
                     onPress={() => handleSelect(item)}
                     style={({ pressed }) => [
-                        styles.rowItem,
-                        isSelected && styles.rowItemSelected,
+                        styles.gridItem,
+                        isSelected && styles.gridItemSelected,
                         pressed && styles.pressed,
                     ]}
                 >
-                    <View style={styles.rowAvatarContainer}>
+                    <View style={styles.avatarContainer}>
                         <Image
                             source={{ uri: item.thumbnail ?? undefined }}
-                            style={styles.rowAvatar}
+                            style={styles.avatar}
                             contentFit="cover"
                             transition={200}
                         />
-                        {isSelected && (
+                        {isLocked && (
+                            <View style={styles.lockOverlay}>
+                                <Ionicons name="lock-closed" size={24} color="#FFF" />
+                            </View>
+                        )}
+                        {isSelected && !isLocked && (
                             <View style={styles.selectedBadge}>
-                                <Ionicons name="checkmark" size={14} color="#fff" />
+                                <Ionicons name="checkmark" size={12} color="#fff" />
                             </View>
                         )}
                     </View>
-
-                    <View style={styles.rowContent}>
-                        <View style={styles.rowTitleContainer}>
-                            <Text style={styles.rowName} numberOfLines={1}>
-                                {item.costume_name}
-                            </Text>
-                            {isPro_item && !isPro && !isOwned && (
-                                <View style={styles.proPill}>
-                                    <Text style={styles.proPillText}>PRO</Text>
-                                </View>
-                            )}
-                        </View>
-                    </View>
-
-                    <View style={styles.rowRight}>
-                        <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.2)" />
-                    </View>
+                    <Text style={styles.costumeName} numberOfLines={1}>
+                        {item.costume_name}
+                    </Text>
                 </Pressable>
             );
         },
@@ -178,9 +176,9 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
     );
 
     const renderSkeleton = () => (
-        <View style={styles.skeletonContainer}>
-            {Array.from({ length: 4 }).map((_, i) => (
-                <Animated.View key={i} style={[styles.skeletonRow, { opacity: shimmerOpacity }]} />
+        <View style={styles.skeletonGrid}>
+            {Array.from({ length: 9 }).map((_, i) => (
+                <Animated.View key={i} style={[styles.skeletonItem, { opacity: shimmerOpacity }]} />
             ))}
         </View>
     );
@@ -214,7 +212,8 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
                     keyExtractor={(item) => item.id}
                     contentContainerStyle={styles.listContent}
                     showsVerticalScrollIndicator={false}
-                    ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+                    numColumns={3}
+                    columnWrapperStyle={styles.columnWrapper}
                 />
             </View>
         );
@@ -246,39 +245,77 @@ const styles = StyleSheet.create({
     retryText: { fontSize: 16, fontWeight: "600", color: "#8B5CF6" },
     listContent: { paddingHorizontal: 20, paddingBottom: 40, paddingTop: 8 },
 
-    rowItem: {
-        flexDirection: "row", alignItems: "center",
-        backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 20,
-        padding: 12, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)",
+    gridItem: {
+        width: ITEM_WIDTH,
+        backgroundColor: "rgba(255,255,255,0.06)",
+        borderRadius: ITEM_WIDTH * 0.25,
+        padding: 8,
+        alignItems: "center",
+        borderWidth: 1.5,
+        borderColor: "rgba(255,255,255,0.05)",
+        marginBottom: GRID_GAP,
     },
-    rowItemSelected: {
-        backgroundColor: "rgba(139, 92, 246, 0.15)", borderColor: "#8B5CF6",
+    gridItemSelected: {
+        backgroundColor: "rgba(139, 92, 246, 0.15)",
+        borderColor: "#8B5CF6",
     },
     pressed: {
-        transform: [{ scale: 0.98 }], backgroundColor: "rgba(255,255,255,0.12)",
+        transform: [{ scale: 0.96 }],
+        backgroundColor: "rgba(255,255,255,0.12)",
     },
-    rowAvatarContainer: { position: "relative", marginRight: 16 },
-    rowAvatar: {
-        width: 60, height: 60, borderRadius: 16, backgroundColor: "rgba(0,0,0,0.2)",
+    avatarContainer: {
+        width: "100%",
+        aspectRatio: 1,
+        borderRadius: ITEM_WIDTH * 0.2,
+        overflow: "hidden",
+        position: "relative",
+        marginBottom: 8,
+        backgroundColor: "rgba(0,0,0,0.2)",
+    },
+    avatar: {
+        width: "100%",
+        height: "100%",
+    },
+    lockOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: "rgba(0,0,0,0.5)",
+        alignItems: "center",
+        justifyContent: "center",
     },
     selectedBadge: {
-        position: "absolute", bottom: -6, right: -6,
-        backgroundColor: "#8B5CF6", width: 22, height: 22, borderRadius: 11,
-        alignItems: "center", justifyContent: "center",
-        borderWidth: 2, borderColor: "#000",
+        position: "absolute",
+        top: 6,
+        right: 6,
+        backgroundColor: "#8B5CF6",
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        alignItems: "center",
+        justifyContent: "center",
+        borderWidth: 1.5,
+        borderColor: "rgba(255,255,255,0.3)",
     },
-    rowContent: { flex: 1, justifyContent: "center" },
-    rowTitleContainer: { flexDirection: "row", alignItems: "center" },
-    rowName: { fontSize: 17, fontWeight: "700", color: "#FFFFFF" },
-    proPill: {
-        backgroundColor: "#8b5cf6", paddingHorizontal: 6, paddingVertical: 2,
-        borderRadius: 6, marginLeft: 8, borderWidth: 1, borderColor: "rgba(255,255,255,1)",
+    costumeName: {
+        fontSize: 12,
+        fontWeight: "600",
+        color: "#FFFFFF",
+        textAlign: "center",
+        width: "100%",
     },
-    proPillText: { fontSize: 9, fontWeight: "900", color: "#fff" },
-    rowRight: { marginLeft: 12, alignItems: "center", justifyContent: "center" },
-
-    skeletonContainer: { paddingHorizontal: 20, gap: 12 },
-    skeletonRow: {
-        width: "100%", height: 84, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.06)",
+    columnWrapper: {
+        justifyContent: "flex-start",
+        gap: GRID_GAP,
+    },
+    skeletonGrid: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        paddingHorizontal: GRID_PADDING,
+        gap: GRID_GAP,
+    },
+    skeletonItem: {
+        width: ITEM_WIDTH,
+        aspectRatio: 0.8,
+        borderRadius: 22,
+        backgroundColor: "rgba(255,255,255,0.06)",
     },
 });
