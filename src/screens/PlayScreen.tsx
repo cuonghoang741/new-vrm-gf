@@ -38,7 +38,7 @@ import {
     IconPhoneCall,
     IconVideo,
     IconPhone,
-    IconChevronDown,
+    IconBadge3d,
     IconLock,
 } from "@tabler/icons-react-native";
 
@@ -1022,6 +1022,30 @@ export default function PlayScreen() {
                 </View>
             </View>
 
+            <View style={styles.leftFloatingContainer}>
+                <Button
+                    variant="liquid"
+                    tintColor={is3DMode && isPro ? '#8B5CF6' : 'rgba(255, 255, 255, 0.2)'}
+                    textColor="#FFFFFF"
+                    onPress={() => {
+                        if (!isPro) {
+                            setSubscriptionOpen(true);
+                        } else {
+                            setVrmReady(false);
+                            setIs3DMode(prev => !prev);
+                        }
+                    }}
+                    style={styles.impressive3DBtn}
+                >
+                    3D MODE
+                </Button>
+                {!isPro && (
+                    <View style={styles.proBadgeLeft}>
+                        <Text style={styles.proBadgeLeftText}>PRO</Text>
+                    </View>
+                )}
+            </View>
+
             {/* ─── Top right bubble actions ─── */}
             {!isKeyboardVisible && (
                 <ActionsBubble
@@ -1055,14 +1079,7 @@ export default function PlayScreen() {
                             }
                         }
                     }}
-                    onToggle3D={() => {
-                        if (!isPro) {
-                            setSubscriptionOpen(true);
-                        } else {
-                            setVrmReady(false);
-                            setIs3DMode(prev => !prev);
-                        }
-                    }}
+                    onToggle3D={() => {}} // Now handled independently on the left
                     onToggleCall={handleToggleVoiceMode}
                     onToggleCamera={handleToggleCameraMode}
                     onOpenSubscription={() => setSubscriptionOpen(true)}
@@ -1314,7 +1331,36 @@ const styles = StyleSheet.create({
         ...StyleSheet.absoluteFillObject,
     },
 
-    // 3D toggle PRO badge
+    // 3D toggle independent
+    leftFloatingContainer: {
+        position: 'absolute',
+        left: 20,
+        top: Platform.OS === 'ios' ? 140 : 120, // Below topBar info
+        zIndex: 100,
+    },
+    impressive3DBtn: {
+        width: 100,
+        height: 48,
+        borderRadius: 14,
+        borderWidth: 1.5,
+        borderColor: 'rgba(255,255,255,0.25)',
+    },
+    proBadgeLeft: {
+        position: 'absolute',
+        top: -4,
+        right: -4,
+        backgroundColor: '#F59E0B',
+        borderRadius: 6,
+        paddingHorizontal: 4,
+        paddingVertical: 1,
+    },
+    proBadgeLeftText: {
+        fontSize: 7,
+        fontWeight: "900",
+        color: "#fff",
+    },
+
+    // 3D toggle PRO badge (legacy)
     proBadgeMini: {
         position: "absolute", top: -4, right: -4,
         backgroundColor: "#F59E0B", borderRadius: 6,

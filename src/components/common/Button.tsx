@@ -32,8 +32,9 @@ export interface ButtonProps {
   startIconVariant?: never;
   endIconSize?: number;
   endIconColor?: string;
-  endIconVariant?: never;
   endIcon?: React.ElementType;
+  endIconVariant?: never;
+  textColor?: string;
   onPress?: () => void;
 }
 
@@ -58,6 +59,7 @@ const Button: React.FC<ButtonProps> = ({
   onPress,
   style,
   shadow = 'none',
+  textColor,
 
   // Liquid glass props
   liquidEffect = 'clear',
@@ -75,6 +77,7 @@ const Button: React.FC<ButtonProps> = ({
     loading: !!loading,
     isIconOnly,
     shadow,
+    textColor,
   }).text.color as string;
 
   const buttonContent = (
@@ -109,6 +112,7 @@ const Button: React.FC<ButtonProps> = ({
                 loading: !!loading,
                 isIconOnly,
                 shadow,
+                textColor,
               }).text
             }
           >
@@ -259,6 +263,7 @@ function makeButtonStyles(
     isIconOnly,
     pressed,
     shadow = 'none',
+    textColor,
   }: Required<
     Pick<
       ButtonProps,
@@ -271,7 +276,7 @@ function makeButtonStyles(
       | 'isIconOnly'
       | 'shadow'
     >
-  > & { pressed?: boolean },
+  > & { pressed?: boolean; textColor?: string },
 ) {
   // size variants
   const sizeStyles = {
@@ -461,8 +466,8 @@ function makeButtonStyles(
       ...fullWidthStyle,
     },
     text: {
-      fontWeight: '500',
-      color: variant === 'liquid' ? '#000000' : variantStyles.textColor,
+      fontWeight: '600',
+      color: textColor || (variant === 'liquid' ? '#000000' : variantStyles.textColor),
       fontSize: sizeStyles[size].fontSize,
     },
     // Simulate an inner white glow for whiteShadow using a semi-transparent overlay

@@ -141,19 +141,7 @@ export default function ActionsBubble({
                         </Button>
                         {!isPro && <View style={styles.proBadgeMini}><Text style={styles.proBadgeMiniText}>PRO</Text></View>}
                     </View>
-                    <View>
-                        <Button
-                            variant="liquid"
-                            size="sm"
-                            startIcon={IconBadge3d}
-                            startIconColor={is3DMode && isPro ? '#8B5CF6' : undefined}
-                            onPress={onToggle3D}
-                            isIconOnly={!showLabels}
-                        >
-                            3D
-                        </Button>
-                        {!isPro && <View style={styles.proBadgeMini}><Text style={styles.proBadgeMiniText}>PRO</Text></View>}
-                    </View>
+
                 </>
             )}
 
