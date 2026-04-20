@@ -124,8 +124,9 @@ For other actions, parameters can be empty {}.`;
 async function fetchWithRetry(
     url: string,
     options: RequestInit,
-    maxRetries: number = 5,
-    initialDelayMs: number = 1000
+    maxRetries: number = 3,
+    initialDelayMs: number = 1000,
+    contextInfo: string = ""
 ): Promise<Response> {
     let lastError: Error | null = null;
 
@@ -133,30 +134,49 @@ async function fetchWithRetry(
         try {
             const response = await fetch(url, options);
 
-            // If response is ok or it's a client error (4xx), don't retry
             if (response.ok || (response.status >= 400 && response.status < 500)) {
                 return response;
             }
 
-            // Server error (5xx) - retry
             const errorText = await response.text();
-            lastError = new Error(`Gemini API error: ${response.status} - ${errorText}`);
-            console.log(`[gemini-suggest-action] Attempt ${attempt}/${maxRetries} failed with status ${response.status}`);
+            lastError = new Error(`Gemini status ${response.status}: ${errorText}`);
+            console.log(`[gemini-suggest-action] Attempt ${attempt}/${maxRetries} failed: ${lastError.message}`);
         } catch (error) {
-            // Network error - retry
             lastError = error instanceof Error ? error : new Error(String(error));
-            console.log(`[gemini-suggest-action] Attempt ${attempt}/${maxRetries} failed with error: ${lastError.message}`);
+            console.log(`[gemini-suggest-action] Attempt ${attempt}/${maxRetries} network error: ${lastError.message}`);
         }
 
-        // Wait before retrying (exponential backoff)
         if (attempt < maxRetries) {
             const delay = initialDelayMs * Math.pow(2, attempt - 1);
-            console.log(`[gemini-suggest-action] Retrying in ${delay}ms...`);
             await new Promise(resolve => setTimeout(resolve, delay));
         }
     }
 
+    // Try to notify Telegram before throwing
+    await sendTelegramError(`Gemini fully failed after ${maxRetries} attempts.\nError: ${lastError?.message}`, contextInfo);
+
     throw lastError || new Error('All retry attempts failed');
+}
+
+async function sendTelegramError(message: string, context: string = '') {
+    const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
+    const CHAT_ID = Deno.env.get("TELEGRAM_CHAT_ID");
+    if (!BOT_TOKEN || !CHAT_ID) return;
+
+    try {
+        const text = `❌ *SUGGEST ACTION ERROR*\n\n${message}\n\n*Context:*\n${context}`;
+        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: CHAT_ID,
+                text: text,
+                parse_mode: 'Markdown'
+            })
+        });
+    } catch (e) {
+        console.error('[Telegram] Failed to send error:', e);
+    }
 }
 
 serve(async (req: Request) => {
@@ -184,35 +204,84 @@ serve(async (req: Request) => {
             );
         }
 
-        // Call Gemini API with retry
-        const geminiResponse = await fetchWithRetry(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
-            {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    contents: [
-                        {
-                            role: "user",
-                            parts: [{ text: `${SYSTEM_PROMPT}\n\nUser message to analyze: "${message}"` }]
+        let responseText = "";
+        const contextInfo = `Action suggest for message: "${message.substring(0, 40)}${message.length > 40 ? '...' : ''}"`;
+
+        try {
+            // Call Gemini API with retry
+            const geminiResponse = await fetchWithRetry(
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        contents: [
+                            {
+                                role: "user",
+                                parts: [{ text: `${SYSTEM_PROMPT}\n\nUser message to analyze: "${message}"` }]
+                            }
+                        ],
+                        generationConfig: {
+                            temperature: 0.1,
+                            maxOutputTokens: 300,
                         }
-                    ],
-                    generationConfig: {
-                        temperature: 0.1, // Low temperature for consistent classification
-                        maxOutputTokens: 300,
-                    }
-                })
+                    })
+                },
+                2, 1000, contextInfo
+            );
+
+            if (!geminiResponse.ok) {
+                const errorText = await geminiResponse.text();
+                throw new Error(`Gemini status ${geminiResponse.status}: ${errorText}`);
             }
-        );
 
-        if (!geminiResponse.ok) {
-            const errorText = await geminiResponse.text();
-            console.error("Gemini API error:", errorText);
-            throw new Error(`Gemini API error: ${geminiResponse.status}`);
+            const geminiData = await geminiResponse.json();
+            responseText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+            
+            if (!responseText) throw new Error("Gemini returned an empty response");
+
+        } catch (geminiError: any) {
+            console.error(`[gemini-suggest-action] Gemini failed: ${geminiError.message}. Attempting OpenAI fallback...`);
+            
+            try {
+                const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+                if (!OPENAI_API_KEY) throw new Error("OpenAI API key not configured");
+
+                const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${OPENAI_API_KEY}`
+                    },
+                    body: JSON.stringify({
+                        model: "gpt-4o-mini",
+                        messages: [
+                            { role: "system", content: SYSTEM_PROMPT },
+                            { role: "user", content: `User message to analyze: "${message}"` }
+                        ],
+                        temperature: 0.1,
+                        response_format: { type: "json_object" }
+                    })
+                });
+
+                if (!openaiResponse.ok) {
+                    const errText = await openaiResponse.text();
+                    throw new Error(`OpenAI status ${openaiResponse.status}: ${errText}`);
+                }
+
+                const openaiData = await openaiResponse.json();
+                responseText = openaiData.choices?.[0]?.message?.content || "";
+                
+                if (!responseText) throw new Error("OpenAI returned an empty response");
+                
+                console.log('[gemini-suggest-action] OpenAI fallback successful');
+                await sendTelegramError(`⚠️ Gemini failed, used OpenAI fallback.\nGemini Error: ${geminiError.message}`, contextInfo + "\n(AUTO-FALLBACK)");
+            } catch (openaiError: any) {
+                console.error(`[gemini-suggest-action] OpenAI fallback also failed: ${openaiError.message}`);
+                // Proceed to default result
+                responseText = "{}"; 
+            }
         }
-
-        const geminiData = await geminiResponse.json();
-        const responseText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
         // Parse the JSON response from Gemini
         let result = { action: "none", confidence: 1.0, parameters: {}, reasoning: "Failed to parse response" };

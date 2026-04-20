@@ -190,11 +190,8 @@ export default function PlayScreen() {
             },
             onError: (err: any) => console.error("ElevenLabs Error:", err),
             onModeChange: ({ mode }: any) => {
-                if (mode === "speaking") {
-                    vrmRef.current?.setMouthOpen(0.6);
-                } else {
-                    vrmRef.current?.setMouthOpen(0);
-                }
+                // Disabled mouth movement per user request
+                vrmRef.current?.setMouthOpen(0);
             },
             onMessage: (props: { message: string; source: string }) => {
                 if (!props.message || !characterId || !user?.id) return;

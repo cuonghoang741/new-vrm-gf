@@ -1089,8 +1089,7 @@
             const targetVrm = vrm;
             console.log('Starting ambient expressions for VRM:', vrm);
             const positiveCandidates = [
-                'happy', 'joy', 'fun', 'relaxed', 'lowered', 'raised', // generic positive/eyebrow
-                'ee', 'oh', 'aa', 'ih', 'ou' // subtle mouth shapes (speech-like micro-movements)
+                'happy', 'joy', 'fun', 'relaxed', 'lowered', 'raised' // generic positive/eyebrow
             ];
 
             let raf = null;
@@ -1890,6 +1889,8 @@
         let __speechActiveUntil = 0; // ms timestamp while speech is considered active
         let __lastMouthLogTime = 0;
         window.setMouthOpen = (v) => {
+            // Disabled mouth movement per user request
+            return;
             try {
                 // Amplify and bias for stronger lipsync
                 const raw = Math.max(0, Math.min(1, Number(v) || 0));
