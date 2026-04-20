@@ -120,12 +120,8 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
             const index = backgrounds.findIndex(bg => bg.id === currentBackgroundId);
             if (index !== -1) {
                 setTimeout(() => {
-                    listRef.current?.scrollToIndex({ 
-                        index, 
-                        animated: true, 
-                        viewPosition: 0.5 
-                    });
-                }, 400);
+                    listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
+                }, 300);
             }
         }
     }, [isOpened, backgrounds, currentBackgroundId]);
@@ -165,15 +161,17 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
                     ]}
                 >
                     <View style={[
-                        styles.previewContainer,
-                        isSelected && { borderColor: "#8B5CF6", backgroundColor: "rgba(139, 92, 246, 0.1)" }
+                        styles.avatarContainer,
+                        isSelected && styles.avatarContainerSelected
                     ]}>
                         <Image
                             source={{ uri: item.thumbnail ?? item.image }}
-                            style={styles.preview}
+                            style={styles.avatar}
                             contentFit="cover"
                             transition={200}
                         />
+                        
+                        {/* Status Badges */}
                         {isLocked && !isSelected && (
                             <View style={styles.lockOverlay}>
                                 <View style={styles.lockIconBadge}>
@@ -181,22 +179,29 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
                                 </View>
                             </View>
                         )}
+                        
+                        {!!item.video_url && (
+                            <View style={styles.videoBadge}>
+                                <Ionicons name="play" size={8} color="#fff" />
+                            </View>
+                        )}
+
                         {isSelected && !isLocked && (
                             <View style={styles.selectedBadge}>
                                 <Ionicons name="checkmark" size={12} color="#fff" />
                             </View>
                         )}
-                        {!!item.video_url && (
-                            <View style={styles.videoBadge}>
-                                <Ionicons name="play" size={10} color="#fff" />
-                            </View>
-                        )}
-                        
-                        {/* Mode overlay icon */}
-                        <View style={item.is_dark ? styles.darkIconOverlay : styles.lightIconOverlay}>
-                            <Ionicons name={item.is_dark ? "moon" : "sunny"} size={10} color={item.is_dark ? "#fff" : "#FFB800"} />
+
+                        {/* Mode Indicator Overlay */}
+                        <View style={item.is_dark ? styles.darkBadgeOverlay : styles.lightBadgeOverlay}>
+                            <Ionicons 
+                                name={item.is_dark ? "moon" : "sunny"} 
+                                size={8} 
+                                color={item.is_dark ? "#fff" : "#FFB800"} 
+                            />
                         </View>
                     </View>
+                    
                     <Text style={styles.bgName} numberOfLines={1}>
                         {item.name}
                     </Text>
@@ -247,12 +252,11 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
                     numColumns={3}
                     columnWrapperStyle={styles.columnWrapper}
                     getItemLayout={(data, index) => {
-                        const rowHeight = ITEM_WIDTH / 0.72 + 35; 
-                        const rowIndex = Math.floor(index / 3);
-                        return { length: rowHeight, offset: rowHeight * rowIndex, index };
+                        const rowHeight = ITEM_WIDTH / 0.72 + 30; // approx height of item + gap
+                        return { length: rowHeight, offset: rowHeight * Math.floor(index / 3), index };
                     }}
                     onScrollToIndexFailed={(info) => {
-                        console.warn("Scroll to index failed:", info);
+                        listRef.current?.scrollToOffset({ offset: info.averageItemLength * Math.floor(info.index / 3), animated: true });
                     }}
                 />
             </View>
@@ -293,7 +297,7 @@ const styles = StyleSheet.create({
     pressed: {
         transform: [{ scale: 0.95 }],
     },
-    previewContainer: {
+    avatarContainer: {
         width: "100%",
         aspectRatio: 0.72,
         borderRadius: 18,
@@ -304,7 +308,11 @@ const styles = StyleSheet.create({
         borderWidth: 2,
         borderColor: "transparent",
     },
-    preview: {
+    avatarContainerSelected: {
+        borderColor: "#8B5CF6",
+        backgroundColor: "rgba(139, 92, 246, 0.1)",
+    },
+    avatar: {
         width: "100%",
         height: "100%",
     },
@@ -326,17 +334,15 @@ const styles = StyleSheet.create({
         borderColor: "rgba(255,255,255,0.2)",
     },
     videoBadge: {
-        position: "absolute", 
-        bottom: 6, 
+        position: "absolute",
+        top: 6,
         left: 6,
-        width: 20, 
-        height: 20, 
-        borderRadius: 10,
-        backgroundColor: "rgba(0,0,0,0.6)", 
-        alignItems: "center", 
+        backgroundColor: "rgba(0,0,0,0.5)",
+        width: 18,
+        height: 18,
+        borderRadius: 9,
+        alignItems: "center",
         justifyContent: "center",
-        borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.1)",
     },
     selectedBadge: {
         position: "absolute",
@@ -350,6 +356,23 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         borderWidth: 1.5,
         borderColor: "rgba(255,255,255,0.3)",
+        zIndex: 10,
+    },
+    darkBadgeOverlay: {
+        position: "absolute",
+        bottom: 6,
+        left: 6,
+        backgroundColor: "rgba(0,0,0,0.5)",
+        padding: 4,
+        borderRadius: 6,
+    },
+    lightBadgeOverlay: {
+        position: "absolute",
+        bottom: 6,
+        left: 6,
+        backgroundColor: "rgba(255, 255, 255, 0.85)",
+        padding: 4,
+        borderRadius: 6,
     },
     bgName: {
         fontSize: 12,
@@ -373,28 +396,5 @@ const styles = StyleSheet.create({
         aspectRatio: 0.72,
         borderRadius: 18,
         backgroundColor: "rgba(255,255,255,0.06)",
-        marginBottom: GRID_GAP,
-    },
-    darkIconOverlay: {
-        position: 'absolute',
-        bottom: 6,
-        right: 6,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        width: 20,
-        height: 20,
-        borderRadius: 10,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    lightIconOverlay: {
-        position: 'absolute',
-        bottom: 6,
-        right: 6,
-        backgroundColor: 'rgba(255,255,255,0.8)',
-        width: 20,
-        height: 20,
-        borderRadius: 10,
-        alignItems: 'center',
-        justifyContent: 'center',
     },
 });

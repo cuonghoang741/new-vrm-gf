@@ -6,7 +6,6 @@ import {
     Pressable,
     FlatList,
     Animated,
-    Dimensions,
 } from "react-native";
 import { Image } from "expo-image";
 import {
@@ -19,11 +18,6 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import * as Haptics from "expo-haptics";
 import { supabase } from "../../config/supabase";
 import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
-
-const { width } = Dimensions.get("window");
-const GRID_PADDING = 20;
-const GRID_GAP = 10;
-const ITEM_WIDTH = (width - (GRID_PADDING * 2) - (GRID_GAP * 2)) / 3;
 
 interface Character {
     id: string;
@@ -157,47 +151,78 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
                     onPress={() => handleSelect(item)}
                     disabled={!isAvailable}
                     style={({ pressed }) => [
-                        styles.gridItem,
+                        styles.rowItem,
+                        isSelected && styles.rowItemSelected,
                         pressed && styles.pressed,
-                        !isAvailable && { opacity: 0.6 },
+                        !isAvailable && { opacity: 0.5 },
                     ]}
                 >
-                    <View style={[
-                        styles.avatarContainer,
-                        isSelected && !isLocked && styles.avatarContainerSelected
-                    ]}>
+                    {/* Avatar */}
+                    <View style={styles.rowAvatarContainer}>
                         <Image
                             source={{ uri: item.thumbnail_url ?? undefined }}
-                            style={styles.avatar}
+                            style={styles.rowAvatar}
                             contentFit="cover"
                             transition={200}
                         />
-                        
-                        {/* Status Badges */}
-                        {isAvailable && isLocked && !isSelected && (
-                            <View style={styles.lockOverlay}>
-                                <View style={styles.lockIconBadge}>
-                                    <Ionicons name="lock-closed" size={12} color="#FFF" />
-                                </View>
-                            </View>
-                        )}
-
-                        {!isAvailable && (
-                            <View style={[styles.lockOverlay, { backgroundColor: 'rgba(0,0,0,0.6)' }]}>
-                                <Text style={styles.comingSoonText}>SOON</Text>
-                            </View>
-                        )}
-                        
-                        {isSelected && isAvailable && !isLocked && (
+                        {isSelected && (
                             <View style={styles.selectedBadge}>
-                                <Ionicons name="checkmark" size={12} color="#fff" />
+                                <Ionicons name="checkmark" size={14} color="#fff" />
                             </View>
                         )}
                     </View>
-                    
-                    <Text style={styles.charName} numberOfLines={1}>
-                        {item.name}
-                    </Text>
+
+                    {/* Content */}
+                    <View style={styles.rowContent}>
+                        <View style={styles.rowTitleContainer}>
+                            <Text style={styles.rowName} numberOfLines={1}>
+                                {item.name}
+                            </Text>
+                            {isLocked && isAvailable && (
+                                <View style={styles.proPill}>
+                                    <Text style={styles.proPillText}>PRO</Text>
+                                </View>
+                            )}
+                            {!isAvailable && (
+                                <View style={[styles.proPill, { backgroundColor: '#64748B', borderColor: '#475569' }]}>
+                                    <Text style={styles.proPillText}>COMING SOON</Text>
+                                </View>
+                            )}
+                        </View>
+                        {item.description && (
+                            <Text style={styles.rowDescription} numberOfLines={1}>
+                                {item.description}
+                            </Text>
+                        )}
+
+                        {/* Stats */}
+                        <View style={styles.rowStats}>
+                            {item.data?.height_cm && (
+                                <View style={styles.statChip}>
+                                    <MaterialCommunityIcons name="human-male-height" size={12} color="rgba(255,255,255,0.6)" />
+                                    <Text style={styles.statValue}>{item.data.height_cm}cm</Text>
+                                </View>
+                            )}
+                            {item.data?.rounds && (
+                                <View style={styles.statChip}>
+                                    <IconWoman size={12} color="rgba(255,255,255,0.6)" />
+                                    <Text style={styles.statValue}>
+                                        {item.data.rounds.r1}-{item.data.rounds.r2}-{item.data.rounds.r3}
+                                    </Text>
+                                </View>
+                            )}
+                            {item.data?.old && (
+                                <View style={styles.statChip}>
+                                    <Text style={styles.statValue}>{item.data.old} yr</Text>
+                                </View>
+                            )}
+                        </View>
+                    </View>
+
+                    {/* Right */}
+                    <View style={styles.rowRight}>
+                        <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.2)" />
+                    </View>
                 </Pressable>
             );
         },
@@ -205,9 +230,9 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
     );
 
     const renderSkeleton = () => (
-        <View style={styles.skeletonGrid}>
-            {Array.from({ length: 9 }).map((_, i) => (
-                <Animated.View key={i} style={[styles.skeletonItem, { opacity: shimmerOpacity }]} />
+        <View style={styles.skeletonContainer}>
+            {Array.from({ length: 6 }).map((_, i) => (
+                <Animated.View key={i} style={[styles.skeletonRow, { opacity: shimmerOpacity }]} />
             ))}
         </View>
     );
@@ -241,8 +266,7 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
                     keyExtractor={(item) => item.id}
                     contentContainerStyle={styles.listContent}
                     showsVerticalScrollIndicator={false}
-                    numColumns={3}
-                    columnWrapperStyle={styles.columnWrapper}
+                    ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
                 />
             </View>
         );
@@ -283,96 +307,104 @@ const styles = StyleSheet.create({
     },
 
     // Row
-    gridItem: {
-        width: ITEM_WIDTH,
+    rowItem: {
+        flexDirection: "row",
         alignItems: "center",
-        marginBottom: GRID_GAP + 6,
+        backgroundColor: "rgba(255,255,255,0.08)",
+        borderRadius: 20,
+        padding: 12,
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.05)",
+    },
+    rowItemSelected: {
+        backgroundColor: "rgba(139, 92, 246, 0.15)",
+        borderColor: "#8B5CF6",
     },
     pressed: {
-        transform: [{ scale: 0.95 }],
+        transform: [{ scale: 0.98 }],
+        backgroundColor: "rgba(255,255,255,0.12)",
     },
-    avatarContainer: {
-        width: "100%",
-        aspectRatio: 0.72,
+
+    // Avatar
+    rowAvatarContainer: { position: "relative", marginRight: 16 },
+    rowAvatar: {
+        width: 72,
+        height: 72,
         borderRadius: 18,
-        overflow: "hidden",
-        position: "relative",
-        marginBottom: 6,
-        backgroundColor: "rgba(255,255,255,0.05)",
-        borderWidth: 2,
-        borderColor: "transparent",
+        backgroundColor: "rgba(0,0,0,0.2)",
     },
-    avatarContainerSelected: {
-        borderColor: "#8B5CF6",
-        backgroundColor: "rgba(139, 92, 246, 0.1)",
-    },
-    avatar: {
-        width: "100%",
-        height: "100%",
-    },
-    lockOverlay: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: "rgba(0,0,0,0.35)",
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    lockIconBadge: {
+    selectedBadge: {
         position: "absolute",
-        top: 6,
-        right: 6,
-        backgroundColor: "rgba(0,0,0,0.6)",
+        bottom: -6,
+        right: -6,
+        backgroundColor: "#8B5CF6",
         width: 22,
         height: 22,
         borderRadius: 11,
         alignItems: "center",
         justifyContent: "center",
-        borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.2)",
+        borderWidth: 2,
+        borderColor: "#000",
     },
-    comingSoonText: {
-        fontSize: 10,
-        fontWeight: "900",
-        color: "#fff",
-        backgroundColor: "rgba(0,0,0,0.6)",
+
+    // Content
+    rowContent: { flex: 1, justifyContent: "center" },
+    rowTitleContainer: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginBottom: 4,
+    },
+    rowName: { fontSize: 18, fontWeight: "700", color: "#FFFFFF" },
+    rowDescription: {
+        fontSize: 13,
+        color: "rgba(255,255,255,0.6)",
+        marginBottom: 8,
+        lineHeight: 18,
+    },
+
+    // Stats
+    rowStats: {
+        flexDirection: "row",
+        alignItems: "center",
+        flexWrap: "wrap",
+        gap: 8,
+    },
+    statChip: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: "rgba(255,255,255,0.06)",
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 8,
+        gap: 4,
+    },
+    statValue: {
+        fontSize: 11,
+        fontWeight: "600",
+        color: "rgba(255,255,255,0.6)",
+    },
+
+    // Right
+    rowRight: { marginLeft: 12, alignItems: "center", justifyContent: "center" },
+
+    // Badges
+    proPill: {
+        backgroundColor: "#8b5cf6",
         paddingHorizontal: 6,
         paddingVertical: 2,
-        borderRadius: 4,
+        borderRadius: 6,
+        marginLeft: 8,
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,1)",
     },
-    selectedBadge: {
-        position: "absolute",
-        top: 6,
-        right: 6,
-        backgroundColor: "#8B5CF6",
-        width: 20,
-        height: 20,
-        borderRadius: 10,
-        alignItems: "center",
-        justifyContent: "center",
-        borderWidth: 1.5,
-        borderColor: "rgba(255,255,255,0.3)",
-        zIndex: 10,
-    },
-    charName: {
-        fontSize: 12,
-        fontWeight: "600",
-        color: "#FFFFFF",
-        textAlign: "center",
+    proPillText: { fontSize: 9, fontWeight: "900", color: "#fff" },
+
+    // Skeleton
+    skeletonContainer: { paddingHorizontal: 20, gap: 12 },
+    skeletonRow: {
         width: "100%",
-    },
-    columnWrapper: {
-        justifyContent: "flex-start",
-        gap: GRID_GAP,
-    },
-    skeletonGrid: {
-        flexDirection: "row",
-        flexWrap: "wrap",
-        paddingHorizontal: GRID_PADDING,
-        gap: GRID_GAP,
-    },
-    skeletonItem: {
-        width: ITEM_WIDTH,
-        aspectRatio: 0.72,
-        borderRadius: 18,
+        height: 96,
+        borderRadius: 20,
         backgroundColor: "rgba(255,255,255,0.06)",
     },
 });
