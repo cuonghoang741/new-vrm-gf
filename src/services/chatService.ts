@@ -8,6 +8,9 @@ export interface ChatMessage {
     role: "user" | "model";
     text: string;
     createdAt: Date;
+    mediaUrl?: string;
+    mediaType?: "image" | "video";
+    mediaTier?: string;
 }
 
 export interface SuggestedAction {
@@ -35,7 +38,14 @@ export const chatService = {
     ): Promise<ChatMessage[]> {
         const { data, error } = await supabase
             .from("conversation")
-            .select("id, message, is_agent, created_at")
+            .select(`
+                id, 
+                message, 
+                is_agent, 
+                created_at,
+                media_id,
+                medias:media_id (url, media_type, tier)
+            `)
             .eq("character_id", characterId)
             .eq("user_id", userId)
             .order("created_at", { ascending: false })
@@ -46,13 +56,16 @@ export const chatService = {
             return [];
         }
 
-        return (data as ConversationRow[])
+        return (data as any[])
             .reverse()
             .map((row) => ({
                 id: row.id,
                 role: row.is_agent ? ("model" as const) : ("user" as const),
                 text: row.message,
                 createdAt: new Date(row.created_at),
+                mediaUrl: row.medias?.url,
+                mediaType: row.medias?.media_type === "photo" ? "image" : (row.medias?.media_type === "video" ? "video" : undefined),
+                mediaTier: row.medias?.tier,
             }));
     },
 
@@ -177,5 +190,113 @@ export const chatService = {
             .eq("user_id", userId)
             .eq("is_agent", true)
             .eq("is_seen", false);
+    },
+
+    /**
+     * Fetch a random media asset for a character
+     */
+    async fetchRandomMedia(characterId: string, type: "image" | "video" | "nude", isPro: boolean): Promise<{ id: string; url: string; type: "image" | "video"; tier: string } | null> {
+        try {
+            let query = supabase
+                .from("medias")
+                .select("id, url, media_type, tier")
+                .eq("character_id", characterId)
+                .eq("available", true);
+
+            if (type === "nude") {
+                // Filter for specific keywords in content_type or url
+                const keywords = ["uncensored", "nude", "masturbate", "show boobs", "show_boobs", "sexy", "hentai", "xxx"];
+                const orFilter = keywords.map(k => `content_type.ilike.%${k}%,url.ilike.%${k}%`).join(",");
+                query = query.or(orFilter);
+                
+                // If no special keywords match, we'll try to find any pro photo as fallback in the return logic
+            } else {
+                const dbType = type === "image" ? "photo" : "video";
+                query = query.eq("media_type", dbType);
+                
+                // If not pro, filter for free media only
+                if (!isPro) {
+                    query = query.eq("tier", "free");
+                }
+            }
+
+            const { data, error } = await query;
+
+            if (error || !data || data.length === 0) {
+                // FALLBACK for NUDE: if no keywords match, try to find ANY pro photo for this character
+                if (type === "nude") {
+                    const { data: fallbackPro } = await supabase
+                        .from("medias")
+                        .select("id, url, media_type, tier")
+                        .eq("character_id", characterId)
+                        .eq("available", true)
+                        .eq("media_type", "photo")
+                        .eq("tier", "pro");
+                    
+                    if (fallbackPro && fallbackPro.length > 0) {
+                        const random = fallbackPro[Math.floor(Math.random() * fallbackPro.length)];
+                        return {
+                            id: random.id,
+                            url: random.url,
+                            type: "image",
+                            tier: random.tier,
+                        };
+                    }
+                }
+
+                // Fallback for regular images if no free ones found
+                if (!isPro && type !== "nude") {
+                    const { data: proFallback } = await supabase
+                        .from("medias")
+                        .select("id, url, media_type, tier")
+                        .eq("character_id", characterId)
+                        .eq("available", true)
+                        .eq("media_type", type === "image" ? "photo" : "video")
+                        .eq("tier", "pro")
+                        .limit(5);
+                    
+                    if (proFallback && proFallback.length > 0) {
+                        const random = proFallback[Math.floor(Math.random() * proFallback.length)];
+                        return {
+                            id: random.id,
+                            url: random.url,
+                            type: (random.media_type === "photo" ? "image" : "video") as "image" | "video",
+                            tier: random.tier,
+                        };
+                    }
+                }
+                return null;
+            }
+
+            const random = data[Math.floor(Math.random() * data.length)];
+            return {
+                id: random.id,
+                url: random.url,
+                type: (random.media_type === "photo" ? "image" : "video") as "image" | "video",
+                tier: random.tier,
+            };
+        } catch (e) {
+            console.error("Failed to fetch random media:", e);
+            return null;
+        }
+    },
+
+    /**
+     * Save a media message directly to DB
+     */
+    async saveMediaMessage(characterId: string, userId: string, mediaId: string) {
+        if (!characterId || !userId || !mediaId) return;
+        try {
+            await supabase.from("conversation").insert({
+                character_id: characterId,
+                user_id: userId,
+                media_id: mediaId,
+                message: "", // Saved as independent media message without caption
+                is_agent: true,
+                is_seen: true,
+            });
+        } catch (e) {
+            console.error("Failed to save media message:", e);
+        }
     },
 };

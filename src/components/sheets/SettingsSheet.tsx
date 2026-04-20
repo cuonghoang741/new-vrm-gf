@@ -28,6 +28,7 @@ import * as Haptics from "expo-haptics";
 import { analyticsService } from "../../services/AnalyticsService";
 import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
 import { supabase } from "../../config/supabase";
+import { authManager } from "../../services";
 import EditProfileSheet from "./EditProfileSheet";
 
 interface SettingsSheetProps {
@@ -142,17 +143,16 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                                     try {
                                         setIsDeletingAccount(true);
                                         analyticsService.logDeleteAccount();
-                                        const { error } = await supabase.functions.invoke("delete-user");
-                                        if (error) throw error;
-                                        await supabase.auth.signOut();
+                                        await authManager.deleteAccountLocally(async () => {
+                                            onIsOpenedChange(false);
+                                            sheetRef.current?.dismiss();
+                                        });
                                     } catch (e: any) {
-                                        console.error("Delete user error:", e);
+                                        console.error("Delete account error:", e);
                                         Alert.alert("Error", `Failed to delete account. Details: ${e.message}`);
                                     } finally {
                                         setIsDeletingAccount(false);
                                     }
-                                    onIsOpenedChange(false);
-                                    sheetRef.current?.dismiss();
                                 },
                             },
                         ]);

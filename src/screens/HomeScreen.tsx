@@ -21,7 +21,7 @@ import {
     IconChevronRight,
 } from "@tabler/icons-react-native";
 import { useAuth } from "../hooks/useAuth";
-import { authService } from "../services/authService";
+import { authService } from "../services";
 import VRMViewer, { VRMViewerHandle } from "../components/VRMViewer";
 
 const { width } = Dimensions.get("window");

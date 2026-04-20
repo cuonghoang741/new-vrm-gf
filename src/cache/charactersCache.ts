@@ -28,7 +28,28 @@ async function queryPublicCharacters(): Promise<Characters[]> {
         .order("order", { ascending: true });
 
     if (error || !data) return [];
-    return data as Characters[];
+
+    // Fetch available costume counts per character
+    const charIds = data.map((c: any) => c.id);
+    const { data: costumeCounts } = await supabase
+        .from("character_costumes")
+        .select("character_id")
+        .eq("available", true)
+        .in("character_id", charIds);
+
+    // Build a count map
+    const countMap: Record<string, number> = {};
+    if (costumeCounts) {
+        for (const row of costumeCounts) {
+            countMap[row.character_id] = (countMap[row.character_id] || 0) + 1;
+        }
+    }
+
+    // Attach total_costumes to each character
+    return data.map((c: any) => ({
+        ...c,
+        total_costumes: countMap[c.id] || 0,
+    })) as Characters[];
 }
 
 /** Fetch characters and store in cache. Called by SignInScreen. */

@@ -23,7 +23,7 @@ import AppleLogo from "../components/icons/AppleLogo";
 import GoogleLogo from "../components/icons/GoogleLogo";
 import * as AppleAuthentication from "expo-apple-authentication";
 import * as WebBrowser from "expo-web-browser";
-import { authService } from "../services/authService";
+import { authService } from "../services";
 import { fetchAndCacheCharacters } from "../cache/charactersCache";
 
 WebBrowser.maybeCompleteAuthSession();

@@ -28,6 +28,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     orientation: "portrait",
     userInterfaceStyle: "dark",
     newArchEnabled: true,
+    backgroundColor: "#8B5CF6",
 
 
 
@@ -125,7 +126,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
                 clientToken: FB_CLIENT_TOKEN,
             },
         ],
-        "expo-tracking-transparency",
         [
             "react-native-appsflyer",
             {

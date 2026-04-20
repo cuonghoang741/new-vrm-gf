@@ -230,7 +230,7 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
             isOpened={isOpened}
             onIsOpenedChange={onIsOpenedChange}
             backgroundBlur="system-thick-material-dark"
-            title="Backgrounds"
+            title="Location"
             isDarkBackground
             detents={[0.7, 0.95]}
         >

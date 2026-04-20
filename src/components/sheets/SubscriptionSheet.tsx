@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useRef } from "react";
+import React, { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import {
     View,
     Text,
@@ -50,9 +50,12 @@ interface Props {
     isOpened: boolean;
     onClose: () => void;
     onPurchaseSuccess?: () => void;
+    currentModelUrl?: string | null;
+    currentBackgroundUrl?: string | null;
+    currentCharacterId?: string | null;
 }
 
-export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess }: Props) {
+export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess, currentModelUrl, currentBackgroundUrl, currentCharacterId }: Props) {
     const insets = useSafeAreaInsets();
     const {
         isPro,
@@ -67,10 +70,38 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
     const [isProcessing, setIsProcessing] = useState(false);
     const [activeProductId, setActiveProductId] = useState<string | null>(null);
     const vrmRef = useRef<VRMViewerHandle>(null);
+    const [vrmReady, setVrmReady] = useState(false);
+
+    useEffect(() => {
+        if (!isOpened) {
+            setVrmReady(false);
+        }
+    }, [isOpened]);
 
     // Test controls state
     const [characters, setCharacters] = useState<any[]>([]);
     const [selectedIndex, setSelectedIndex] = useState(0);
+    const flatListRef = useRef<FlatList>(null);
+
+    // Auto-scroll to selected index once the list is available
+    useEffect(() => {
+        if (isOpened && characters.length > 0 && selectedIndex >= 0) {
+            // Need a tiny timeout to ensure FlatList has rendered its items
+            setTimeout(() => {
+                flatListRef.current?.scrollToIndex({ index: selectedIndex, animated: true, viewPosition: 0.5 });
+            }, 300);
+        }
+    }, [isOpened, characters.length, selectedIndex]);
+
+    // Sync selectedIndex whenever characters or currentCharacterId changes
+    useEffect(() => {
+        if (isOpened && characters.length > 0 && currentCharacterId) {
+            const idx = characters.findIndex(c => c.id === currentCharacterId);
+            if (idx >= 0 && idx !== selectedIndex) {
+                setSelectedIndex(idx);
+            }
+        }
+    }, [isOpened, characters, currentCharacterId]);
 
     // Fetch characters for test carousel
     useEffect(() => {
@@ -132,17 +163,28 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
         loadCostumes();
     }, [selectedChar?.id, isOpened]);
 
-    useEffect(() => {
-        if (!isOpened || !vrmRef.current) return;
-        const modelUrl = selectedCostume?.model_url || selectedChar?.base_model_url;
+    const loadActiveModel = useCallback(() => {
+        if (!vrmRef.current || !vrmReady) return;
+        
+        const modelUrl = selectedCostume?.model_url || selectedChar?.base_model_url || currentModelUrl;
         if (modelUrl) {
+            console.log("[SubscriptionSheet] Loading model:", modelUrl);
             vrmRef.current.loadModelByURL(modelUrl);
+        } else if (!currentModelUrl) {
+            vrmRef.current.loadModelByName("001/001_vrm/001_01.vrm");
         }
-        const bgImage = selectedChar?.backgrounds?.image;
+        
+        const bgImage = selectedChar?.backgrounds?.image || currentBackgroundUrl;
         if (bgImage) {
             vrmRef.current.setBackgroundImage(bgImage);
         }
-    }, [selectedChar, selectedCostume, isOpened]);
+    }, [selectedChar, selectedCostume, vrmReady, currentModelUrl, currentBackgroundUrl]);
+
+    useEffect(() => {
+        if (isOpened && vrmReady) {
+            loadActiveModel();
+        }
+    }, [isOpened, vrmReady, loadActiveModel]);
 
     const goToPrev = () => {
         if (characters.length === 0) return;
@@ -154,17 +196,21 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
         setSelectedIndex((prev) => (prev === characters.length - 1 ? 0 : prev + 1));
     };
 
-    const handleDanceTest = () => {
-        const dances = [
-            "Dance - Give Your Soul.fbx",
-            "Feminine - Exaggerated 2.fbx",
-            "Heart-Flutter Pose.fbx",
-            "Making a snow angel.fbx",
-            "Sly - Finger gun gesture.fbx"
-        ];
-        const randomDance = dances[Math.floor(Math.random() * dances.length)];
-        vrmRef.current?.loadAnimationByName(randomDance);
-    };
+    const handleDanceTest = useCallback(() => {
+        // Add a slight delay to ensure the VRM is fully visible and the internal WebGL loader
+        // has finished its 500ms idle animation fallback inside index.html.
+        setTimeout(() => {
+            const dances = [
+                "Dance - Give Your Soul.fbx",
+                "Feminine - Exaggerated 2.fbx",
+                "Heart-Flutter Pose.fbx",
+                "Making a snow angel.fbx",
+                "Sly - Finger gun gesture.fbx"
+            ];
+            const randomDance = dances[Math.floor(Math.random() * dances.length)];
+            vrmRef.current?.loadAnimationByName(randomDance);
+        }, 600);
+    }, []);
 
     // Find plans
     const yearlyPackage = packages.find(
@@ -266,9 +312,9 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                 {isOpened && (
                     <VRMViewer
                         ref={vrmRef}
-                        initialModelName="001/001_vrm/001_01.vrm"
-                        initialBackgroundUrl={selectedChar?.backgrounds?.image ?? undefined}
                         style={StyleSheet.absoluteFillObject}
+                        onReady={() => setVrmReady(true)}
+                        onModelLoaded={handleDanceTest}
                     />
                 )}
 
@@ -329,11 +375,18 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                                         </TouchableOpacity>
 
                                         <FlatList
+                                            ref={flatListRef}
                                             style={styles.carouselList}
                                             data={characters}
                                             horizontal
                                             showsHorizontalScrollIndicator={false}
                                             contentContainerStyle={styles.thumbnailList}
+                                            onScrollToIndexFailed={(info) => {
+                                                const wait = new Promise(resolve => setTimeout(resolve, 500));
+                                                wait.then(() => {
+                                                    flatListRef.current?.scrollToIndex({ index: info.index, animated: true });
+                                                });
+                                            }}
                                             keyExtractor={(item) => item.id}
                                             renderItem={({ item, index }) => (
                                                 <TouchableOpacity

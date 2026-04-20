@@ -1,4 +1,4 @@
-import React, { PropsWithChildren, useEffect, useState, useCallback } from "react";
+import React, { PropsWithChildren, useEffect, useState, useCallback, useRef } from "react";
 import { AuthContext } from "../hooks/useAuth";
 import { supabase } from "../config/supabase";
 import { Session, User } from "@supabase/supabase-js";
@@ -6,13 +6,15 @@ import { Session, User } from "@supabase/supabase-js";
 export default function AuthProvider({ children }: PropsWithChildren) {
     const [session, setSession] = useState<Session | null>(null);
     const [user, setUser] = useState<User | null>(null);
-    const [isLoading, setIsLoading] = useState<boolean>(true);
-    const [isOnboarded, setIsOnboarded] = useState<boolean>(true); // Default true → show Play while checking
+    const [isLoading, setIsLoading] = useState<boolean>(true); // For initial boot
+    const [isOnboarded, setIsOnboarded] = useState<boolean>(true);
+    const [isInitializing, setIsInitializing] = useState<boolean>(true);
+    const isLoadingRef = useRef(true);
 
     // Check onboarding status from database
-    const checkOnboarding = useCallback(async (userId: string) => {
+    const checkOnboarding = useCallback(async (userId: string, retries = 1) => {
         try {
-            console.log("[Auth] Checking onboarding for user:", userId);
+            console.log(`[Auth] Checking onboarding for user: ${userId} (retries left: ${retries})`);
             const { data, error } = await supabase
                 .from("user_assets")
                 .select("id")
@@ -21,6 +23,14 @@ export default function AuthProvider({ children }: PropsWithChildren) {
                 .limit(1);
 
             console.log("[Auth] user_assets query result:", { data, error });
+
+            if (error && retries > 0) {
+                console.log("[Auth] checkOnboarding failed, retrying in 500ms...");
+                await new Promise(resolve => setTimeout(resolve, 500));
+                // Ping session to ensure headers update
+                await supabase.auth.getSession();
+                return checkOnboarding(userId, retries - 1);
+            }
 
             if (!error && data && data.length > 0) {
                 console.log("[Auth] User is onboarded ✅");
@@ -31,6 +41,10 @@ export default function AuthProvider({ children }: PropsWithChildren) {
             }
         } catch (e) {
             console.error("[Auth] checkOnboarding error:", e);
+            if (retries > 0) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+                return checkOnboarding(userId, retries - 1);
+            }
             setIsOnboarded(false);
         }
     }, []);
@@ -38,41 +52,61 @@ export default function AuthProvider({ children }: PropsWithChildren) {
     useEffect(() => {
         let mounted = true;
 
-        const fetchSession = async () => {
-            setIsLoading(true);
+        const initAuth = async () => {
             try {
-                const {
-                    data: { session },
-                } = await supabase.auth.getSession();
+                const { data: { session } } = await supabase.auth.getSession();
                 if (!mounted) return;
+
                 setSession(session);
                 setUser(session?.user ?? null);
 
-                // Check onboarding if logged in
                 if (session?.user?.id) {
                     await checkOnboarding(session.user.id);
                 }
             } catch (error) {
-                console.error("Error fetching session:", error);
+                console.error("[Auth] Initial session fetch failed:", error);
             } finally {
-                if (mounted) setIsLoading(false);
+                if (mounted) {
+                    setIsLoading(false);
+                    setIsInitializing(false);
+                    isLoadingRef.current = false;
+                }
             }
         };
 
-        fetchSession();
+        initAuth();
 
-        const {
-            data: { subscription },
-        } = supabase.auth.onAuthStateChange(async (event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             if (!mounted) return;
+
+            console.log("[Auth] Event:", event, "session user:", session?.user?.id);
+
             setSession(session);
             setUser(session?.user ?? null);
 
-            // Only re-check onboarding on actual sign-in (not INITIAL_SESSION which races with fetchSession)
-            if (event === "SIGNED_IN" && session?.user?.id) {
-                await checkOnboarding(session.user.id);
+            if (event === "SIGNED_IN") {
+                if (session?.user?.id) {
+                    // WORKAROUND for Supabase + React Native Race Condition:
+                    // After sign in, the storage adapter (especially chunked SecureStore) might still 
+                    // be saving the token, and the internal PostgREST client might not have attached 
+                    // the new JWT header yet. We delay and ping the session to ensure headers are set 
+                    // before firing the very first DB query.
+                    setTimeout(async () => {
+                        // Force refresh internal state
+                        await supabase.auth.getSession();
+                        if (mounted) {
+                            await checkOnboarding(session.user.id);
+                        }
+                    }, 500);
+                }
             } else if (event === "SIGNED_OUT") {
                 setIsOnboarded(false);
+            }
+
+            // Safety net: ensure loading is false if we get any event other than initial
+            if (mounted && isLoadingRef.current && event !== "INITIAL_SESSION") {
+                setIsLoading(false);
+                isLoadingRef.current = false;
             }
         });
 

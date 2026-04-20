@@ -38,13 +38,15 @@ import {
     IconVideo,
     IconPhone,
     IconChevronDown,
+    IconLock,
 } from "@tabler/icons-react-native";
 
 const diamondIcon = require("../../assets/diamond-upgrade.png");
-import { CameraView, useCameraPermissions } from "expo-camera";
-import { Audio } from 'expo-av';
-import { useConversation } from "@elevenlabs/react-native";
+import { CameraView } from "expo-camera";
+import { Video, ResizeMode } from "expo-av";
 import { useAuth } from "../hooks/useAuth";
+import { useAppVoiceCall } from "../hooks/useAppVoiceCall";
+import { VoiceLoadingOverlay } from "../components/common/VoiceLoadingOverlay";
 import Button from "../components/common/Button";
 import VRMViewer, { VRMViewerHandle } from "../components/VRMViewer";
 import { chatService, ChatMessage, SuggestedAction } from "../services/chatService";
@@ -72,6 +74,7 @@ interface CachedCharacter {
     backgroundUrl: string | null;
     backgroundId: string | null;
     thumbnailUrl?: string | null;
+    avatarUrl?: string | null;
     agentElevenlabsId?: string | null;
 }
 
@@ -88,21 +91,21 @@ export default function PlayScreen() {
     const [subscriptionOpen, setSubscriptionOpen] = useState(false);
     const [mediaSheetOpen, setMediaSheetOpen] = useState(false);
 
-    const { isPro } = useSubscription();
+    const { isPro, refreshStatus } = useSubscription();
 
     // Character state
     const [characterId, setCharacterId] = useState<string | null>(null);
     const [characterName, setCharacterName] = useState("Companion");
     const [characterModelUrl, setCharacterModelUrl] = useState<string | null>(null);
     const [characterThumbnail, setCharacterThumbnail] = useState<string | null>(null);
+    const [characterAvatar, setCharacterAvatar] = useState<string | null>(null);
     const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null);
     const [backgroundId, setBackgroundId] = useState<string | null>(null);
     const [vrmReady, setVrmReady] = useState(false);
     const [is3DMode, setIs3DMode] = useState(false); // Only PRO can enable
     const [agentElevenlabsId, setAgentElevenlabsId] = useState<string | null>(null);
-    const [isVideoCall, setIsVideoCall] = useState(false);
     const [isDancing, setIsDancing] = useState(false);
-    const [permission, requestPermission] = useCameraPermissions();
+
     const [userProfile, setUserProfile] = useState<{ display_name?: string; country?: string } | null>(null);
     const [userCreatedAt, setUserCreatedAt] = useState<string | null>(null);
 
@@ -113,8 +116,6 @@ export default function PlayScreen() {
 
     // Call duration tracking
     const callStartTimeRef = useRef<number | null>(null);
-    const [callQuota, setCallQuota] = useState<number>(0);
-    const callQuotaRef = useRef<number>(0);
 
     const formatTime = (totalSecs: number) => {
         const m = Math.floor(Math.max(0, totalSecs) / 60);
@@ -122,18 +123,9 @@ export default function PlayScreen() {
         return `${m}:${s.toString().padStart(2, '0')}`;
     };
 
-    // Load user quota
+    // Parallel fetch for profile and stats to optimize Telegram notifications
     useEffect(() => {
         if (!user?.id) return;
-        supabase.from("user_call_quota").select("remaining_seconds").eq("user_id", user.id).single()
-            .then(({ data }) => {
-                if (data?.remaining_seconds !== undefined) {
-                    setCallQuota(data.remaining_seconds);
-                    callQuotaRef.current = data.remaining_seconds;
-                }
-            });
-
-        // Parallel fetch for profile and stats to optimize Telegram notifications
         Promise.all([
             supabase.from("profiles").select("display_name, country").eq("id", user.id).maybeSingle(),
             supabase.from("user_stats").select("created_at").eq("user_id", user.id).maybeSingle()
@@ -143,98 +135,122 @@ export default function PlayScreen() {
         });
     }, [user?.id, subscriptionOpen]);
 
-    const conversation = useConversation({
-        onConnect: () => {
-            console.log("ElevenLabs Connected");
-            callStartTimeRef.current = Date.now();
-        },
-        onDisconnect: () => {
-            console.log("ElevenLabs Disconnected");
-            vrmRef.current?.setMouthOpen(0);
-            vrmRef.current?.setCallMode(false);
-            setIsVideoCall(false);
+    const {
+        voiceState,
+        isVoiceMode,
+        isCameraMode,
+        handleToggleCameraMode,
+        handleToggleVoiceMode,
+        endCall,
+        remainingQuotaSeconds,
+    } = useAppVoiceCall({
+        activeCharacterId: characterId || undefined,
+        userId: user?.id,
+        webBridgeRef: vrmRef,
+        isPro,
+        onQuotaExhausted: () => setSubscriptionOpen(true),
+        voiceCallbacks: {
+            onConnect: () => {
+                console.log("ElevenLabs Connected");
+                callStartTimeRef.current = Date.now();
+            },
+            onDisconnect: () => {
+                console.log("ElevenLabs Disconnected");
+                vrmRef.current?.setMouthOpen(0);
+                vrmRef.current?.setCallMode(false);
 
-            if (callStartTimeRef.current && characterId && user?.id) {
-                const durationSeconds = Math.floor((Date.now() - callStartTimeRef.current) / 1000);
-                const minutes = Math.floor(durationSeconds / 60);
-                const seconds = durationSeconds % 60;
-                const formattedDuration = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-                const endMessage = `📞 Call ended (${formattedDuration})`;
+                // Free users: turn off 3D mode after call ends
+                if (!isPro) {
+                    setIs3DMode(false);
+                }
 
+                if (callStartTimeRef.current && characterId && user?.id) {
+                    const durationSeconds = Math.floor((Date.now() - callStartTimeRef.current) / 1000);
+                    const minutes = Math.floor(durationSeconds / 60);
+                    const seconds = durationSeconds % 60;
+                    const formattedDuration = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                    const endMessage = `📞 Call ended (${formattedDuration})`;
+
+                    const newMsg: ChatMessage = {
+                        id: `call-end-${Date.now()}`,
+                        role: "model",
+                        text: endMessage,
+                        createdAt: new Date(),
+                    };
+
+                    setMessages((prev) => [...prev, newMsg]);
+                    setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+                    chatService.saveCallMessage(endMessage, characterId, user.id, true);
+
+                    callStartTimeRef.current = null;
+                }
+            },
+            onError: (err: any) => console.error("ElevenLabs Error:", err),
+            onModeChange: ({ mode }: any) => {
+                if (mode === "speaking") {
+                    vrmRef.current?.setMouthOpen(0.6);
+                } else {
+                    vrmRef.current?.setMouthOpen(0);
+                }
+            },
+            onMessage: (props: { message: string; source: string }) => {
+                if (!props.message || !characterId || !user?.id) return;
+                const isAI = props.source === 'ai';
                 const newMsg: ChatMessage = {
-                    id: `call-end-${Date.now()}`,
-                    role: "model",
-                    text: endMessage,
+                    id: `call-${Date.now()}-${Math.random()}`,
+                    role: isAI ? "model" : "user",
+                    text: props.message,
                     createdAt: new Date(),
                 };
-
                 setMessages((prev) => [...prev, newMsg]);
                 setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
-                chatService.saveCallMessage(endMessage, characterId, user.id, true);
 
-                // Save quota DB
-                supabase.from("user_call_quota")
-                    .update({ remaining_seconds: Math.max(0, callQuotaRef.current), updated_at: new Date().toISOString() })
-                    .eq("user_id", user.id)
-                    .then(() => { });
-
-                callStartTimeRef.current = null;
+                // Save to DB
+                chatService.saveCallMessage(props.message, characterId, user.id, isAI);
             }
-        },
-        onError: (err) => console.error("ElevenLabs Error:", err),
-        onModeChange: ({ mode }) => {
-            if (mode === "speaking") {
-                vrmRef.current?.setMouthOpen(0.6);
-            } else {
-                vrmRef.current?.setMouthOpen(0);
-            }
-        },
-        onMessage: (props: { message: string; source: string }) => {
-            if (!props.message || !characterId || !user?.id) return;
-            const isAI = props.source === 'ai';
-            const newMsg: ChatMessage = {
-                id: `call-${Date.now()}-${Math.random()}`,
-                role: isAI ? "model" : "user",
-                text: props.message,
-                createdAt: new Date(),
-            };
-            setMessages((prev) => [...prev, newMsg]);
-            setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
-
-            // Save to DB
-            chatService.saveCallMessage(props.message, characterId, user.id, isAI);
         }
     });
 
     // Animations
+    // Auto-enable 3D mode during voice/video calls (for all users, including free)
+    useEffect(() => {
+        if (isVoiceMode && !is3DMode) {
+            setVrmReady(false);
+            setIs3DMode(true);
+        }
+    }, [isVoiceMode]);
+
     const dot1Anim = useRef(new Animated.Value(0)).current;
     const dot2Anim = useRef(new Animated.Value(0)).current;
     const dot3Anim = useRef(new Animated.Value(0)).current;
     const pulseAnim = useRef(new Animated.Value(0)).current;
 
-    // Live countdown
+    // Track keyboard state for dismissal layer and snap padding
+    const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+    const [keyboardPadding, setKeyboardPadding] = useState(0);
+
     useEffect(() => {
-        let interval: NodeJS.Timeout;
-        if (conversation.status === "connected") {
-            interval = setInterval(() => {
-                setCallQuota(prev => {
-                    const next = prev - 1;
-                    callQuotaRef.current = next;
-                    if (next <= 0) {
-                        conversation.endSession();
-                        setSubscriptionOpen(true);
-                        return 0;
-                    }
-                    return next;
-                });
-            }, 1000);
-        }
-        return () => clearInterval(interval);
-    }, [conversation.status, conversation.endSession]);
+        const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+        const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+        const showSub = Keyboard.addListener(showEvent, (e) => {
+            setKeyboardPadding(e.endCoordinates.height);
+            setKeyboardVisible(true);
+        });
+        const hideSub = Keyboard.addListener(hideEvent, () => {
+            setKeyboardPadding(0);
+            setKeyboardVisible(false);
+        });
+
+        return () => {
+            showSub.remove();
+            hideSub.remove();
+        };
+    }, []);
 
     // Pulsing effect for "Calling..." state
     useEffect(() => {
-        if (conversation.status === "connecting") {
+        if (voiceState.status === "connecting") {
             const loop = Animated.loop(
                 Animated.sequence([
                     Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
@@ -244,7 +260,7 @@ export default function PlayScreen() {
             loop.start();
             return () => loop.stop();
         }
-    }, [conversation.status, pulseAnim]);
+    }, [voiceState.status, pulseAnim]);
 
     // Save cache helper
     const saveCache = useCallback((data: CachedCharacter) => {
@@ -266,6 +282,7 @@ export default function PlayScreen() {
                     setBackgroundUrl(cached.backgroundUrl);
                     setBackgroundId(cached.backgroundId);
                     if (cached.thumbnailUrl) setCharacterThumbnail(cached.thumbnailUrl);
+                    if (cached.avatarUrl) setCharacterAvatar(cached.avatarUrl);
                     if (cached.agentElevenlabsId) setAgentElevenlabsId(cached.agentElevenlabsId);
                 }
             } catch { }
@@ -323,13 +340,13 @@ export default function PlayScreen() {
 
                 let { data: char } = await supabase
                     .from("characters")
-                    .select("name, base_model_url, background_default_id, thumbnail_url, agent_elevenlabs_id")
+                    .select("name, base_model_url, background_default_id, thumbnail_url, avatar, agent_elevenlabs_id")
                     .eq("id", charId)
                     .maybeSingle();
 
                 if (!char) {
                     console.log("[PlayScreen] Character not found in DB! Attempting to fallback to public character...");
-                    const { data: firstPublic } = await supabase.from("characters").select("id, name, base_model_url, background_default_id, thumbnail_url, agent_elevenlabs_id").eq("is_public", true).eq("available", true).limit(1).maybeSingle();
+                    const { data: firstPublic } = await supabase.from("characters").select("id, name, base_model_url, background_default_id, thumbnail_url, avatar, agent_elevenlabs_id").eq("is_public", true).eq("available", true).limit(1).maybeSingle();
                     if (firstPublic) {
                         charId = firstPublic.id;
                         char = firstPublic;
@@ -344,6 +361,7 @@ export default function PlayScreen() {
 
                 let finalModelUrl = char ? (char.base_model_url ?? "") : "";
                 let finalThumbnailUrl = char ? (char.thumbnail_url ?? null) : null;
+                let finalAvatarUrl = char ? (char.avatar ?? null) : null;
 
                 if (char) {
                     // Lấy trang phục đang mặc hiện tại (nếu có)
@@ -357,17 +375,19 @@ export default function PlayScreen() {
                     if (userChar?.current_costume_id) {
                         const { data: costume } = await supabase
                             .from("character_costumes")
-                            .select("model_url, thumbnail")
+                            .select("model_url, thumbnail, url")
                             .eq("id", userChar.current_costume_id)
                             .maybeSingle();
                         if (costume) {
                             if (costume.model_url) finalModelUrl = costume.model_url;
                             if (costume.thumbnail) finalThumbnailUrl = costume.thumbnail;
+                            if (costume.url) finalAvatarUrl = costume.url;
                         }
                     }
 
                     setCharacterName(char.name);
                     setCharacterThumbnail(finalThumbnailUrl);
+                    setCharacterAvatar(finalAvatarUrl);
                     if (finalModelUrl.endsWith(".vrm")) {
                         setCharacterModelUrl(finalModelUrl);
                     }
@@ -396,6 +416,7 @@ export default function PlayScreen() {
                         backgroundUrl: bgUrl,
                         backgroundId: bgId ?? null,
                         thumbnailUrl: finalThumbnailUrl,
+                        avatarUrl: finalAvatarUrl,
                         agentElevenlabsId: char.agent_elevenlabs_id ?? null,
                     });
                 }
@@ -425,81 +446,36 @@ export default function PlayScreen() {
         const loadHistory = async () => {
             if (!characterId || !user?.id) return;
             const history = await chatService.loadHistory(characterId, user.id);
-            setMessages(history);
+
+            if (history.length === 0) {
+                // If chat is entirely empty, inject a random flirty default message
+                const flirtyGreetings = [
+                    "Hey there... I've been waiting for you to come play. Don't keep me waiting too long, okay? 😉💕",
+                    "I was just thinking about you... and hoping you'd show up. Ready to have some fun? ✨",
+                    "You finally made it! I wore this just for you... do you like it? 💖",
+                    "There you are. Come closer, I've got a secret to tell you... 💋",
+                    "I've been so bored without you. Thrilled you're finally here to entertain me. 😘"
+                ];
+                const defaultMsgText = flirtyGreetings[Math.floor(Math.random() * flirtyGreetings.length)];
+
+                const starterMsg: ChatMessage = {
+                    id: `greeting-${characterId}`,
+                    role: "model",
+                    text: defaultMsgText,
+                    createdAt: new Date(),
+                };
+                setMessages([starterMsg]);
+
+                // Save it to the DB so it permanently becomes the start of the chat history
+                chatService.saveCallMessage(defaultMsgText, characterId, user.id, true);
+            } else {
+                setMessages(history);
+            }
+
             chatService.markAsSeen(characterId, user.id);
         };
         loadHistory();
     }, [characterId, user?.id]);
-
-    // ─── Call toggle ───
-    const toggleCall = useCallback(async () => {
-        if (conversation.status === "connected" || conversation.status === "connecting") {
-            await conversation.endSession();
-            setIsVideoCall(false);
-            vrmRef.current?.setCallMode(false);
-            if (callStartTimeRef.current) {
-                const duration = Math.floor((Date.now() - callStartTimeRef.current) / 1000);
-                analyticsService.logVoiceCallEnd(duration);
-            }
-        } else {
-            if (callQuotaRef.current <= 0) {
-                setSubscriptionOpen(true);
-                return;
-            }
-            if (agentElevenlabsId) {
-                const audioPerm = await Audio.requestPermissionsAsync();
-                if (audioPerm.status !== 'granted') {
-                    alert("Microphone permission is required to make calls.");
-                    return;
-                }
-
-                try {
-                    // Start audio-only call by default
-                    setIsVideoCall(false);
-                    vrmRef.current?.setCallMode(false);
-                    await conversation.startSession({
-                        agentId: agentElevenlabsId,
-                    });
-                    
-                    if (characterId) {
-                        analyticsService.logVoiceCallStart(characterId);
-                    }
-                } catch (e: any) {
-                    console.error("Failed to start elevenlabs session:", e);
-                }
-            } else {
-                alert("This character does not support voice calling yet.");
-            }
-        }
-    }, [conversation, isPro, agentElevenlabsId, characterId]);
-
-    // ─── Video Call / Camera Toggle ───
-    const toggleCamera = useCallback(async () => {
-        if (!isPro) {
-            setSubscriptionOpen(true);
-            return;
-        }
-
-        if (isVideoCall) {
-            // Turn off camera
-            setIsVideoCall(false);
-            // vrmRef.current?.setCallMode(false); // Optional: if you want to exit close-up
-        } else {
-            // Turn on camera
-            if (!permission?.granted) {
-                const status = await requestPermission();
-                if (!status.granted) {
-                    alert("Camera permission is required for video call overlay.");
-                    return;
-                }
-            }
-            setIsVideoCall(true);
-            if (!is3DMode) {
-                setIs3DMode(true); // Ensure VRM is visible
-            }
-            vrmRef.current?.setCallMode(true);
-        }
-    }, [isPro, isVideoCall, permission, requestPermission, is3DMode]);
 
     // Typing indicator - 3 bouncing dots
     useEffect(() => {
@@ -546,26 +522,34 @@ export default function PlayScreen() {
                 break;
 
             case "send_photo":
-                setMediaSheetOpen(true);
-                // MediaSheet defaults to "image" tab
-                break;
-
             case "send_video":
-                setMediaSheetOpen(true);
-                // TODO: auto-switch to video tab
-                break;
-
             case "send_nude_media":
-                // PRO-gated: open subscription if not PRO, else open media
-                if (!isPro) {
-                    setSubscriptionOpen(true);
-                } else {
-                    setMediaSheetOpen(true);
-                }
+                (async () => {
+                    const type = action.action === "send_video" ? "video" : (action.action === "send_nude_media" ? "nude" : "image");
+
+                    const media = await chatService.fetchRandomMedia(characterId || "", type, isPro);
+                    if (media) {
+                        const mediaMsg: ChatMessage = {
+                            id: `ai-media-${Date.now()}`,
+                            role: "model",
+                            text: "", // Independent media message without text
+                            mediaUrl: media.url,
+                            mediaType: media.type,
+                            mediaTier: media.tier,
+                            createdAt: new Date(),
+                        };
+                        setMessages((prev) => [...prev, mediaMsg]);
+
+                        // Persist to DB with media_id link
+                        chatService.saveMediaMessage(characterId || "", user?.id || "", media.id);
+                    } else {
+                        // Fallback: open media sheet if no specific media found
+                        setMediaSheetOpen(true);
+                    }
+                })();
                 break;
 
             case "become_nude":
-                // PRO-gated nude costume
                 if (!isPro) {
                     setSubscriptionOpen(true);
                 } else {
@@ -574,10 +558,6 @@ export default function PlayScreen() {
                 break;
 
             case "start_voice_call":
-                // Enable call mode (close-up camera + head tracking)
-                vrmRef.current?.setCallMode(true);
-                break;
-
             case "start_video_call":
                 vrmRef.current?.setCallMode(true);
                 break;
@@ -589,7 +569,7 @@ export default function PlayScreen() {
             default:
                 break;
         }
-    }, [isPro]);
+    }, [isPro, characterId, user?.id]);
 
     // ─── Send message ───
     const handleSend = useCallback(async () => {
@@ -706,6 +686,9 @@ export default function PlayScreen() {
         if (costume.thumbnail) {
             setCharacterThumbnail(costume.thumbnail);
         }
+        if (costume.url) {
+            setCharacterAvatar(costume.url);
+        }
 
         // Cập nhật lại cache offline cho mượt
         if (characterId) {
@@ -715,7 +698,8 @@ export default function PlayScreen() {
                 modelUrl: costume.model_url || characterModelUrl || "",
                 backgroundUrl,
                 backgroundId,
-                thumbnailUrl: costume.thumbnail || characterThumbnail,
+                thumbnailUrl: costume.thumbnail || characterThumbnail || null,
+                avatarUrl: costume.url || characterAvatar || null,
                 agentElevenlabsId,
             });
         }
@@ -755,27 +739,68 @@ export default function PlayScreen() {
 
     const renderMessage = useCallback(({ item }: { item: ChatMessage }) => {
         const isAI = item.role === "model";
+        const isUser = item.role === "user";
+        const hasText = item.text.trim().length > 0;
+        const isLocked = item.mediaTier === "pro" && !isPro;
+
         return (
-            <View style={[styles.messageBubble, isAI ? styles.aiBubble : styles.userBubble]}>
-                {isAI && <Text style={styles.aiName}>{characterName}</Text>}
-                <Text style={[styles.messageText, isAI ? styles.aiText : styles.userText]}>{item.text}</Text>
+            <View style={{ marginBottom: 12, maxWidth: "85%", alignSelf: isUser ? "flex-end" : "flex-start" }}>
+                {item.mediaUrl && (
+                    <Pressable
+                        onPress={() => isLocked && setSubscriptionOpen(true)}
+                        style={[styles.mediaContainer, { marginBottom: hasText ? 6 : 0 }]}
+                    >
+                        {item.mediaType === "video" ? (
+                            <Video
+                                source={{ uri: item.mediaUrl }}
+                                style={styles.messageMedia}
+                                resizeMode={ResizeMode.COVER}
+                                isMuted
+                                shouldPlay={!isLocked}
+                                isLooping
+                            />
+                        ) : (
+                            <Image
+                                source={{ uri: item.mediaUrl }}
+                                style={styles.messageMedia}
+                                contentFit="cover"
+                            />
+                        )}
+
+                        {isLocked && (
+                            <View style={styles.lockedMediaOverlay}>
+                                <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
+                                <View style={styles.lockBadge}>
+                                    <IconLock size={24} color="#fff" />
+                                </View>
+                                <Text style={styles.lockText}>PRO ONLY</Text>
+                            </View>
+                        )}
+                    </Pressable>
+                )}
+                {hasText && (
+                    <View style={[styles.messageBubble, isUser ? styles.userBubble : styles.aiBubble, { marginBottom: 0 }]}>
+                        {isAI && <Text style={styles.aiName}>{characterName}</Text>}
+                        <Text style={[styles.messageText, isUser ? styles.userText : styles.aiText]}>{item.text}</Text>
+                    </View>
+                )}
             </View>
         );
-    }, [characterName]);
+    }, [characterName, isPro]);
 
     return (
         <View style={styles.container}>
             <StatusBar style="light" />
 
             {/* VRM Viewer (PRO) or Static Image (non-PRO) */}
-            {is3DMode && isPro ? (
+            {is3DMode ? (
                 <View style={styles.vrmFull}>
                     <VRMViewer
                         ref={vrmRef}
                         onReady={() => {
                             setVrmReady(true);
                             vrmRef.current?.setControlsEnabled(true);
-                            if (isVideoCall) {
+                            if (isCameraMode || isVoiceMode) {
                                 vrmRef.current?.setCallMode(true);
                             }
                             if (isDancing) {
@@ -796,33 +821,36 @@ export default function PlayScreen() {
                             contentFit="cover"
                         />
                     )}
-                    {characterThumbnail && (
+                    {characterAvatar && (
                         <Image
-                            source={{ uri: characterThumbnail }}
+                            source={{ uri: characterAvatar }}
                             style={styles.staticCharacter}
-                            contentFit="cover"
+                            contentFit="contain" // Contain because avatars often have different aspect ratios but transparency
                         />
                     )}
                 </View>
             )}
 
             {/* User Front Camera floating pip for Video Call */}
-            {isVideoCall && (
+            {isCameraMode && (
                 <View style={styles.pipCameraContainer}>
                     <CameraView style={styles.pipCamera} facing="front" />
                 </View>
             )}
 
             {/* Visual Overlay when connecting (Setup Call Screen) */}
-            {conversation.status === "connecting" && (
+            {voiceState.status === "connecting" && (
                 <BlurView intensity={90} tint="dark" style={[StyleSheet.absoluteFill, { zIndex: 999, justifyContent: 'center', alignItems: 'center' }]}>
-                    {/* Pulsing rings */}
-                    <Animated.View style={{ transform: [{ scale: pulseAnim.interpolate({ inputRange: [0.3, 1], outputRange: [0.9, 1.4] }) }], opacity: pulseAnim, position: 'absolute', width: 220, height: 220, borderRadius: 110, backgroundColor: 'rgba(255, 255, 255, 0.05)' }} />
-                    <Animated.View style={{ transform: [{ scale: pulseAnim.interpolate({ inputRange: [0.3, 1], outputRange: [0.8, 1.2] }) }], opacity: pulseAnim, position: 'absolute', width: 170, height: 170, borderRadius: 85, backgroundColor: 'rgba(255, 255, 255, 0.1)' }} />
+                    {/* Avatar + pulsing rings container */}
+                    <View style={{ alignItems: 'center', justifyContent: 'center', width: 220, height: 220 }}>
+                        {/* Pulsing rings – centered behind avatar */}
+                        <Animated.View style={{ position: 'absolute', width: 220, height: 220, borderRadius: 110, backgroundColor: 'rgba(255, 255, 255, 0.05)', transform: [{ scale: pulseAnim.interpolate({ inputRange: [0.3, 1], outputRange: [0.9, 1.4] }) }], opacity: pulseAnim }} />
+                        <Animated.View style={{ position: 'absolute', width: 170, height: 170, borderRadius: 85, backgroundColor: 'rgba(255, 255, 255, 0.1)', transform: [{ scale: pulseAnim.interpolate({ inputRange: [0.3, 1], outputRange: [0.8, 1.2] }) }], opacity: pulseAnim }} />
 
-                    {characterThumbnail && (
-                        <Image source={{ uri: characterThumbnail }} style={{ width: 140, height: 140, borderRadius: 70, borderWidth: 3, borderColor: '#fff' }} contentFit="cover" />
-                    )}
+                        {characterThumbnail && (
+                            <Image source={{ uri: characterThumbnail }} style={{ width: 140, height: 140, borderRadius: 70, borderWidth: 3, borderColor: '#fff' }} contentFit="cover" />
+                        )}
+                    </View>
 
                     <Text style={{ fontSize: 32, fontWeight: 'bold', color: '#fff', marginTop: 30 }}>{characterName}</Text>
                     <Animated.Text style={{ fontSize: 18, color: 'rgba(255,255,255,0.7)', opacity: pulseAnim, marginTop: 10 }}>Calling...</Animated.Text>
@@ -830,7 +858,7 @@ export default function PlayScreen() {
                     {/* End Call Button */}
                     <Pressable
                         style={{ width: 70, height: 70, borderRadius: 35, backgroundColor: '#EF4444', justifyContent: 'center', alignItems: 'center', position: 'absolute', bottom: 100, elevation: 5, shadowColor: '#EF4444', shadowOpacity: 0.5, shadowRadius: 10, shadowOffset: { width: 0, height: 5 } }}
-                        onPress={() => conversation.endSession()}
+                        onPress={endCall}
                     >
                         <IconPhone size={32} color="#FFF" style={{ transform: [{ rotate: '135deg' }] }} />
                     </Pressable>
@@ -859,42 +887,28 @@ export default function PlayScreen() {
                             )}
                         </View>
                         <Text style={styles.statusText}>
-                            ● Online {callQuota > 0 ? `| 📞 ${formatTime(callQuota)}` : ''}
+                            ● Online {remainingQuotaSeconds > 0 ? `| 📞 ${formatTime(remainingQuotaSeconds)}` : ''}
                         </Text>
                     </View>
                 </View>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                    {conversation.status === "connected" && (
-                        <Button
-                            variant="liquid"
-                            size="sm"
-                            onPress={toggleCamera}
-                            startIcon={isVideoCall ? IconVideo : IconVideo}
-                            startIconColor={isVideoCall ? "#8B5CF6" : "rgba(255,255,255,0.7)"}
-                        >
-                            {isVideoCall ? "Cam On" : "Cam Off"}
-                        </Button>
-                    )}
-                    <Button
-                        variant="liquid"
-                        onPress={() => setSettingsSheetOpen(true)}
-                        startIcon={IconSettings}
-                        isIconOnly
-                    />
+                    {/* The setting button has been moved to ActionsBubble */}
                 </View>
             </View>
 
             {/* ─── Top right bubble actions ─── */}
             <ActionsBubble
-                conversationStatus={conversation.status}
+                conversationStatus={voiceState.isConnected ? "connected" : voiceState.status}
                 agentElevenlabsId={agentElevenlabsId}
                 isPro={isPro}
                 is3DMode={is3DMode}
                 isDancing={isDancing}
+                isCameraMode={isCameraMode}
                 onOpenCharacter={() => setCharSheetOpen(true)}
                 onOpenCostume={() => setCostumeSheetOpen(true)}
                 onOpenScene={() => setBgSheetOpen(true)}
                 onOpenGallery={() => setMediaSheetOpen(true)}
+                onOpenSettings={() => setSettingsSheetOpen(true)}
                 onToggleDance={() => {
                     if (!isPro) {
                         setSubscriptionOpen(true);
@@ -922,17 +936,27 @@ export default function PlayScreen() {
                         setIs3DMode(prev => !prev);
                     }
                 }}
-                onToggleCall={toggleCall}
+                onToggleCall={handleToggleVoiceMode}
+                onToggleCamera={handleToggleCameraMode}
                 onOpenSubscription={() => setSubscriptionOpen(true)}
             />
 
+
+            {/* ─── Keyboard Dismiss Overlay ─── */}
+            {isKeyboardVisible && (
+                <Pressable
+                    style={[StyleSheet.absoluteFill, { zIndex: 15 }]}
+                    onPress={Keyboard.dismiss}
+                    accessible={false}
+                />
+            )}
 
             {/* ─── Chat overlay ─── */}
             <View
                 style={styles.chatOverlay}
                 pointerEvents="box-none"
             >
-                <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.chatContainer} keyboardVerticalOffset={0} pointerEvents="box-none">
+                <View style={[styles.chatContainer, { paddingBottom: keyboardPadding }]} pointerEvents="box-none">
 
                     <View style={styles.chatMessagesWrapper} pointerEvents="box-none">
                         <FlatList
@@ -943,6 +967,8 @@ export default function PlayScreen() {
                             style={styles.messageList}
                             contentContainerStyle={styles.messageListContent}
                             showsVerticalScrollIndicator={false}
+                            keyboardShouldPersistTaps="handled"
+                            keyboardDismissMode="on-drag"
                             onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
                             ListEmptyComponent={
                                 <View style={styles.emptyChat}><Text style={styles.emptyChatEmoji}>💬</Text><Text style={styles.emptyChatText}>Say hello to {characterName}!</Text></View>
@@ -983,7 +1009,13 @@ export default function PlayScreen() {
                             <IconSend size={20} color="#FFFFFF" />
                         </TouchableOpacity>
                     </View>
-                </KeyboardAvoidingView>
+                </View>
+
+                <VoiceLoadingOverlay
+                    visible={voiceState.isBooting || voiceState.status === "connecting"}
+                    characterName={characterName}
+                    characterAvatar={characterThumbnail ?? undefined}
+                />
             </View>
 
             {/* ─── Sheets ─── */}
@@ -1037,7 +1069,11 @@ export default function PlayScreen() {
                 onClose={() => setSubscriptionOpen(false)}
                 onPurchaseSuccess={() => {
                     // Refresh to unlock content
+                    refreshStatus();
                 }}
+                currentModelUrl={characterModelUrl}
+                currentBackgroundUrl={backgroundUrl}
+                currentCharacterId={characterId}
             />
             <MediaSheet
                 isOpened={mediaSheetOpen}
@@ -1060,7 +1096,7 @@ const styles = StyleSheet.create({
     pipCameraContainer: {
         position: 'absolute',
         top: 100,
-        right: 20,
+        left: 20,
         width: 100,
         height: 140,
         borderRadius: 16,
@@ -1123,7 +1159,7 @@ const styles = StyleSheet.create({
 
     // Chat overlay
     chatOverlay: {
-        position: "absolute", bottom: 0, left: 0, right: 0, height: height * 0.75, zIndex: 20,
+        position: "absolute", top: 0, bottom: 0, left: 0, right: 0, zIndex: 20,
     },
     chatContainer: {
         flex: 1, backgroundColor: "transparent",
@@ -1144,7 +1180,29 @@ const styles = StyleSheet.create({
     userBubble: { alignSelf: "flex-end", backgroundColor: "#9B59FF", borderBottomRightRadius: 6 },
     aiBubble: { alignSelf: "flex-start", backgroundColor: "rgba(15, 5, 30, 0.75)", borderWidth: 1, borderColor: "rgba(155, 89, 255, 0.2)", borderBottomLeftRadius: 6 },
     aiName: { fontSize: 11, fontWeight: "600", color: "rgba(155, 89, 255, 0.8)", marginBottom: 3 },
-    messageText: { fontSize: 15, lineHeight: 21 },
+    messageText: {
+        fontSize: 16, lineHeight: 22,
+    },
+    mediaContainer: {
+        width: 200, height: 260, borderRadius: 12, overflow: "hidden", marginBottom: 8,
+    },
+    messageMedia: {
+        width: "100%", height: "100%",
+    },
+    lockedMediaOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        alignItems: "center", justifyContent: "center",
+        backgroundColor: "rgba(0,0,0,0.3)",
+    },
+    lockBadge: {
+        width: 48, height: 48, borderRadius: 24,
+        backgroundColor: "rgba(139, 92, 246, 0.6)",
+        alignItems: "center", justifyContent: "center",
+        marginBottom: 8,
+    },
+    lockText: {
+        fontSize: 12, fontWeight: "800", color: "#fff", letterSpacing: 1,
+    },
     userText: { color: "#FFFFFF" },
     aiText: { color: "rgba(255,255,255,0.85)" },
     emptyChat: { alignItems: "center", justifyContent: "center", paddingVertical: 40 },

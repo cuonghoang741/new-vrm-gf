@@ -5,9 +5,10 @@ import { useAuth } from "../hooks/useAuth";
 import SignInScreen from "../screens/SignInScreen";
 import OnboardingScreen from "../screens/OnboardingScreen";
 import PlayScreen from "../screens/PlayScreen";
-import { ActivityIndicator, View, StyleSheet } from "react-native";
+import { View, StyleSheet, Image } from "react-native";
 
 export type RootStackParamList = {
+    Splash: undefined;
     SignIn: undefined;
     Onboarding: undefined;
     Play: undefined;
@@ -15,20 +16,25 @@ export type RootStackParamList = {
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
+// Define a splash component to show during loading
+function SplashScreen() {
+    return (
+        <View style={styles.loadingContainer}>
+            <Image
+                source={require("../../assets/splash-icon.png")}
+                style={styles.splashLogo}
+                resizeMode="contain"
+            />
+        </View>
+    );
+}
+
 export default function AppNavigator() {
     const { isLoggedIn, isLoading, isOnboarded, setIsOnboarded } = useAuth();
 
     const handleOnboardingComplete = useCallback(() => {
         setIsOnboarded(true);
     }, [setIsOnboarded]);
-
-    if (isLoading) {
-        return (
-            <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#6633CC" />
-            </View>
-        );
-    }
 
     return (
         <NavigationContainer>
@@ -39,7 +45,9 @@ export default function AppNavigator() {
                     contentStyle: { backgroundColor: "#0a0a1a" },
                 }}
             >
-                {!isLoggedIn ? (
+                {isLoading ? (
+                    <Stack.Screen name="Splash" component={SplashScreen} />
+                ) : !isLoggedIn ? (
                     <Stack.Screen name="SignIn" component={SignInScreen} />
                 ) : !isOnboarded ? (
                     <Stack.Screen name="Onboarding">
@@ -60,6 +68,11 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: "center",
         alignItems: "center",
-        backgroundColor: "#0a0a1a",
+        backgroundColor: "#8B5CF6",
+    },
+    splashLogo: {
+        width: 100,
+        height: 100,
     },
 });
+

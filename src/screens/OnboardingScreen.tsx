@@ -124,13 +124,13 @@ export default function OnboardingScreen({
                 return;
             }
 
-            // Suggest top 3 characters with the most costumes
-            const sortedByCostumes = [...chars].sort((a, b) => (b.total_costumes || 0) - (a.total_costumes || 0));
-            const top3 = sortedByCostumes.slice(0, 3);
-            
-            // Random pick from the top 3
-            const matched = top3[Math.floor(Math.random() * top3.length)];
-            console.log("[Onboarding] Matched (from top 3 costumes):", matched.name, matched.id, "Costumes:", matched.total_costumes);
+            // Prefer characters with more than 3 costumes; fallback to all if none qualify
+            const richCostumeChars = chars.filter((c) => (c.total_costumes || 0) > 3);
+            const pool = richCostumeChars.length > 0 ? richCostumeChars : chars;
+
+            // Random pick from the pool
+            const matched = pool[Math.floor(Math.random() * pool.length)];
+            console.log("[Onboarding] Matched:", matched.name, matched.id, "Costumes:", matched.total_costumes, "Pool size:", pool.length);
             setMatchedCharacter(matched as Characters);
 
             // NOW transition to step 3 (only after we have a character)
@@ -188,19 +188,34 @@ export default function OnboardingScreen({
                 assetsToGrant.push({ user_id: userId, item_id: bgDefaultId, item_type: "background" });
             }
 
-            // Run DB operations in the background to avoid blocking the UI, 
-            // completely fixing the network/cold-start or lock timeout issue on the first run.
-            Promise.all([
-                supabase.from("user_assets").insert(assetsToGrant),
-                supabase.from("user_preferences").update({
-                    current_character_id: charId,
-                    updated_at: new Date().toISOString(),
-                }).eq("user_id", userId).select().then(({ data }) => {
-                    if (data && data.length === 0) {
-                        supabase.from("user_preferences").insert({ user_id: userId, current_character_id: charId, updated_at: new Date().toISOString() }).then();
+            // Await DB operations to ensure they succeed (or can be retried).
+            // This prevents a race condition where we transition to PlayScreen but the DB isn't ready.
+            const saveWithRetry = async (retries = 1) => {
+                try {
+                    await Promise.all([
+                        supabase.from("user_assets").insert(assetsToGrant),
+                        supabase.from("user_preferences").update({
+                            current_character_id: charId,
+                            updated_at: new Date().toISOString(),
+                        }).eq("user_id", userId).select().then(async ({ data }) => {
+                            if (data && data.length === 0) {
+                                await supabase.from("user_preferences").insert({ user_id: userId, current_character_id: charId, updated_at: new Date().toISOString() });
+                            }
+                        })
+                    ]);
+                } catch (e) {
+                    if (retries > 0) {
+                        console.warn("[Onboarding] Background save error, retrying in 500ms:", e);
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                        await supabase.auth.getSession();
+                        await saveWithRetry(retries - 1);
+                    } else {
+                        throw e;
                     }
-                })
-            ]).catch(err => console.warn("[Onboarding] Background save error:", err));
+                }
+            };
+            
+            await saveWithRetry();
 
             // Add a small 800ms artificial delay for the UX "Setting up..." animation
             await new Promise(resolve => setTimeout(resolve, 800));
