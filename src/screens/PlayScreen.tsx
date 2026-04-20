@@ -77,6 +77,7 @@ interface CachedCharacter {
     thumbnailUrl?: string | null;
     avatarUrl?: string | null;
     agentElevenlabsId?: string | null;
+    isBackgroundDark?: boolean;
 }
 
 export default function PlayScreen() {
@@ -283,6 +284,9 @@ export default function PlayScreen() {
                     setBackgroundUrl(cached.backgroundUrl);
                     setBackgroundId(cached.backgroundId);
                     if (cached.thumbnailUrl) setCharacterThumbnail(cached.thumbnailUrl);
+                    if (cached.isBackgroundDark !== undefined) {
+                        setIsBackgroundDark(cached.isBackgroundDark);
+                    }
                     if (cached.avatarUrl) setCharacterAvatar(cached.avatarUrl);
                     if (cached.agentElevenlabsId) setAgentElevenlabsId(cached.agentElevenlabsId);
                 }
@@ -421,6 +425,7 @@ export default function PlayScreen() {
                         thumbnailUrl: finalThumbnailUrl,
                         avatarUrl: finalAvatarUrl,
                         agentElevenlabsId: char.agent_elevenlabs_id ?? null,
+                        isBackgroundDark: isBackgroundDark,
                     });
                 }
             } catch (e) {
@@ -715,13 +720,14 @@ export default function PlayScreen() {
             if (fullChar.background_default_id) {
                 const { data: bgData } = await supabase
                     .from("backgrounds")
-                    .select("image")
+                    .select("image, is_dark")
                     .eq("id", fullChar.background_default_id)
                     .single();
                 if (bgData?.image) {
                     charBgUrl = bgData.image;
                     setBackgroundUrl(charBgUrl);
                     setBackgroundId(fullChar.background_default_id ?? null);
+                    setIsBackgroundDark(bgData.is_dark ?? true);
                     if (is3DMode) vrmRef.current?.setBackgroundImage(charBgUrl!);
                 }
             }
@@ -738,7 +744,8 @@ export default function PlayScreen() {
                 backgroundId: charBgId,
                 thumbnailUrl: fullChar.thumbnail_url || char.thumbnail_url || null,
                 avatarUrl: fullChar.avatar || null,
-                agentElevenlabsId
+                agentElevenlabsId,
+                isBackgroundDark
             });
         }
 
@@ -760,7 +767,7 @@ export default function PlayScreen() {
             const history = await chatService.loadHistory(cId, uId);
             setMessages(history);
         }
-    }, [user?.id, backgroundUrl, backgroundId, saveCache, is3DMode, agentElevenlabsId]);
+    }, [user?.id, backgroundUrl, backgroundId, saveCache, is3DMode, agentElevenlabsId, isBackgroundDark]);
 
     const handleCostumeSelect = useCallback((costume: any) => {
         if (costume.model_url) {
@@ -786,6 +793,7 @@ export default function PlayScreen() {
                 thumbnailUrl: costume.thumbnail || characterThumbnail || null,
                 avatarUrl: costume.url || characterAvatar || null,
                 agentElevenlabsId,
+                isBackgroundDark,
             });
         }
 
@@ -913,11 +921,11 @@ export default function PlayScreen() {
                 </View>
 
                 {/* 3D Mode Overlay - Always mounted to avoid slow reloads */}
-                <View 
+                <View
                     style={[
                         StyleSheet.absoluteFill,
-                        { 
-                            opacity: is3DMode ? 1 : 0, 
+                        {
+                            opacity: is3DMode ? 1 : 0,
                             zIndex: is3DMode ? 2 : -1,
                             pointerEvents: is3DMode ? "auto" : "none"
                         }
@@ -1033,13 +1041,13 @@ export default function PlayScreen() {
             </View>
 
             <View style={styles.leftFloatingContainer}>
-                <LiquidGlassView 
-                    style={styles.liquidToggleWrapper} 
-                    effect="regular" 
+                <LiquidGlassView
+                    style={styles.liquidToggleWrapper}
+                    effect="regular"
                     tintColor="rgba(255, 255, 255, 0.1)"
                 >
                     <View style={styles.toggleRow}>
-                        <TouchableOpacity 
+                        <TouchableOpacity
                             onPress={() => {
                                 if (is3DMode) {
                                     setIs3DMode(false);
@@ -1049,7 +1057,7 @@ export default function PlayScreen() {
                         >
                             <Text style={[styles.toggleLabel, !is3DMode && styles.toggleLabelActive]}>2D</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity 
+                        <TouchableOpacity
                             onPress={() => {
                                 if (!is3DMode) {
                                     if (!isPro) {
