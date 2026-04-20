@@ -124,6 +124,7 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
     const [costumes, setCostumes] = useState<any[]>([]);
     const [selectedCostume, setSelectedCostume] = useState<any | null>(null);
     const [isCostumesLoading, setIsCostumesLoading] = useState(false);
+    const [shouldBlurPreview, setShouldBlurPreview] = useState(false);
     const shimmerOpacity = useRef(new Animated.Value(0.3)).current;
 
     useEffect(() => {
@@ -162,6 +163,14 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
         };
         loadCostumes();
     }, [selectedChar?.id, isOpened]);
+
+    // Keep blur state in sync with selectedCostume, but don't turn it off immediately on null
+    // to prevent revealing the previous character when switching.
+    useEffect(() => {
+        if (selectedCostume) {
+            setShouldBlurPreview(true);
+        }
+    }, [selectedCostume]);
 
     const loadActiveModel = useCallback(() => {
         if (!vrmRef.current || !vrmReady) return;
@@ -211,6 +220,14 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
             vrmRef.current?.loadAnimationByName(randomDance);
         }, 600);
     }, []);
+
+    const handleModelLoaded = useCallback(() => {
+        handleDanceTest();
+        // If no costume is selected (e.g. after a character change), remove the blur
+        if (!selectedCostume) {
+            setShouldBlurPreview(false);
+        }
+    }, [selectedCostume, handleDanceTest]);
 
     // Find plans
     const yearlyPackage = packages.find(
@@ -314,12 +331,12 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                         ref={vrmRef}
                         style={StyleSheet.absoluteFillObject}
                         onReady={() => setVrmReady(true)}
-                        onModelLoaded={handleDanceTest}
+                        onModelLoaded={handleModelLoaded}
                     />
                 )}
 
-                {/* Blur overlay when a costume is selected */}
-                {selectedCostume && (
+                {/* Blur overlay when a costume is selected or transitioning */}
+                {shouldBlurPreview && (
                     <BlurView
                         intensity={80}
                         tint="dark"

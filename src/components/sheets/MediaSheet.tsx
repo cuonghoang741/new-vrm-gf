@@ -7,11 +7,14 @@ import {
     FlatList,
     Dimensions,
     Animated,
+    Modal,
+    ActivityIndicator,
 } from "react-native";
 import { Image } from "expo-image";
 import { BlurView } from "expo-blur";
+import { Video, ResizeMode } from "expo-av";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { IconPhoto, IconVideo, IconLock } from "@tabler/icons-react-native";
+import { IconPhoto, IconVideo, IconLock, IconX } from "@tabler/icons-react-native";
 import * as Haptics from "expo-haptics";
 import { supabase } from "../../config/supabase";
 import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
@@ -53,6 +56,7 @@ const MediaSheet = forwardRef<MediaSheetRef, MediaSheetProps>(
         const [videos, setVideos] = useState<MediaItem[]>([]);
         const [loading, setLoading] = useState(false);
         const [errorMessage, setErrorMessage] = useState<string | null>(null);
+        const [selectedMedia, setSelectedMedia] = useState<MediaItem | null>(null);
         const shimmerOpacity = useRef(new Animated.Value(0.3)).current;
 
         useImperativeHandle(ref, () => ({
@@ -115,7 +119,7 @@ const MediaSheet = forwardRef<MediaSheetRef, MediaSheetProps>(
                 analyticsService.logMediaView(item.id, item.media_type === "photo" ? "image" : "video");
 
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                // TODO: Open full-screen viewer
+                setSelectedMedia(item);
             },
             [isPro, onOpenSubscription]
         );
@@ -249,6 +253,44 @@ const MediaSheet = forwardRef<MediaSheetRef, MediaSheetProps>(
 
                     {/* Content */}
                     {renderContent()}
+
+                    {/* Lightbox Modal */}
+                    <Modal
+                        visible={!!selectedMedia}
+                        transparent={true}
+                        animationType="fade"
+                        onRequestClose={() => setSelectedMedia(null)}
+                    >
+                        <BlurView intensity={100} tint="dark" style={StyleSheet.absoluteFill}>
+                            <View style={styles.lightboxContainer}>
+                                <Pressable
+                                    style={styles.closeLightbox}
+                                    onPress={() => setSelectedMedia(null)}
+                                >
+                                    <IconX color={activeTab === "image" ? (images.length > 0 ? "#fff" : "rgba(255,255,255,0.8)") : "#fff"} size={28} />
+                                </Pressable>
+
+                                {selectedMedia?.media_type === "photo" ? (
+                                    <Image
+                                        source={{ uri: selectedMedia.url }}
+                                        style={styles.lightboxImage}
+                                        contentFit="contain"
+                                    />
+                                ) : (
+                                    <Video
+                                        source={{ uri: selectedMedia?.url || "" }}
+                                        rate={1.0}
+                                        volume={1.0}
+                                        isMuted={false}
+                                        resizeMode={ResizeMode.CONTAIN}
+                                        shouldPlay
+                                        useNativeControls
+                                        style={styles.lightboxVideo}
+                                    />
+                                )}
+                            </View>
+                        </BlurView>
+                    </Modal>
                 </View>
             </BottomSheet>
         );
@@ -367,5 +409,32 @@ const styles = StyleSheet.create({
         height: ITEM_SIZE * 1.3,
         borderRadius: 12,
         backgroundColor: "rgba(255,255,255,0.06)",
+    },
+    // Lightbox
+    lightboxContainer: {
+        flex: 1,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "rgba(0,0,0,0.4)",
+    },
+    closeLightbox: {
+        position: "absolute",
+        top: 60,
+        right: 25,
+        zIndex: 10,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: "rgba(0,0,0,0.5)",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    lightboxImage: {
+        width: SCREEN_WIDTH,
+        height: SCREEN_WIDTH * 1.5,
+    },
+    lightboxVideo: {
+        width: SCREEN_WIDTH,
+        height: SCREEN_WIDTH * 1.5,
     },
 });

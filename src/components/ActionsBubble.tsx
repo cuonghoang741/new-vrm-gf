@@ -73,6 +73,15 @@ export default function ActionsBubble({
             {/* ─── Normal mode: show all action buttons ─── */}
             {!isInCall && (
                 <>
+                    <Button
+                        variant="liquid"
+                        size="sm"
+                        startIcon={IconSettings}
+                        onPress={onOpenSettings}
+                        isIconOnly={!showLabels}
+                    >
+                        Settings
+                    </Button>
                     <View>
                         <Button
                             variant="liquid"
@@ -85,15 +94,7 @@ export default function ActionsBubble({
                         </Button>
                         <View style={styles.notificationDot} />
                     </View>
-                    <Button
-                        variant="liquid"
-                        size="sm"
-                        startIcon={IconSettings}
-                        onPress={onOpenSettings}
-                        isIconOnly={!showLabels}
-                    >
-                        Settings
-                    </Button>
+
                     <View>
                         <Button
                             variant="liquid"
@@ -137,105 +138,105 @@ export default function ActionsBubble({
                             isIconOnly={!showLabels}
                         >
                             {isDancing ? "Stop" : "Dance"}
-                    </Button>
-                    {!isPro && <View style={styles.proBadgeMini}><Text style={styles.proBadgeMiniText}>PRO</Text></View>}
-                </View>
+                        </Button>
+                        {!isPro && <View style={styles.proBadgeMini}><Text style={styles.proBadgeMiniText}>PRO</Text></View>}
+                    </View>
+                    <View>
+                        <Button
+                            variant="liquid"
+                            size="sm"
+                            startIcon={IconBadge3d}
+                            startIconColor={is3DMode && isPro ? '#8B5CF6' : undefined}
+                            onPress={onToggle3D}
+                            isIconOnly={!showLabels}
+                        >
+                            3D
+                        </Button>
+                        {!isPro && <View style={styles.proBadgeMini}><Text style={styles.proBadgeMiniText}>PRO</Text></View>}
+                    </View>
+                </>
+            )}
+
+            {/* ─── Call mode: FaceTime toggle + red End Call ─── */}
+            {isInCall && (
+                <Button
+                    variant="liquid"
+                    size="sm"
+                    startIcon={IconVideo}
+                    startIconColor={isCameraMode ? '#8B5CF6' : undefined}
+                    onPress={onToggleCamera}
+                    isIconOnly={!showLabels}
+                >
+                    {isCameraMode ? "Cam On" : "FaceTime"}
+                </Button>
+            )}
+
+            {/* ─── Call / End Call button (always visible if agent exists) ─── */}
+            {agentElevenlabsId && (
                 <View>
                     <Button
-                        variant="liquid"
+                        variant={isInCall ? "solid" : "liquid"}
+                        colorScheme={isInCall ? "error" : undefined}
                         size="sm"
-                        startIcon={IconBadge3d}
-                        startIconColor={is3DMode && isPro ? '#8B5CF6' : undefined}
-                        onPress={onToggle3D}
+                        startIcon={isInCall ? IconPhoneOff : IconPhoneCall}
+                        startIconColor={isInCall ? '#FFF' : undefined}
+                        onPress={onToggleCall}
                         isIconOnly={!showLabels}
                     >
-                        3D
+                        {isInCall ? "End Call" : "Call"}
                     </Button>
-                    {!isPro && <View style={styles.proBadgeMini}><Text style={styles.proBadgeMiniText}>PRO</Text></View>}
+                    {/* {!isPro && !isInCall && <View style={styles.proBadgeMini}><Text style={styles.proBadgeMiniText}>PRO</Text></View>} */}
                 </View>
-            </>
-        )}
+            )}
 
-                    {/* ─── Call mode: FaceTime toggle + red End Call ─── */}
-                    {isInCall && (
-                        <Button
-                            variant="liquid"
-                            size="sm"
-                            startIcon={IconVideo}
-                            startIconColor={isCameraMode ? '#8B5CF6' : undefined}
-                            onPress={onToggleCamera}
-                            isIconOnly={!showLabels}
-                        >
-                            {isCameraMode ? "Cam On" : "FaceTime"}
-                        </Button>
-                    )}
-
-                    {/* ─── Call / End Call button (always visible if agent exists) ─── */}
-                    {agentElevenlabsId && (
-                        <View>
-                            <Button
-                                variant={isInCall ? "solid" : "liquid"}
-                                colorScheme={isInCall ? "error" : undefined}
-                                size="sm"
-                                startIcon={isInCall ? IconPhoneOff : IconPhoneCall}
-                                startIconColor={isInCall ? '#FFF' : undefined}
-                                onPress={onToggleCall}
-                                isIconOnly={!showLabels}
-                            >
-                                {isInCall ? "End Call" : "Call"}
-                            </Button>
-                            {!isPro && !isInCall && <View style={styles.proBadgeMini}><Text style={styles.proBadgeMiniText}>PRO</Text></View>}
-                        </View>
-                    )}
-
-                    {/* ─── PRO badge (hidden during call) ─── */}
-                    {!isPro && !isInCall && (
-                        <Button
-                            variant="liquid"
-                            size="sm"
-                            startIcon={IconCrown}
-                            startIconColor="#F59E0B"
-                            onPress={onOpenSubscription}
-                            isIconOnly={!showLabels}
-                        >
-                            PRO
-                        </Button>
-                    )}
-                </View>
-            );
+            {/* ─── PRO badge (hidden during call) ─── */}
+            {!isPro && !isInCall && (
+                <Button
+                    variant="liquid"
+                    size="sm"
+                    startIcon={IconCrown}
+                    startIconColor="#F59E0B"
+                    onPress={onOpenSubscription}
+                    isIconOnly={!showLabels}
+                >
+                    PRO
+                </Button>
+            )}
+        </View>
+    );
 }
 
-            const styles = StyleSheet.create({
-                actionsBubble: {
-                position: "absolute",
-            right: 20,
-            top: Platform.OS === "ios" ? 60 : 40,
-            gap: 12,
-            zIndex: 50,
-            alignItems: "flex-end",
+const styles = StyleSheet.create({
+    actionsBubble: {
+        position: "absolute",
+        right: 20,
+        top: Platform.OS === "ios" ? 60 : 40,
+        gap: 12,
+        zIndex: 50,
+        alignItems: "flex-end",
     },
-            proBadgeMini: {
-                position: 'absolute',
-            top: -6,
-            right: -6,
-            backgroundColor: '#F59E0B',
-            paddingHorizontal: 4,
-            paddingVertical: 2,
-            borderRadius: 4,
+    proBadgeMini: {
+        position: 'absolute',
+        top: -6,
+        right: -6,
+        backgroundColor: '#F59E0B',
+        paddingHorizontal: 4,
+        paddingVertical: 2,
+        borderRadius: 4,
     },
-            proBadgeMiniText: {
-                color: '#FFF',
-            fontSize: 8,
-            fontFamily: 'PixelifySans_700Bold',
+    proBadgeMiniText: {
+        color: '#FFF',
+        fontSize: 8,
+        fontFamily: 'PixelifySans_700Bold',
     },
-            notificationDot: {
-                position: 'absolute',
-            top: -1,
-            right: -1,
-            width: 10,
-            height: 10,
-            borderRadius: 5,
-            backgroundColor: '#EF4444',
-            zIndex: 60,
+    notificationDot: {
+        position: 'absolute',
+        top: -1,
+        right: -1,
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        backgroundColor: '#EF4444',
+        zIndex: 60,
     },
 });

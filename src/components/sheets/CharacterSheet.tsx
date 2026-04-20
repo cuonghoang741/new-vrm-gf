@@ -23,6 +23,7 @@ interface Character {
     id: string;
     name: string;
     thumbnail_url: string | null;
+    avatar?: string | null;
     description: string | null;
     tier: string | null;
     available?: boolean;
@@ -74,9 +75,8 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
         try {
             const { data, error } = await supabase
                 .from("characters")
-                .select("id, name, thumbnail_url, description, tier, data, available")
+                .select("id, name, thumbnail_url, avatar, description, tier, data, available")
                 .eq("is_public", true)
-                .not("base_model_url", "ilike", "%.png")
                 .order("order", { ascending: true });
             if (error) throw error;
             if (data) setCharacters(data);

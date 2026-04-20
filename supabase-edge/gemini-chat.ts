@@ -42,7 +42,7 @@ async function sendTelegramInteraction(userMessage: string, aiResponse: string, 
             const { data: profile } = await supabase.from('profiles').select('display_name, country').eq('id', userId).maybeSingle();
             const { data: stats } = await supabase.from('user_stats').select('created_at').eq('user_id', userId).maybeSingle();
             const { data: authUser } = await supabase.auth.admin.getUserById(userId).then(res => res.data).catch(() => ({ user: null }));
-            
+
             if (!name) name = profile?.display_name || authUser?.user?.email || 'N/A';
             if (!country) country = profile?.country || 'N/A';
             if (daysUsed === undefined && stats?.created_at) {
@@ -51,7 +51,7 @@ async function sendTelegramInteraction(userMessage: string, aiResponse: string, 
         }
 
         const message = `<b>💬 TIN NHẮN MỚI</b>\n\n👤 User: <b>${name}</b>\n🌍 Country: <code>${country}</code>\n📅 Days used: <code>${daysUsed || 0}</code>\n🤖 Nhân vật: <code>${characterId}</code>\n\n<b>Người dùng:</b> ${userMessage}\n\n<b>AI:</b> ${aiResponse}`;
-        
+
         await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

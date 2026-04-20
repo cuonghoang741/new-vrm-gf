@@ -27,9 +27,6 @@ export const useAppVoiceCall = ({
     // Separate states for voice mode vs camera mode
     const [isVoiceMode, setIsVoiceMode] = useState(false);  // Voice-only call (no zoom)
     const [isCameraMode, setIsCameraMode] = useState(false); // Video call (zoom to face + camera)
-    const [showCameraPreview, setShowCameraPreview] = useState(false);
-    const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
-
     const [isProcessing, setIsProcessing] = useState(false);
     const [remainingQuotaSeconds, setRemainingQuotaSeconds] = useState<number>(CallQuotaService.getDefaultQuota(isPro));
 
@@ -179,65 +176,10 @@ export const useAppVoiceCall = ({
         return true;
     }, []);
 
-    const startCameraPreviewStream = useCallback(async (): Promise<boolean> => {
-        try {
-            console.log('[useAppVoiceCall] Starting camera preview stream...');
-            const stream = await mediaDevices.getUserMedia({
-                audio: false,
-                video: {
-                    facingMode: 'user', // Front camera
-                    width: { ideal: 640 },
-                    height: { ideal: 480 },
-                },
-            }) as MediaStream;
-
-            if (stream) {
-                setCameraStream(stream);
-                console.log('[useAppVoiceCall] Camera preview stream started successfully');
-                return true;
-            }
-            return false;
-        } catch (error: any) {
-            console.warn('[useAppVoiceCall] Failed to start camera preview:', error);
-
-            // Show specific error message based on error type
-            if (error?.name === 'NotAllowedError' || error?.message?.includes('permission')) {
-                Alert.alert(
-                    'Camera Permission Required',
-                    'Please enable camera access in your device Settings to use video calls.',
-                    [
-                        { text: 'Cancel', style: 'cancel' },
-                        { text: 'Open Settings', onPress: () => Linking.openSettings() },
-                    ]
-                );
-            } else {
-                Alert.alert(
-                    'Camera Error',
-                    'Unable to access camera. Please check your camera settings and try again.',
-                    [{ text: 'OK' }]
-                );
-            }
-            return false;
-        }
-    }, []);
-
-    const stopCameraPreview = useCallback(() => {
-        console.log('[useAppVoiceCall] stopCameraPreview called');
-        setShowCameraPreview(false);
-
-        setCameraStream(prev => {
-            if (prev) {
-                prev.getTracks().forEach(track => track.stop());
-            }
-            return null;
-        });
-    }, []);
-
     // End entire call (both voice & camera)
     const endCall = useCallback(async () => {
         try {
             setIsProcessing(true);
-            stopCameraPreview();
             await endVoiceConversation();
             if (webBridgeRef.current) {
                 webBridgeRef.current.setMouthOpen(0);
@@ -250,7 +192,7 @@ export const useAppVoiceCall = ({
         } finally {
             setIsProcessing(false);
         }
-    }, [endVoiceConversation, stopCameraPreview, webBridgeRef]);
+    }, [endVoiceConversation, webBridgeRef]);
 
     // Metering Logic - countdown and sync to DB
     useEffect(() => {
@@ -404,7 +346,7 @@ export const useAppVoiceCall = ({
         onQuotaExhausted
     ]);
 
-    // Toggle Camera Mode (zoom to face + camera preview)
+    // Toggle Camera Mode (zoom to face + camera preview in UI)
     const handleToggleCameraMode = useCallback(async () => {
         if (isSwitchingModeRef.current) return;
         if (voiceState.isBooting || voiceState.status === 'connecting') return;
@@ -421,16 +363,11 @@ export const useAppVoiceCall = ({
         try {
             // CASE 1: Already in camera mode -> turn OFF camera mode
             if (isCameraMode) {
-                // If we were in voice mode before, just switch back to voice mode
-                // If not, end the call entirely
-                stopCameraPreview();
                 setIsCameraMode(false);
 
                 // If voice was active before camera, keep voice running
                 if (isVoiceMode || voiceState.isConnected) {
                     setIsVoiceMode(true);
-                    console.log('[useAppVoiceCall] Switched from camera mode to voice mode, keeping Call Mode active');
-                    // Ensure Call Mode (Zoom In) stays active
                     if (webBridgeRef.current) {
                         webBridgeRef.current.setCallMode(true);
                     }
@@ -443,26 +380,14 @@ export const useAppVoiceCall = ({
                 return;
             }
 
-            // CASE 2: Already in voice mode -> upgrade to camera mode (just toggle zoom + camera)
+            // CASE 2: Already in voice mode -> upgrade (just toggle state)
             if (isVoiceMode && voiceState.isConnected) {
-                console.log('[useAppVoiceCall] Upgrading from voice mode to camera mode');
+                const hasPermission = await ensureCameraPermission();
+                if (!hasPermission) return;
 
-                // Start camera preview
-                let cameraStarted = false;
-                try {
-                    const hasPermission = await ensureCameraPermission();
-                    if (hasPermission) {
-                        cameraStarted = await startCameraPreviewStream();
-                    }
-                } catch (error) {
-                    console.warn('[useAppVoiceCall] Camera setup failed:', error);
-                }
-
-                setShowCameraPreview(cameraStarted);
                 setIsCameraMode(true);
                 setIsVoiceMode(false);
 
-                // Zoom to face for video call
                 if (webBridgeRef.current) {
                     webBridgeRef.current.setCallMode(true);
                 }
@@ -475,18 +400,8 @@ export const useAppVoiceCall = ({
                 return;
             }
 
-            // Start camera preview first
-            let cameraStarted = false;
-            try {
-                const hasPermission = await ensureCameraPermission();
-                if (hasPermission) {
-                    cameraStarted = await startCameraPreviewStream();
-                }
-            } catch (error) {
-                console.warn('[useAppVoiceCall] Camera setup failed:', error);
-            }
-
-            setShowCameraPreview(cameraStarted);
+            const hasPermission = await ensureCameraPermission();
+            if (!hasPermission) return;
 
             // Start voice connection
             const connected = await ensureVoiceConnected();
@@ -494,7 +409,6 @@ export const useAppVoiceCall = ({
                 setIsCameraMode(true);
                 setIsVoiceMode(false);
 
-                // Zoom to face for video call
                 if (webBridgeRef.current) {
                     webBridgeRef.current.setCallMode(true);
                 }
@@ -502,9 +416,6 @@ export const useAppVoiceCall = ({
                 if (activeCharacterId) {
                     analyticsService.logVideoCallStart(activeCharacterId);
                 }
-            } else {
-                // Failed to connect, cleanup camera
-                stopCameraPreview();
             }
 
         } finally {
@@ -517,39 +428,28 @@ export const useAppVoiceCall = ({
         voiceState.isConnected,
         isCameraMode,
         isVoiceMode,
-        stopCameraPreview,
         webBridgeRef,
         endCall,
         activeCharacterId,
         ensureCameraPermission,
-        startCameraPreviewStream,
-        ensureVoiceConnected
+        ensureVoiceConnected,
+        remainingQuotaSeconds,
+        isPro,
+        onQuotaExhausted
     ]);
-
-    const handleCameraOverlayClose = useCallback(() => {
-        if (showCameraPreview) {
-            void handleToggleCameraMode();
-        }
-    }, [showCameraPreview, handleToggleCameraMode]);
 
     return {
         voiceState,
         isVoiceMode,
         isCameraMode,
-        showCameraPreview,
-        cameraStream,
         handleToggleCameraMode,
         handleToggleVoiceMode,
-        // Keep old name for compatibility
         handleToggleMic: handleToggleVoiceMode,
-        handleCameraOverlayClose,
         sendVoiceText,
         endCall,
         agentIdCacheRef,
         ensureCameraPermission,
         ensureMicrophonePermission,
-        stopCameraPreview,
-        startCameraPreviewStream,
 
         isProcessing,
         remainingQuotaSeconds,

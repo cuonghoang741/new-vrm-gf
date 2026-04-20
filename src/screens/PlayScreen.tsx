@@ -21,6 +21,7 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { Image } from "expo-image";
 import { BlurView } from "expo-blur";
+import { LiquidGlassView, isLiquidGlassSupported } from "@callstack/liquid-glass";
 
 import {
     IconSend,
@@ -97,6 +98,7 @@ export default function PlayScreen() {
     const [characterId, setCharacterId] = useState<string | null>(null);
     const [characterName, setCharacterName] = useState("Companion");
     const [characterModelUrl, setCharacterModelUrl] = useState<string | null>(null);
+    const [baseModelUrl, setBaseModelUrl] = useState<string | null>(null);
     const [characterThumbnail, setCharacterThumbnail] = useState<string | null>(null);
     const [characterAvatar, setCharacterAvatar] = useState<string | null>(null);
     const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null);
@@ -108,6 +110,7 @@ export default function PlayScreen() {
 
     const [userProfile, setUserProfile] = useState<{ display_name?: string; country?: string } | null>(null);
     const [userCreatedAt, setUserCreatedAt] = useState<string | null>(null);
+    const [isNudeBlurred, setIsNudeBlurred] = useState(false);
 
     // Chat state
     const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -390,6 +393,7 @@ export default function PlayScreen() {
                     setCharacterAvatar(finalAvatarUrl);
                     if (finalModelUrl.endsWith(".vrm")) {
                         setCharacterModelUrl(finalModelUrl);
+                        setBaseModelUrl(char.base_model_url); // Store the default base model
                     }
                     if (char.agent_elevenlabs_id) {
                         setAgentElevenlabsId(char.agent_elevenlabs_id);
@@ -540,7 +544,7 @@ export default function PlayScreen() {
                         };
                         setMessages((prev) => [...prev, mediaMsg]);
 
-                        // Persist to DB with media_id link
+                    // Persist to DB with media_id link
                         chatService.saveMediaMessage(characterId || "", user?.id || "", media.id);
                     } else {
                         // Fallback: open media sheet if no specific media found
@@ -550,11 +554,43 @@ export default function PlayScreen() {
                 break;
 
             case "become_nude":
-                if (!isPro) {
-                    setSubscriptionOpen(true);
-                } else {
-                    setCostumeSheetOpen(true);
-                }
+                (async () => {
+                    // 1. Force 3D Mode
+                    if (!is3DMode) {
+                        setIs3DMode(true);
+                        setVrmReady(false);
+                    }
+
+                    // 2. Find nude costume
+                    const { data: costumes } = await supabase
+                        .from("character_costumes")
+                        .select("*")
+                        .eq("character_id", characterId)
+                        .ilike("costume_name", "%nude%")
+                        .limit(1);
+
+                    if (costumes && costumes.length > 0) {
+                        const nude = costumes[0];
+                        console.log(`[PlayScreen] Action become_nude: Applying costume ${nude.costume_name}`);
+                        
+                        if (characterModelUrl) {
+                            setBaseModelUrl(characterModelUrl);
+                        }
+                        setCharacterModelUrl(nude.model_url);
+                        if (vrmRef.current) {
+                            vrmRef.current.loadModelByURL(nude.model_url);
+                        }
+
+                        // 3. Set blur if not pro
+                        if (!isPro) {
+                            setIsNudeBlurred(true);
+                        }
+                    } else {
+                        console.log("[PlayScreen] Action become_nude: No nude costume found for this character");
+                        // Fallback: show costume sheet so user can see available options
+                        setCostumeSheetOpen(true);
+                    }
+                })();
                 break;
 
             case "start_voice_call":
@@ -569,7 +605,7 @@ export default function PlayScreen() {
             default:
                 break;
         }
-    }, [isPro, characterId, user?.id]);
+    }, [isPro, characterId, user?.id, is3DMode, characterModelUrl]);
 
     // ─── Send message ───
     const handleSend = useCallback(async () => {
@@ -638,32 +674,69 @@ export default function PlayScreen() {
     const handleCharacterSelect = useCallback(async (char: any) => {
         setCharacterId(char.id);
         setCharacterName(char.name);
+        setIsNudeBlurred(false);
         if (char.thumbnail_url) setCharacterThumbnail(char.thumbnail_url);
 
-        const { data } = await supabase.from("characters").select("base_model_url, background_default_id, thumbnail_url").eq("id", char.id).single();
-        if (data?.thumbnail_url) setCharacterThumbnail(data.thumbnail_url);
-        if (data?.base_model_url?.endsWith(".vrm")) {
-            setCharacterModelUrl(data.base_model_url);
-            vrmRef.current?.loadModelByURL(data.base_model_url, char.name);
+        // Fetch full detail for the character (including avatar/vrm/background)
+        const { data: fullChar } = await supabase
+            .from("characters")
+            .select("base_model_url, background_default_id, thumbnail_url, avatar")
+            .eq("id", char.id)
+            .single();
+
+        if (fullChar) {
+            if (fullChar.thumbnail_url) setCharacterThumbnail(fullChar.thumbnail_url);
+            if (fullChar.avatar) setCharacterAvatar(fullChar.avatar);
+
+            // Handle VRM if applicable
+            if (fullChar.base_model_url?.toLowerCase().endsWith(".vrm")) {
+                setCharacterModelUrl(fullChar.base_model_url);
+                setBaseModelUrl(fullChar.base_model_url);
+                vrmRef.current?.loadModelByURL(fullChar.base_model_url, char.name);
+            } else {
+                setCharacterModelUrl(null);
+                setBaseModelUrl(null);
+                setIs3DMode(false); // Drop back to 2D mode for non-VRM characters
+            }
+
+            // Handle Background
+            let charBgUrl = backgroundUrl;
+            let charBgId = fullChar.background_default_id || backgroundId;
+
+            if (fullChar.background_default_id) {
+                const { data: bgData } = await supabase
+                    .from("backgrounds")
+                    .select("image")
+                    .eq("id", fullChar.background_default_id)
+                    .single();
+                if (bgData?.image) {
+                    charBgUrl = bgData.image;
+                    setBackgroundUrl(charBgUrl);
+                    setBackgroundId(fullChar.background_default_id ?? null);
+                    if (is3DMode) vrmRef.current?.setBackgroundImage(charBgUrl!);
+                }
+            }
 
             // Log Analytics
             analyticsService.logCharacterSelect(char.id, char.name);
 
-            // Update cache
+            // Update Cache
             saveCache({
                 characterId: char.id,
                 characterName: char.name,
-                modelUrl: data.base_model_url,
-                backgroundUrl,
-                backgroundId,
-                thumbnailUrl: data.thumbnail_url ?? char.thumbnail_url ?? null,
+                modelUrl: fullChar.base_model_url || "",
+                backgroundUrl: charBgUrl,
+                backgroundId: charBgId,
+                thumbnailUrl: fullChar.thumbnail_url || char.thumbnail_url || null,
+                avatarUrl: fullChar.avatar || null,
+                agentElevenlabsId
             });
         }
 
         // Update user preference + cache ownership
         if (user?.id) {
-            const { data } = await supabase.from("user_preferences").update({ current_character_id: char.id, updated_at: new Date().toISOString() }).eq("user_id", user.id).select();
-            if (data && data.length === 0) {
+            const { data: prefData } = await supabase.from("user_preferences").update({ current_character_id: char.id, updated_at: new Date().toISOString() }).eq("user_id", user.id).select();
+            if (prefData && prefData.length === 0) {
                 await supabase.from("user_preferences").insert({ user_id: user.id, current_character_id: char.id, updated_at: new Date().toISOString() });
             }
             supabase.from("user_assets")
@@ -672,15 +745,18 @@ export default function PlayScreen() {
         }
 
         // Reload chat
-        if (user?.id) {
-            const history = await chatService.loadHistory(char.id, user.id);
+        const uId = user?.id;
+        const cId = char.id;
+        if (uId && cId) {
+            const history = await chatService.loadHistory(cId, uId);
             setMessages(history);
         }
-    }, [user?.id, backgroundUrl, backgroundId, saveCache]);
+    }, [user?.id, backgroundUrl, backgroundId, saveCache, is3DMode, agentElevenlabsId]);
 
     const handleCostumeSelect = useCallback((costume: any) => {
         if (costume.model_url) {
             setCharacterModelUrl(costume.model_url);
+            setIsNudeBlurred(false);
             vrmRef.current?.loadModelByURL(costume.model_url, costume.costume_name);
         }
         if (costume.thumbnail) {
@@ -779,10 +855,25 @@ export default function PlayScreen() {
                     </Pressable>
                 )}
                 {hasText && (
-                    <View style={[styles.messageBubble, isUser ? styles.userBubble : styles.aiBubble, { marginBottom: 0 }]}>
-                        {isAI && <Text style={styles.aiName}>{characterName}</Text>}
-                        <Text style={[styles.messageText, isUser ? styles.userText : styles.aiText]}>{item.text}</Text>
-                    </View>
+                    isLiquidGlassSupported ? (
+                        <LiquidGlassView
+                            style={[
+                                styles.messageBubble,
+                                isUser ? styles.userBubbleLiquid : styles.aiBubbleLiquid,
+                                { marginBottom: 0 }
+                            ]}
+                            effect="regular"
+                            tintColor={isUser ? 'rgba(155, 89, 255, 0.5)' : 'rgba(15, 5, 30, 0.4)'}
+                        >
+                            {isAI && <Text style={styles.aiName}>{characterName}</Text>}
+                            <Text style={[styles.messageText, isUser ? styles.userText : styles.aiText]}>{item.text}</Text>
+                        </LiquidGlassView>
+                    ) : (
+                        <View style={[styles.messageBubble, isUser ? styles.userBubble : styles.aiBubble, { marginBottom: 0 }]}>
+                            {isAI && <Text style={styles.aiName}>{characterName}</Text>}
+                            <Text style={[styles.messageText, isUser ? styles.userText : styles.aiText]}>{item.text}</Text>
+                        </View>
+                    )
                 )}
             </View>
         );
@@ -825,10 +916,48 @@ export default function PlayScreen() {
                         <Image
                             source={{ uri: characterAvatar }}
                             style={styles.staticCharacter}
-                            contentFit="contain" // Contain because avatars often have different aspect ratios but transparency
+                            contentFit="contain"
+                            contentPosition="bottom center"
                         />
                     )}
                 </View>
+            )}
+
+            {/* Blurred Overlay for Sensitive Content (become_nude action) */}
+            {isNudeBlurred && (
+                <BlurView intensity={100} tint="dark" style={[StyleSheet.absoluteFill, { zIndex: 100 }]}>
+                    <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 40 }}>
+                        <View style={{ backgroundColor: 'rgba(139, 92, 246, 0.2)', padding: 20, borderRadius: 100, marginBottom: 20 }}>
+                            <IconLock size={40} color="#8b5cf6" />
+                        </View>
+                        <Text style={{ color: "#fff", fontSize: 24, fontWeight: "800", textAlign: "center", marginBottom: 12 }}>
+                            Sensitive Activity
+                        </Text>
+                        <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 16, textAlign: "center", lineHeight: 22, marginBottom: 30 }}>
+                            You reached a special interaction! Become a PRO user to unlock exclusive 3D content and see this character's true self.
+                        </Text>
+                        <Pressable 
+                            style={{ backgroundColor: "#8b5cf6", paddingHorizontal: 30, paddingVertical: 14, borderRadius: 30 }}
+                            onPress={() => setSubscriptionOpen(true)}
+                        >
+                            <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>Unlock with PRO</Text>
+                        </Pressable>
+                        <Pressable 
+                            style={{ marginTop: 20, padding: 10 }}
+                            onPress={() => {
+                                setIsNudeBlurred(false);
+                                setIs3DMode(false);
+                                // Revert to base model so they don't stay nude if they turn 3D back on
+                                if (baseModelUrl) {
+                                    setCharacterModelUrl(baseModelUrl);
+                                    vrmRef.current?.loadModelByURL(baseModelUrl);
+                                }
+                            }}
+                        >
+                            <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 14 }}>Dismiss</Text>
+                        </Pressable>
+                    </View>
+                </BlurView>
             )}
 
             {/* User Front Camera floating pip for Video Call */}
@@ -897,49 +1026,51 @@ export default function PlayScreen() {
             </View>
 
             {/* ─── Top right bubble actions ─── */}
-            <ActionsBubble
-                conversationStatus={voiceState.isConnected ? "connected" : voiceState.status}
-                agentElevenlabsId={agentElevenlabsId}
-                isPro={isPro}
-                is3DMode={is3DMode}
-                isDancing={isDancing}
-                isCameraMode={isCameraMode}
-                onOpenCharacter={() => setCharSheetOpen(true)}
-                onOpenCostume={() => setCostumeSheetOpen(true)}
-                onOpenScene={() => setBgSheetOpen(true)}
-                onOpenGallery={() => setMediaSheetOpen(true)}
-                onOpenSettings={() => setSettingsSheetOpen(true)}
-                onToggleDance={() => {
-                    if (!isPro) {
-                        setSubscriptionOpen(true);
-                        return;
-                    }
-                    if (!is3DMode) {
-                        setVrmReady(false);
-                        setIs3DMode(true);
-                        setIsDancing(true);
-                    } else {
-                        if (isDancing) {
-                            vrmRef.current?.stopAnimation();
-                            setIsDancing(false);
-                        } else {
-                            vrmRef.current?.loadNextAnimation();
-                            setIsDancing(true);
+            {!isKeyboardVisible && (
+                <ActionsBubble
+                    conversationStatus={voiceState.isConnected ? "connected" : voiceState.status}
+                    agentElevenlabsId={agentElevenlabsId}
+                    isPro={isPro}
+                    is3DMode={is3DMode}
+                    isDancing={isDancing}
+                    isCameraMode={isCameraMode}
+                    onOpenCharacter={() => setCharSheetOpen(true)}
+                    onOpenCostume={() => setCostumeSheetOpen(true)}
+                    onOpenScene={() => setBgSheetOpen(true)}
+                    onOpenGallery={() => setMediaSheetOpen(true)}
+                    onOpenSettings={() => setSettingsSheetOpen(true)}
+                    onToggleDance={() => {
+                        if (!isPro) {
+                            setSubscriptionOpen(true);
+                            return;
                         }
-                    }
-                }}
-                onToggle3D={() => {
-                    if (!isPro) {
-                        setSubscriptionOpen(true);
-                    } else {
-                        setVrmReady(false);
-                        setIs3DMode(prev => !prev);
-                    }
-                }}
-                onToggleCall={handleToggleVoiceMode}
-                onToggleCamera={handleToggleCameraMode}
-                onOpenSubscription={() => setSubscriptionOpen(true)}
-            />
+                        if (!is3DMode) {
+                            setVrmReady(false);
+                            setIs3DMode(true);
+                            setIsDancing(true);
+                        } else {
+                            if (isDancing) {
+                                vrmRef.current?.stopAnimation();
+                                setIsDancing(false);
+                            } else {
+                                vrmRef.current?.loadNextAnimation();
+                                setIsDancing(true);
+                            }
+                        }
+                    }}
+                    onToggle3D={() => {
+                        if (!isPro) {
+                            setSubscriptionOpen(true);
+                        } else {
+                            setVrmReady(false);
+                            setIs3DMode(prev => !prev);
+                        }
+                    }}
+                    onToggleCall={handleToggleVoiceMode}
+                    onToggleCamera={handleToggleCameraMode}
+                    onOpenSubscription={() => setSubscriptionOpen(true)}
+                />
+            )}
 
 
             {/* ─── Keyboard Dismiss Overlay ─── */}
@@ -975,39 +1106,78 @@ export default function PlayScreen() {
                             }
                             ListFooterComponent={
                                 isSending ? (
-                                    <View style={[styles.messageBubble, styles.aiBubble]}>
-                                        <Text style={styles.aiName}>{characterName}</Text>
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', height: 20, paddingTop: 4 }}>
-                                            {[dot1Anim, dot2Anim, dot3Anim].map((anim, i) => (
-                                                <Animated.View key={i} style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: 'rgba(255,255,255,0.5)', marginHorizontal: 2, transform: [{ translateY: anim }] }} />
-                                            ))}
+                                    isLiquidGlassSupported ? (
+                                        <LiquidGlassView
+                                            style={[styles.messageBubble, styles.aiBubbleLiquid]}
+                                            effect="regular"
+                                            tintColor="rgba(15, 5, 30, 0.4)"
+                                        >
+                                            <Text style={styles.aiName}>{characterName}</Text>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', height: 20, paddingTop: 4 }}>
+                                                {[dot1Anim, dot2Anim, dot3Anim].map((anim, i) => (
+                                                    <Animated.View key={i} style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: 'rgba(255,255,255,0.5)', marginHorizontal: 2, transform: [{ translateY: anim }] }} />
+                                                ))}
+                                            </View>
+                                        </LiquidGlassView>
+                                    ) : (
+                                        <View style={[styles.messageBubble, styles.aiBubble]}>
+                                            <Text style={styles.aiName}>{characterName}</Text>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', height: 20, paddingTop: 4 }}>
+                                                {[dot1Anim, dot2Anim, dot3Anim].map((anim, i) => (
+                                                    <Animated.View key={i} style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: 'rgba(255,255,255,0.5)', marginHorizontal: 2, transform: [{ translateY: anim }] }} />
+                                                ))}
+                                            </View>
                                         </View>
-                                    </View>
+                                    )
                                 ) : null
                             }
                         />
                     </View>
 
                     <View style={styles.inputBar}>
-                        <TextInput
-                            style={styles.textInput}
-                            placeholder={`Message ${characterName}...`}
-                            placeholderTextColor="rgba(255,255,255,0.3)"
-                            value={inputText}
-                            onChangeText={setInputText}
-                            multiline
-                            maxLength={500}
-                            returnKeyType="default"
-                            blurOnSubmit={false}
-                        />
-                        <TouchableOpacity
-                            style={[styles.sendBtn, (!inputText.trim() || isSending) && styles.sendBtnDisabled]}
+                        {isLiquidGlassSupported ? (
+                            <LiquidGlassView 
+                                style={styles.liquidInputWrapper} 
+                                effect="regular" 
+                                interactive
+                                tintColor="rgba(255, 255, 255, 0.1)"
+                            >
+                                <TextInput
+                                    style={styles.textInputLiquid}
+                                    placeholder={`Message ${characterName}...`}
+                                    placeholderTextColor="rgba(255,255,255,0.3)"
+                                    value={inputText}
+                                    onChangeText={setInputText}
+                                    multiline
+                                    maxLength={500}
+                                    returnKeyType="default"
+                                    blurOnSubmit={false}
+                                />
+                            </LiquidGlassView>
+                        ) : (
+                            <TextInput
+                                style={styles.textInput}
+                                placeholder={`Message ${characterName}...`}
+                                placeholderTextColor="rgba(255,255,255,0.3)"
+                                value={inputText}
+                                onChangeText={setInputText}
+                                multiline
+                                maxLength={500}
+                                returnKeyType="default"
+                                blurOnSubmit={false}
+                            />
+                        )}
+                        <Button
+                            variant="liquid"
+                            isIconOnly
+                            startIcon={IconSend}
+                            startIconSize={20}
+                            startIconColor="#FFFFFF"
+                            tintColor="rgba(155, 89, 255, 0.8)"
                             onPress={handleSend}
                             disabled={!inputText.trim() || isSending}
-                            activeOpacity={0.7}
-                        >
-                            <IconSend size={20} color="#FFFFFF" />
-                        </TouchableOpacity>
+                            style={styles.sendBtnLiquid}
+                        />
                     </View>
                 </View>
 
@@ -1107,6 +1277,7 @@ const styles = StyleSheet.create({
     },
     pipCamera: {
         flex: 1,
+        transform: [{ scaleX: -1 }], // Mirror front camera
     },
 
     topBar: {
@@ -1179,6 +1350,16 @@ const styles = StyleSheet.create({
     messageBubble: { maxWidth: "80%", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 18, marginBottom: 8 },
     userBubble: { alignSelf: "flex-end", backgroundColor: "#9B59FF", borderBottomRightRadius: 6 },
     aiBubble: { alignSelf: "flex-start", backgroundColor: "rgba(15, 5, 30, 0.75)", borderWidth: 1, borderColor: "rgba(155, 89, 255, 0.2)", borderBottomLeftRadius: 6 },
+    userBubbleLiquid: {
+        alignSelf: "flex-end",
+        borderBottomRightRadius: 6,
+        backgroundColor: Platform.OS === 'android' ? 'rgba(155, 89, 255, 0.2)' : 'transparent',
+    },
+    aiBubbleLiquid: {
+        alignSelf: "flex-start",
+        borderBottomLeftRadius: 6,
+        backgroundColor: Platform.OS === 'android' ? 'rgba(15, 5, 30, 0.3)' : 'transparent',
+    },
     aiName: { fontSize: 11, fontWeight: "600", color: "rgba(155, 89, 255, 0.8)", marginBottom: 3 },
     messageText: {
         fontSize: 16, lineHeight: 22,
@@ -1222,6 +1403,24 @@ const styles = StyleSheet.create({
         fontSize: 15, color: "#FFFFFF", maxHeight: 100,
         borderWidth: 1, borderColor: "rgba(155, 89, 255, 0.15)",
     },
+    liquidInputWrapper: {
+        flex: 1,
+        borderRadius: 22,
+        overflow: 'hidden',
+        minHeight: 44,
+        maxHeight: 120,
+        backgroundColor: Platform.OS === 'android' ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
+        justifyContent: 'center',
+    },
+    textInputLiquid: {
+        flex: 1,
+        paddingHorizontal: 18,
+        paddingVertical: Platform.OS === 'ios' ? 12 : 10,
+        fontSize: 15,
+        color: "#FFFFFF",
+        textAlignVertical: 'center',
+    },
     sendBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: "#9B59FF", justifyContent: "center", alignItems: "center" },
+    sendBtnLiquid: { width: 44, height: 44, borderRadius: 22 },
     sendBtnDisabled: { backgroundColor: "rgba(155, 89, 255, 0.3)" },
 });
