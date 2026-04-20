@@ -185,8 +185,8 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
                             )}
                         </View>
                         <View style={item.is_dark ? styles.darkBadge : styles.lightBadge}>
-                            <Ionicons name={item.is_dark ? "moon" : "sunny"} size={10} color="#fff" />
-                            <Text style={styles.modeText}>{item.is_dark ? "Dark" : "Light"}</Text>
+                            <Ionicons name={item.is_dark ? "moon" : "sunny"} size={10} color={item.is_dark ? "#fff" : "#FFB800"} />
+                            <Text style={item.is_dark ? styles.modeText : styles.modeTextLight}>{item.is_dark ? "Dark" : "Light"}</Text>
                         </View>
                     </View>
 
@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
     lightBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(245, 158, 11, 0.4)',
+        backgroundColor: 'rgba(255, 255, 255, 0.9)',
         paddingHorizontal: 6,
         paddingVertical: 2,
         borderRadius: 6,
@@ -341,6 +341,12 @@ const styles = StyleSheet.create({
         fontSize: 9,
         fontWeight: '700',
         color: '#FFF',
+        textTransform: 'uppercase',
+    },
+    modeTextLight: {
+        fontSize: 9,
+        fontWeight: '800',
+        color: '#000',
         textTransform: 'uppercase',
     },
 });
