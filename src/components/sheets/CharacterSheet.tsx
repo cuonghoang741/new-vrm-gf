@@ -188,6 +188,22 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
                                 <Ionicons name="checkmark" size={12} color="#fff" />
                             </View>
                         )}
+
+                        {/* Stats Overlay */}
+                        {isAvailable && (
+                            <View style={styles.statsOverlay}>
+                                {item.data?.height_cm && item.data?.old && (
+                                    <Text style={styles.statLine}>
+                                        {item.data.height_cm}cm • {item.data.old}yr
+                                    </Text>
+                                )}
+                                {item.data?.rounds && (
+                                    <Text style={styles.statLine}>
+                                        {item.data.rounds.r1}-{item.data.rounds.r2}-{item.data.rounds.r3}
+                                    </Text>
+                                )}
+                            </View>
+                        )}
                     </View>
                     <Text style={styles.characterName} numberOfLines={1}>
                         {item.name}
@@ -344,10 +360,28 @@ const styles = StyleSheet.create({
     },
     characterName: {
         fontSize: 12,
-        fontWeight: "600",
+        fontWeight: "700",
         color: "#FFFFFF",
         textAlign: "center",
         width: "100%",
+        marginTop: 2,
+    },
+    statsOverlay: {
+        position: "absolute",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        backgroundColor: "rgba(0,0,0,0.5)",
+        paddingVertical: 4,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    statLine: {
+        fontSize: 8,
+        fontWeight: "900",
+        color: "#FFF",
+        textTransform: "uppercase",
+        letterSpacing: 0.2,
     },
     columnWrapper: {
         justifyContent: "flex-start",
