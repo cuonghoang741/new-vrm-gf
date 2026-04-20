@@ -89,6 +89,7 @@ export default function PlayScreen() {
     const [charSheetOpen, setCharSheetOpen] = useState(false);
     const [costumeSheetOpen, setCostumeSheetOpen] = useState(false);
     const [bgSheetOpen, setBgSheetOpen] = useState(false);
+    const isCacheRestored = useRef(false);
     const [settingsSheetOpen, setSettingsSheetOpen] = useState(false);
     const [subscriptionOpen, setSubscriptionOpen] = useState(false);
     const [mediaSheetOpen, setMediaSheetOpen] = useState(false);
@@ -289,6 +290,7 @@ export default function PlayScreen() {
                     }
                     if (cached.avatarUrl) setCharacterAvatar(cached.avatarUrl);
                     if (cached.agentElevenlabsId) setAgentElevenlabsId(cached.agentElevenlabsId);
+                    isCacheRestored.current = true;
                 }
             } catch { }
         };
@@ -404,15 +406,25 @@ export default function PlayScreen() {
 
                 const bgId = char?.background_default_id;
                 let bgUrl: string | null = null;
+                
+                // Only override with default background if we HAVEN'T just restored from cache
                 if (bgId) {
-                    setBackgroundId(bgId);
-                    const { data: bg } = await supabase.from("backgrounds").select("image, is_dark").eq("id", bgId).single();
-                    if (bg?.image) {
-                        bgUrl = bg.image;
-                        setBackgroundUrl(bgUrl);
-                        setIsBackgroundDark(bg.is_dark ?? true);
+                    if (isCacheRestored.current && backgroundId) {
+                        console.log("[PlayScreen] Keeping cached background:", backgroundId);
+                        bgUrl = backgroundUrl;
+                    } else {
+                        setBackgroundId(bgId);
+                        const { data: bg } = await supabase.from("backgrounds").select("image, is_dark").eq("id", bgId).single();
+                        if (bg?.image) {
+                            bgUrl = bg.image;
+                            setBackgroundUrl(bgUrl);
+                            setIsBackgroundDark(bg.is_dark ?? true);
+                        }
                     }
                 }
+                
+                // Clear the restoration flag after the first load attempt
+                isCacheRestored.current = false;
 
                 // Update cache
                 if (char) {
