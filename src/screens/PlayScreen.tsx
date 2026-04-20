@@ -478,6 +478,16 @@ export default function PlayScreen() {
         loadHistory();
     }, [characterId, user?.id]);
 
+    // Auto-scroll to end when messages change
+    useEffect(() => {
+        if (messages.length > 0) {
+            // Small delay to ensure FlatList has calculated its new size
+            setTimeout(() => {
+                flatListRef.current?.scrollToEnd({ animated: true });
+            }, 100);
+        }
+    }, [messages]);
+
     // Typing indicator - 3 bouncing dots
     useEffect(() => {
         if (isSending) {
@@ -541,7 +551,7 @@ export default function PlayScreen() {
                         };
                         setMessages((prev) => [...prev, mediaMsg]);
 
-                    // Persist to DB with media_id link
+                        // Persist to DB with media_id link
                         chatService.saveMediaMessage(characterId || "", user?.id || "", media.id);
                     } else {
                         // Fallback: open media sheet if no specific media found
@@ -569,7 +579,7 @@ export default function PlayScreen() {
                     if (costumes && costumes.length > 0) {
                         const nude = costumes[0];
                         console.log(`[PlayScreen] Action become_nude: Applying costume ${nude.costume_name}`);
-                        
+
                         if (characterModelUrl) {
                             setBaseModelUrl(characterModelUrl);
                         }
@@ -933,13 +943,13 @@ export default function PlayScreen() {
                         <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 16, textAlign: "center", lineHeight: 22, marginBottom: 30 }}>
                             You reached a special interaction! Become a PRO user to unlock exclusive 3D content and see this character's true self.
                         </Text>
-                        <Pressable 
+                        <Pressable
                             style={{ backgroundColor: "#8b5cf6", paddingHorizontal: 30, paddingVertical: 14, borderRadius: 30 }}
                             onPress={() => setSubscriptionOpen(true)}
                         >
                             <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>Unlock with PRO</Text>
                         </Pressable>
-                        <Pressable 
+                        <Pressable
                             style={{ marginTop: 20, padding: 10 }}
                             onPress={() => {
                                 setIsNudeBlurred(false);
@@ -1023,22 +1033,39 @@ export default function PlayScreen() {
             </View>
 
             <View style={styles.leftFloatingContainer}>
-                <Button
-                    variant="liquid"
-                    tintColor={is3DMode && isPro ? '#8B5CF6' : 'rgba(255, 255, 255, 0.2)'}
-                    textColor="#FFFFFF"
-                    onPress={() => {
-                        if (!isPro) {
-                            setSubscriptionOpen(true);
-                        } else {
-                            setVrmReady(false);
-                            setIs3DMode(prev => !prev);
-                        }
-                    }}
-                    style={styles.impressive3DBtn}
+                <LiquidGlassView 
+                    style={styles.liquidToggleWrapper} 
+                    effect="regular" 
+                    tintColor="rgba(255, 255, 255, 0.1)"
                 >
-                    3D MODE
-                </Button>
+                    <View style={styles.toggleRow}>
+                        <TouchableOpacity 
+                            onPress={() => {
+                                if (is3DMode) {
+                                    setIs3DMode(false);
+                                }
+                            }}
+                            style={[styles.toggleOption, !is3DMode && styles.toggleOptionActive]}
+                        >
+                            <Text style={[styles.toggleLabel, !is3DMode && styles.toggleLabelActive]}>2D</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                            onPress={() => {
+                                if (!is3DMode) {
+                                    if (!isPro) {
+                                        setSubscriptionOpen(true);
+                                    } else {
+                                        setVrmReady(false);
+                                        setIs3DMode(true);
+                                    }
+                                }
+                            }}
+                            style={[styles.toggleOption, is3DMode && styles.toggleOptionActive]}
+                        >
+                            <Text style={[styles.toggleLabel, is3DMode && styles.toggleLabelActive]}>3D</Text>
+                        </TouchableOpacity>
+                    </View>
+                </LiquidGlassView>
                 {!isPro && (
                     <View style={styles.proBadgeLeft}>
                         <Text style={styles.proBadgeLeftText}>PRO</Text>
@@ -1079,7 +1106,7 @@ export default function PlayScreen() {
                             }
                         }
                     }}
-                    onToggle3D={() => {}} // Now handled independently on the left
+                    onToggle3D={() => { }} // Now handled independently on the left
                     onToggleCall={handleToggleVoiceMode}
                     onToggleCamera={handleToggleCameraMode}
                     onOpenSubscription={() => setSubscriptionOpen(true)}
@@ -1150,9 +1177,9 @@ export default function PlayScreen() {
 
                     <View style={styles.inputBar}>
                         {isLiquidGlassSupported ? (
-                            <LiquidGlassView 
-                                style={styles.liquidInputWrapper} 
-                                effect="regular" 
+                            <LiquidGlassView
+                                style={styles.liquidInputWrapper}
+                                effect="regular"
                                 interactive
                                 tintColor="rgba(255, 255, 255, 0.1)"
                             >
@@ -1345,6 +1372,35 @@ const styles = StyleSheet.create({
         borderWidth: 1.5,
         borderColor: 'rgba(255,255,255,0.25)',
     },
+    liquidToggleWrapper: {
+        borderRadius: 22,
+        overflow: 'hidden',
+        width: 100,
+        height: 38,
+        backgroundColor: Platform.OS === 'android' ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
+    },
+    toggleRow: {
+        flexDirection: 'row',
+        flex: 1,
+        padding: 4,
+    },
+    toggleOption: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderRadius: 18,
+    },
+    toggleOptionActive: {
+        backgroundColor: '#8B5CF6',
+    },
+    toggleLabel: {
+        fontSize: 11,
+        fontWeight: '800',
+        color: 'rgba(255,255,255,0.4)',
+    },
+    toggleLabelActive: {
+        color: '#FFFFFF',
+    },
     proBadgeLeft: {
         position: 'absolute',
         top: -4,
@@ -1405,7 +1461,7 @@ const styles = StyleSheet.create({
     },
     aiName: { fontSize: 11, fontWeight: "600", color: "rgba(155, 89, 255, 0.8)", marginBottom: 3 },
     messageText: {
-        fontSize: 16, lineHeight: 22,
+        fontSize: 14, lineHeight: 20,
     },
     mediaContainer: {
         width: 200, height: 260, borderRadius: 12, overflow: "hidden", marginBottom: 8,
