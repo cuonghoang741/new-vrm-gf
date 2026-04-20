@@ -885,32 +885,13 @@ export default function PlayScreen() {
             </View>
         );
     }, [characterName, isPro]);
-
     return (
         <View style={styles.container}>
             <StatusBar style="light" />
 
-            {/* VRM Viewer (PRO) or Static Image (non-PRO) */}
-            {is3DMode ? (
-                <View style={styles.vrmFull}>
-                    <VRMViewer
-                        ref={vrmRef}
-                        onReady={() => {
-                            setVrmReady(true);
-                            vrmRef.current?.setControlsEnabled(true);
-                            if (isCameraMode || isVoiceMode) {
-                                vrmRef.current?.setCallMode(true);
-                            }
-                            if (isDancing) {
-                                setTimeout(() => {
-                                    vrmRef.current?.loadNextAnimation();
-                                }, 500);
-                            }
-                        }}
-                        style={StyleSheet.absoluteFillObject}
-                    />
-                </View>
-            ) : (
+            {/* ─── Character Display Overlay ─── */}
+            <View style={styles.charContainer}>
+                {/* 2D Background & Static character */}
                 <View style={styles.vrmFull}>
                     {backgroundUrl && (
                         <Image
@@ -928,44 +909,61 @@ export default function PlayScreen() {
                         />
                     )}
                 </View>
-            )}
 
-            {/* Blurred Overlay for Sensitive Content (become_nude action) */}
-            {isNudeBlurred && (
-                <BlurView intensity={100} tint="dark" style={[StyleSheet.absoluteFill, { zIndex: 100 }]}>
-                    <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 40 }}>
-                        <View style={{ backgroundColor: 'rgba(139, 92, 246, 0.2)', padding: 20, borderRadius: 100, marginBottom: 20 }}>
-                            <IconLock size={40} color="#8b5cf6" />
+                {/* 3D Mode Overlay - Always mounted to avoid slow reloads */}
+                <View 
+                    style={[
+                        StyleSheet.absoluteFill,
+                        { 
+                            opacity: is3DMode ? 1 : 0, 
+                            zIndex: is3DMode ? 2 : -1,
+                            pointerEvents: is3DMode ? "auto" : "none"
+                        }
+                    ]}
+                >
+                    <VRMViewer
+                        ref={vrmRef}
+                        onReady={() => setVrmReady(true)}
+                    />
+                </View>
+
+                {/* Blurred Overlay for Sensitive Content (become_nude action) */}
+                {isNudeBlurred && (
+                    <BlurView intensity={100} tint="dark" style={[StyleSheet.absoluteFill, { zIndex: 100 }]}>
+                        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 40 }}>
+                            <View style={{ backgroundColor: 'rgba(139, 92, 246, 0.2)', padding: 20, borderRadius: 100, marginBottom: 20 }}>
+                                <IconLock size={40} color="#8b5cf6" />
+                            </View>
+                            <Text style={{ color: "#fff", fontSize: 24, fontWeight: "800", textAlign: "center", marginBottom: 12 }}>
+                                Sensitive Activity
+                            </Text>
+                            <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 16, textAlign: "center", lineHeight: 22, marginBottom: 30 }}>
+                                You reached a special interaction! Become a PRO user to unlock exclusive 3D content and see this character's true self.
+                            </Text>
+                            <Pressable
+                                style={{ backgroundColor: "#8b5cf6", paddingHorizontal: 30, paddingVertical: 14, borderRadius: 30 }}
+                                onPress={() => setSubscriptionOpen(true)}
+                            >
+                                <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>Unlock with PRO</Text>
+                            </Pressable>
+                            <Pressable
+                                style={{ marginTop: 20, padding: 10 }}
+                                onPress={() => {
+                                    setIsNudeBlurred(false);
+                                    setIs3DMode(false);
+                                    // Revert to base model so they don't stay nude if they turn 3D back on
+                                    if (baseModelUrl) {
+                                        setCharacterModelUrl(baseModelUrl);
+                                        vrmRef.current?.loadModelByURL(baseModelUrl);
+                                    }
+                                }}
+                            >
+                                <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 14 }}>Dismiss</Text>
+                            </Pressable>
                         </View>
-                        <Text style={{ color: "#fff", fontSize: 24, fontWeight: "800", textAlign: "center", marginBottom: 12 }}>
-                            Sensitive Activity
-                        </Text>
-                        <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 16, textAlign: "center", lineHeight: 22, marginBottom: 30 }}>
-                            You reached a special interaction! Become a PRO user to unlock exclusive 3D content and see this character's true self.
-                        </Text>
-                        <Pressable
-                            style={{ backgroundColor: "#8b5cf6", paddingHorizontal: 30, paddingVertical: 14, borderRadius: 30 }}
-                            onPress={() => setSubscriptionOpen(true)}
-                        >
-                            <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>Unlock with PRO</Text>
-                        </Pressable>
-                        <Pressable
-                            style={{ marginTop: 20, padding: 10 }}
-                            onPress={() => {
-                                setIsNudeBlurred(false);
-                                setIs3DMode(false);
-                                // Revert to base model so they don't stay nude if they turn 3D back on
-                                if (baseModelUrl) {
-                                    setCharacterModelUrl(baseModelUrl);
-                                    vrmRef.current?.loadModelByURL(baseModelUrl);
-                                }
-                            }}
-                        >
-                            <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 14 }}>Dismiss</Text>
-                        </Pressable>
-                    </View>
-                </BlurView>
-            )}
+                    </BlurView>
+                )}
+            </View>
 
             {/* User Front Camera floating pip for Video Call */}
             {isCameraMode && (
@@ -1299,7 +1297,7 @@ export default function PlayScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: "#8B5CF6", // Background tím
+        backgroundColor: "#050505", // Near black background
     },
     vrmFull: {
         ...StyleSheet.absoluteFillObject,
@@ -1428,6 +1426,16 @@ const styles = StyleSheet.create({
 
 
     // Chat overlay
+    charContainer: {
+        ...StyleSheet.absoluteFillObject,
+        zIndex: 0,
+    },
+    nudeBlurContainer: {
+        ...StyleSheet.absoluteFillObject,
+        zIndex: 100,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
     chatOverlay: {
         position: "absolute", top: 0, bottom: 0, left: 0, right: 0, zIndex: 20,
     },
