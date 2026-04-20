@@ -16,7 +16,7 @@ import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
 
 const { width } = Dimensions.get("window");
 const GRID_PADDING = 20;
-const GRID_GAP = 12;
+const GRID_GAP = 10;
 const ITEM_WIDTH = (width - (GRID_PADDING * 2) - (GRID_GAP * 2)) / 3;
 
 interface Costume {
@@ -144,11 +144,13 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
                     onPress={() => handleSelect(item)}
                     style={({ pressed }) => [
                         styles.gridItem,
-                        isSelected && styles.gridItemSelected,
                         pressed && styles.pressed,
                     ]}
                 >
-                    <View style={styles.avatarContainer}>
+                    <View style={[
+                        styles.avatarContainer,
+                        isSelected && { borderColor: "#8B5CF6", backgroundColor: "rgba(139, 92, 246, 0.1)" }
+                    ]}>
                         <Image
                             source={{ uri: item.thumbnail ?? undefined }}
                             style={styles.avatar}
@@ -247,30 +249,26 @@ const styles = StyleSheet.create({
 
     gridItem: {
         width: ITEM_WIDTH,
-        backgroundColor: "rgba(255,255,255,0.06)",
-        borderRadius: ITEM_WIDTH * 0.25,
-        padding: 8,
         alignItems: "center",
-        borderWidth: 1.5,
-        borderColor: "rgba(255,255,255,0.05)",
-        marginBottom: GRID_GAP,
+        marginBottom: GRID_GAP + 6,
     },
     gridItemSelected: {
-        backgroundColor: "rgba(139, 92, 246, 0.15)",
-        borderColor: "#8B5CF6",
+        // No background, maybe a subtle scale or glow?
+        // Let's just use the badge and maybe a border on the avatar
     },
     pressed: {
-        transform: [{ scale: 0.96 }],
-        backgroundColor: "rgba(255,255,255,0.12)",
+        transform: [{ scale: 0.95 }],
     },
     avatarContainer: {
         width: "100%",
         aspectRatio: 1,
-        borderRadius: ITEM_WIDTH * 0.2,
+        borderRadius: 18,
         overflow: "hidden",
         position: "relative",
-        marginBottom: 8,
-        backgroundColor: "rgba(0,0,0,0.2)",
+        marginBottom: 6,
+        backgroundColor: "rgba(255,255,255,0.05)",
+        borderWidth: 2,
+        borderColor: "transparent",
     },
     avatar: {
         width: "100%",
