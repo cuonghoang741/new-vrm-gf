@@ -817,6 +817,7 @@ export default function PlayScreen() {
 
     const handleBackgroundSelect = useCallback((bg: any) => {
         setBackgroundId(bg.id);
+        setIsBackgroundDark(bg.is_dark ?? true);
         // Use video_url if available, otherwise fall back to image
         const bgSource = bg.video_url || bg.image;
         setBackgroundUrl(bgSource);
@@ -827,8 +828,21 @@ export default function PlayScreen() {
             supabase.from("user_assets")
                 .insert({ user_id: user.id, item_id: bg.id, item_type: "background" })
                 .then(() => { }, () => { });
+
+            // Update cache
+            saveCache({
+                characterId: characterId || "",
+                characterName: characterName || "",
+                modelUrl: characterModelUrl || "",
+                backgroundUrl: bgSource,
+                backgroundId: bg.id,
+                thumbnailUrl: characterThumbnail,
+                avatarUrl: characterAvatar,
+                agentElevenlabsId,
+                isBackgroundDark: bg.is_dark ?? true,
+            });
         }
-    }, [user?.id]);
+    }, [user?.id, characterId, characterName, characterModelUrl, characterThumbnail, characterAvatar, agentElevenlabsId, saveCache]);
 
     const renderMessage = useCallback(({ item }: { item: ChatMessage }) => {
         const isAI = item.role === "model";
