@@ -13,6 +13,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { supabase } from "../../config/supabase";
 import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
+import { IconSun, IconMoon } from "@tabler/icons-react-native";
 
 const { width } = Dimensions.get("window");
 const GRID_PADDING = 20;
@@ -201,8 +202,11 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
                         )}
 
                         <View style={[item.is_dark ? styles.darkBadge : styles.lightBadge, styles.badgeAbsolute]}>
-                            <Ionicons name={item.is_dark ? "moon" : "sunny"} size={8} color={item.is_dark ? "#fff" : "#FFB800"} />
-                            <Text style={item.is_dark ? styles.modeText : styles.modeTextLight}>{item.is_dark ? "D" : "L"}</Text>
+                            {item.is_dark ? (
+                                <IconMoon size={12} color="#fff" />
+                            ) : (
+                                <IconSun size={12} color="#FFB800" strokeWidth={3} />
+                            )}
                         </View>
                     </View>
 
@@ -387,31 +391,17 @@ const styles = StyleSheet.create({
         position: 'absolute',
         bottom: 6,
         left: 6,
-        marginTop: 0,
-        backgroundColor: 'rgba(255,255,255,0.85)',
-        paddingHorizontal: 4,
+        width: 22,
+        height: 22,
+        borderRadius: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     darkBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
         backgroundColor: 'rgba(0,0,0,0.6)',
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        borderRadius: 6,
-        marginTop: 4,
-        alignSelf: 'flex-start',
-        gap: 3,
     },
     lightBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
         backgroundColor: 'rgba(255, 255, 255, 0.9)',
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        borderRadius: 6,
-        marginTop: 4,
-        alignSelf: 'flex-start',
-        gap: 3,
     },
     modeText: {
         fontSize: 9,
