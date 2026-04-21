@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || "";
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-001:generateContent";
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-client-id',
@@ -263,7 +263,7 @@ serve(async (req) => {
             }
         } catch (geminiError: any) {
             console.error(`[gemini-chat] Gemini failed: ${geminiError.message}. Attempting OpenAI fallback...`);
-            
+
             try {
                 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
                 if (!OPENAI_API_KEY) throw new Error("OpenAI API key not configured");
@@ -296,16 +296,16 @@ serve(async (req) => {
 
                 const openaiData = await openaiResponse.json();
                 responseText = openaiData.choices?.[0]?.message?.content || "";
-                
+
                 if (!responseText) throw new Error("OpenAI returned an empty response");
-                
+
                 console.log('[gemini-chat] OpenAI fallback successful');
-                
+
                 // Optional: Notify Telegram that we are using fallback
                 await sendTelegramError(`⚠️ Gemini failed, used OpenAI fallback.\nGemini Error: ${geminiError.message}`, contextInfo + "\n(AUTO-FALLBACK)");
             } catch (openaiError: any) {
                 console.error(`[gemini-chat] OpenAI fallback also failed: ${openaiError.message}`);
-                
+
                 return new Response(JSON.stringify({
                     error: 'All AI models failed',
                     gemini_error: geminiError.message,
