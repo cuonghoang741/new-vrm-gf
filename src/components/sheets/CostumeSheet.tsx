@@ -55,6 +55,7 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
     const [ownedIds, setOwnedIds] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const listRef = useRef<FlatList>(null);
     const shimmerOpacity = useRef(new Animated.Value(0.3)).current;
 
     useImperativeHandle(ref, () => ({
@@ -112,6 +113,30 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
             shimmerOpacity.setValue(0.3);
         }
     }, [loading]);
+
+    // Auto-scroll to active item
+    useEffect(() => {
+        if (!isOpened || costumes.length === 0 || !currentCostumeUrl) return;
+
+        const index = costumes.findIndex(c => c.model_url === currentCostumeUrl);
+        if (index === -1) return;
+
+        const timer = setTimeout(() => {
+            if (listRef.current && index < costumes.length) {
+                try {
+                    listRef.current.scrollToIndex({
+                        index,
+                        animated: true,
+                        viewPosition: 0.5
+                    });
+                } catch (e) {
+                    console.warn("[CostumeSheet] Auto-scroll failed:", e);
+                }
+            }
+        }, 300);
+
+        return () => clearTimeout(timer);
+    }, [isOpened, currentCostumeUrl, costumes.length]);
 
     const handleSelect = useCallback(
         (costume: Costume) => {
@@ -211,6 +236,7 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
         return (
             <View style={{ flex: 1 }}>
                 <FlatList
+                    ref={listRef}
                     data={costumes}
                     renderItem={renderItem}
                     keyExtractor={(item) => item.id}
@@ -218,6 +244,15 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
                     showsVerticalScrollIndicator={false}
                     numColumns={3}
                     columnWrapperStyle={styles.columnWrapper}
+                    getItemLayout={(data, index) => {
+                        // Approximate height: (ITEM_WIDTH / 0.72) + name label + vertical gaps/margins
+                        const itemHeight = (ITEM_WIDTH / 0.72) + 16 + GRID_GAP + 6;
+                        const rowHeight = itemHeight;
+                        return { length: rowHeight, offset: rowHeight * Math.floor(index / 3), index };
+                    }}
+                    onScrollToIndexFailed={(info) => {
+                        console.warn("[CostumeSheet] Scroll to index failed:", info);
+                    }}
                 />
             </View>
         );

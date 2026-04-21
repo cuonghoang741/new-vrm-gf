@@ -12,7 +12,6 @@ const REVENUECAT_API_KEY_ANDROID = "test_gnnCBUoBlRDSIdXbWzzRZoTPwOW";
 
 export const checkIsPro = (info: CustomerInfo | null) => {
     if (!info) return false;
-    console.log("[SubscriptionContext] Checking entitlements:", JSON.stringify(info.entitlements.active, null, 2));
     // Some configurations may not even have entitlements mapped correctly, check if we own anything
     const activeKeys = Object.keys(info.entitlements.active);
 

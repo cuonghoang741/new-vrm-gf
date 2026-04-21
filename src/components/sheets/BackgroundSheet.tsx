@@ -116,16 +116,27 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
 
     // Auto-scroll to active item
     useEffect(() => {
-        if (isOpened && backgrounds.length > 0 && currentBackgroundId) {
-            const index = backgrounds.findIndex(bg => bg.id === currentBackgroundId);
-            if (index !== -1) {
-                const rowIndex = Math.floor(index / 3);
-                setTimeout(() => {
-                    listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
-                }, 300);
+        if (!isOpened || backgrounds.length === 0 || !currentBackgroundId) return;
+
+        const index = backgrounds.findIndex(bg => bg.id === currentBackgroundId);
+        if (index === -1) return;
+
+        const timer = setTimeout(() => {
+            if (listRef.current && index < backgrounds.length) {
+                try {
+                    listRef.current.scrollToIndex({
+                        index,
+                        animated: true,
+                        viewPosition: 0.5
+                    });
+                } catch (e) {
+                    console.warn("[BackgroundSheet] Auto-scroll failed:", e);
+                }
             }
-        }
-    }, [isOpened, backgrounds, currentBackgroundId]);
+        }, 300);
+
+        return () => clearTimeout(timer);
+    }, [isOpened, currentBackgroundId, backgrounds.length]);
 
     const handleSelect = useCallback(
         (bg: Background) => {
@@ -245,11 +256,13 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
                     numColumns={3}
                     columnWrapperStyle={styles.columnWrapper}
                     getItemLayout={(data, index) => {
-                        const itemHeight = ITEM_WIDTH / 0.72 + 20 + GRID_GAP;
-                        return { length: itemHeight, offset: itemHeight * Math.floor(index / 3), index };
+                        // Approximate height: (ITEM_WIDTH / 0.72) + name label + vertical gaps/margins
+                        const itemHeight = (ITEM_WIDTH / 0.72) + 20 + GRID_GAP + 6;
+                        const rowHeight = itemHeight; 
+                        return { length: rowHeight, offset: rowHeight * Math.floor(index / 3), index };
                     }}
                     onScrollToIndexFailed={(info) => {
-                        console.warn("Scroll to index failed:", info);
+                        console.warn("[BackgroundSheet] Scroll to index failed:", info);
                     }}
                 />
             </View>
