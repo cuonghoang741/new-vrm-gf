@@ -72,23 +72,19 @@ export const useAppVoiceCall = ({
     // Refresh quota function - uses ref to always get latest isPro value
     const refreshQuota = useCallback(async () => {
         const currentIsPro = isProRef.current;
-        console.log('[useAppVoiceCall] refreshQuota called, isPro:', currentIsPro);
         const quota = await callQuotaService.fetchQuota(currentIsPro);
         setRemainingQuotaSeconds(quota);
         remainingQuotaRef.current = quota;
-        console.log('[useAppVoiceCall] Quota refreshed:', quota, 'isPro:', currentIsPro);
     }, []); // No dependencies - uses ref
 
     // Fetch initial quota and refetch when isPro changes
     useEffect(() => {
         let mounted = true;
         const fetchQuota = async () => {
-            console.log('[useAppVoiceCall] useEffect triggered, isPro changed to:', isPro);
             const quota = await callQuotaService.fetchQuota(isPro);
             if (mounted) {
                 setRemainingQuotaSeconds(quota);
                 remainingQuotaRef.current = quota;
-                console.log('[useAppVoiceCall] Quota fetched via useEffect:', quota, 'isPro:', isPro);
             }
         };
         fetchQuota();
@@ -197,11 +193,8 @@ export const useAppVoiceCall = ({
     // Metering Logic - countdown and sync to DB
     useEffect(() => {
         if (!voiceState.isConnected || isProcessing) {
-            console.log('[useAppVoiceCall] Metering skipped - isConnected:', voiceState.isConnected, 'isProcessing:', isProcessing);
             return;
         }
-
-        console.log('[useAppVoiceCall] Starting metering, remainingQuotaSeconds:', remainingQuotaSeconds);
 
         // Check if already exhausted when call starts
         if (remainingQuotaSeconds <= 0) {

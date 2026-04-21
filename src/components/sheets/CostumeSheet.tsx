@@ -24,6 +24,7 @@ interface Costume {
     costume_name: string;
     thumbnail: string | null;
     model_url: string | null;
+    url: string | null;
     tier: string | null;
 }
 
@@ -70,7 +71,7 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
         try {
             const { data, error } = await supabase
                 .from("character_costumes")
-                .select("id, costume_name, thumbnail, model_url, tier")
+                .select("id, costume_name, thumbnail, model_url, url, tier")
                 .eq("character_id", characterId)
                 .eq("available", true)
                 .order("created_at", { ascending: true });

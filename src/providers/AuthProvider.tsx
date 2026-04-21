@@ -22,10 +22,7 @@ export default function AuthProvider({ children }: PropsWithChildren) {
                 .eq("item_type", "character")
                 .limit(1);
 
-            console.log("[Auth] user_assets query result:", { data, error });
-
             if (error && retries > 0) {
-                console.log("[Auth] checkOnboarding failed, retrying in 500ms...");
                 await new Promise(resolve => setTimeout(resolve, 500));
                 // Ping session to ensure headers update
                 await supabase.auth.getSession();
@@ -33,7 +30,6 @@ export default function AuthProvider({ children }: PropsWithChildren) {
             }
 
             if (!error && data && data.length > 0) {
-                console.log("[Auth] User is onboarded ✅");
                 setIsOnboarded(true);
             } else {
                 console.log("[Auth] User NOT onboarded ❌");
@@ -61,6 +57,8 @@ export default function AuthProvider({ children }: PropsWithChildren) {
                 setUser(session?.user ?? null);
 
                 if (session?.user?.id) {
+                    const { authManager } = await import("../services/AuthManager");
+                    await authManager.updateCountryIfMissing(session.user.id);
                     await checkOnboarding(session.user.id);
                 }
             } catch (error) {
@@ -87,14 +85,12 @@ export default function AuthProvider({ children }: PropsWithChildren) {
             if (event === "SIGNED_IN") {
                 if (session?.user?.id) {
                     // WORKAROUND for Supabase + React Native Race Condition:
-                    // After sign in, the storage adapter (especially chunked SecureStore) might still 
-                    // be saving the token, and the internal PostgREST client might not have attached 
-                    // the new JWT header yet. We delay and ping the session to ensure headers are set 
-                    // before firing the very first DB query.
                     setTimeout(async () => {
                         // Force refresh internal state
                         await supabase.auth.getSession();
                         if (mounted) {
+                            const { authManager } = await import("../services/AuthManager");
+                            await authManager.updateCountryIfMissing(session.user.id);
                             await checkOnboarding(session.user.id);
                         }
                     }, 500);

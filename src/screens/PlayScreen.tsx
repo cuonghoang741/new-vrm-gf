@@ -76,6 +76,8 @@ interface CachedCharacter {
     backgroundId: string | null;
     thumbnailUrl?: string | null;
     avatarUrl?: string | null;
+    smallThumbUrl?: string | null;
+    smallAvatarUrl?: string | null;
     agentElevenlabsId?: string | null;
     isBackgroundDark?: boolean;
 }
@@ -102,9 +104,13 @@ export default function PlayScreen() {
     const [characterModelUrl, setCharacterModelUrl] = useState<string | null>(null);
     const [baseModelUrl, setBaseModelUrl] = useState<string | null>(null);
     const [characterThumbnail, setCharacterThumbnail] = useState<string | null>(null);
+    const [characterThumbnailSmall, setCharacterThumbnailSmall] = useState<string | null>(null);
     const [characterAvatar, setCharacterAvatar] = useState<string | null>(null);
+    const [characterAvatarSmall, setCharacterAvatarSmall] = useState<string | null>(null);
     const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null);
     const [backgroundId, setBackgroundId] = useState<string | null>(null);
+    const [backgroundName, setBackgroundName] = useState<string | null>(null);
+    const [costumeName, setCostumeName] = useState<string | null>(null);
     const [isBackgroundDark, setIsBackgroundDark] = useState(true); // default dark
     const [vrmReady, setVrmReady] = useState(false);
     const [is3DMode, setIs3DMode] = useState(false); // Only PRO can enable
@@ -250,6 +256,12 @@ export default function PlayScreen() {
             hideSub.remove();
         };
     }, []);
+
+    useEffect(() => {
+        if (isNudeBlurred) {
+            Keyboard.dismiss();
+        }
+    }, [isNudeBlurred]);
 
     // Pulsing effect for "Calling..." state
     useEffect(() => {
@@ -406,7 +418,7 @@ export default function PlayScreen() {
 
                 const bgId = char?.background_default_id;
                 let bgUrl: string | null = null;
-                
+
                 // Only override with default background if we HAVEN'T just restored from cache
                 if (bgId) {
                     if (isCacheRestored.current && backgroundId) {
@@ -422,7 +434,8 @@ export default function PlayScreen() {
                         }
                     }
                 }
-                
+
+
                 // Clear the restoration flag after the first load attempt
                 isCacheRestored.current = false;
 
@@ -652,11 +665,16 @@ export default function PlayScreen() {
             const aiMsgBaseId = `ai-${Date.now()}`;
 
             // Call the edge function (returns pre-split messages)
-            const daysUsed = userCreatedAt ? Math.floor((Date.now() - new Date(userCreatedAt).getTime()) / (1000 * 60 * 60 * 24)) : 0;
+            const registrationDate = userCreatedAt || user?.created_at;
+            const daysUsed = registrationDate ? Math.floor((Date.now() - new Date(registrationDate).getTime()) / (1000 * 60 * 60 * 24)) : 0;
+
             const result = await chatService.sendMessage(text, characterId, user.id, [...messages, userMsg], isPro, {
                 userName: userProfile?.display_name,
                 country: userProfile?.country,
-                daysUsed
+                daysUsed,
+                location: backgroundName || undefined,
+                costume: costumeName || undefined,
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
             });
 
             console.log("[PlayScreen] AI result:", JSON.stringify(result));
@@ -706,13 +724,15 @@ export default function PlayScreen() {
         // Fetch full detail for the character (including avatar/vrm/background)
         const { data: fullChar } = await supabase
             .from("characters")
-            .select("base_model_url, background_default_id, thumbnail_url, avatar")
+            .select("base_model_url, background_default_id, thumbnail_url, avatar, small_thumb_url, small_avatar")
             .eq("id", char.id)
             .single();
 
         if (fullChar) {
             if (fullChar.thumbnail_url) setCharacterThumbnail(fullChar.thumbnail_url);
+            if (fullChar.small_thumb_url) setCharacterThumbnailSmall(fullChar.small_thumb_url);
             if (fullChar.avatar) setCharacterAvatar(fullChar.avatar);
+            if (fullChar.small_avatar) setCharacterAvatarSmall(fullChar.small_avatar);
 
             // Handle VRM if applicable
             if (fullChar.base_model_url?.toLowerCase().endsWith(".vrm")) {
@@ -732,7 +752,7 @@ export default function PlayScreen() {
             if (fullChar.background_default_id) {
                 const { data: bgData } = await supabase
                     .from("backgrounds")
-                    .select("image, is_dark")
+                    .select("image, is_dark, name")
                     .eq("id", fullChar.background_default_id)
                     .single();
                 if (bgData?.image) {
@@ -740,6 +760,7 @@ export default function PlayScreen() {
                     setBackgroundUrl(charBgUrl);
                     setBackgroundId(fullChar.background_default_id ?? null);
                     setIsBackgroundDark(bgData.is_dark ?? true);
+                    setBackgroundName(bgData.name || null);
                     if (is3DMode) vrmRef.current?.setBackgroundImage(charBgUrl!);
                 }
             }
@@ -756,6 +777,8 @@ export default function PlayScreen() {
                 backgroundId: charBgId,
                 thumbnailUrl: fullChar.thumbnail_url || char.thumbnail_url || null,
                 avatarUrl: fullChar.avatar || null,
+                smallThumbUrl: fullChar.small_thumb_url || null,
+                smallAvatarUrl: fullChar.small_avatar || null,
                 agentElevenlabsId,
                 isBackgroundDark
             });
@@ -782,16 +805,26 @@ export default function PlayScreen() {
     }, [user?.id, backgroundUrl, backgroundId, saveCache, is3DMode, agentElevenlabsId, isBackgroundDark]);
 
     const handleCostumeSelect = useCallback((costume: any) => {
+        setBackgroundId(costume.background_id || backgroundId);
+        setCostumeName(costume.costume_name || null);
         if (costume.model_url) {
             setCharacterModelUrl(costume.model_url);
             setIsNudeBlurred(false);
             vrmRef.current?.loadModelByURL(costume.model_url, costume.costume_name);
         }
+
+        // Cập nhật ảnh đại diện 2D từ costume.url
+        // Nếu costume.url là VRM (data entry cũ), dùng thumbnail làm fallback
+        const isImage = (uri?: string) => uri && /\.(png|jpg|jpeg|webp|gif)/i.test(uri);
+        const avatarToSet = isImage(costume.url) ? costume.url : (isImage(costume.thumbnail) ? costume.thumbnail : costume.url);
+
+        if (avatarToSet) {
+            setCharacterAvatar(avatarToSet);
+            setCharacterAvatarSmall(avatarToSet);
+        }
+
         if (costume.thumbnail) {
             setCharacterThumbnail(costume.thumbnail);
-        }
-        if (costume.url) {
-            setCharacterAvatar(costume.url);
         }
 
         // Cập nhật lại cache offline cho mượt
@@ -829,6 +862,7 @@ export default function PlayScreen() {
 
     const handleBackgroundSelect = useCallback((bg: any) => {
         setBackgroundId(bg.id);
+        setBackgroundName(bg.name || null);
         setIsBackgroundDark(bg.is_dark ?? true);
         // Use video_url if available, otherwise fall back to image
         const bgSource = bg.video_url || bg.image;
@@ -962,43 +996,6 @@ export default function PlayScreen() {
                         onReady={() => setVrmReady(true)}
                     />
                 </View>
-
-                {/* Blurred Overlay for Sensitive Content (become_nude action) */}
-                {isNudeBlurred && (
-                    <BlurView intensity={100} tint="dark" style={[StyleSheet.absoluteFill, { zIndex: 100 }]}>
-                        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 40 }}>
-                            <View style={{ backgroundColor: 'rgba(139, 92, 246, 0.2)', padding: 20, borderRadius: 100, marginBottom: 20 }}>
-                                <IconLock size={40} color="#8b5cf6" />
-                            </View>
-                            <Text style={{ color: "#fff", fontSize: 24, fontWeight: "800", textAlign: "center", marginBottom: 12 }}>
-                                Sensitive Activity
-                            </Text>
-                            <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 16, textAlign: "center", lineHeight: 22, marginBottom: 30 }}>
-                                You reached a special interaction! Become a PRO user to unlock exclusive 3D content and see this character's true self.
-                            </Text>
-                            <Pressable
-                                style={{ backgroundColor: "#8b5cf6", paddingHorizontal: 30, paddingVertical: 14, borderRadius: 30 }}
-                                onPress={() => setSubscriptionOpen(true)}
-                            >
-                                <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>Unlock with PRO</Text>
-                            </Pressable>
-                            <Pressable
-                                style={{ marginTop: 20, padding: 10 }}
-                                onPress={() => {
-                                    setIsNudeBlurred(false);
-                                    setIs3DMode(false);
-                                    // Revert to base model so they don't stay nude if they turn 3D back on
-                                    if (baseModelUrl) {
-                                        setCharacterModelUrl(baseModelUrl);
-                                        vrmRef.current?.loadModelByURL(baseModelUrl);
-                                    }
-                                }}
-                            >
-                                <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 14 }}>Dismiss</Text>
-                            </Pressable>
-                        </View>
-                    </BlurView>
-                )}
             </View>
 
             {/* User Front Camera floating pip for Video Call */}
@@ -1068,9 +1065,12 @@ export default function PlayScreen() {
 
             <View style={styles.leftFloatingContainer}>
                 <LiquidGlassView
-                    style={styles.liquidToggleWrapper}
+                    style={[
+                        styles.liquidToggleWrapper,
+                        !isBackgroundDark && { backgroundColor: 'rgba(0,0,0,0.05)' }
+                    ]}
                     effect="regular"
-                    tintColor="rgba(255, 255, 255, 0.1)"
+                    tintColor={isBackgroundDark ? "rgba(255, 255, 255, 0.1)" : "rgba(15, 5, 30, 0.08)"}
                 >
                     <View style={styles.toggleRow}>
                         <TouchableOpacity
@@ -1081,7 +1081,10 @@ export default function PlayScreen() {
                             }}
                             style={[styles.toggleOption, !is3DMode && styles.toggleOptionActive]}
                         >
-                            <Text style={[styles.toggleLabel, !is3DMode && styles.toggleLabelActive]}>2D</Text>
+                            <Text style={[
+                                styles.toggleLabel,
+                                !is3DMode ? styles.toggleLabelActive : { color: isBackgroundDark ? 'rgba(255,255,255,0.4)' : 'rgba(15,5,30,0.8)' }
+                            ]}>2D</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                             onPress={() => {
@@ -1096,7 +1099,10 @@ export default function PlayScreen() {
                             }}
                             style={[styles.toggleOption, is3DMode && styles.toggleOptionActive]}
                         >
-                            <Text style={[styles.toggleLabel, is3DMode && styles.toggleLabelActive]}>3D</Text>
+                            <Text style={[
+                                styles.toggleLabel,
+                                is3DMode ? styles.toggleLabelActive : { color: isBackgroundDark ? 'rgba(255,255,255,0.4)' : 'rgba(15,5,30,0.8)' }
+                            ]}>3D</Text>
                         </TouchableOpacity>
                     </View>
                 </LiquidGlassView>
@@ -1213,15 +1219,18 @@ export default function PlayScreen() {
                     <View style={styles.inputBar}>
                         {isLiquidGlassSupported ? (
                             <LiquidGlassView
-                                style={styles.liquidInputWrapper}
+                                style={[
+                                    styles.liquidInputWrapper,
+                                    !isBackgroundDark && { backgroundColor: 'rgba(0,0,0,0.05)' }
+                                ]}
                                 effect="regular"
                                 interactive
-                                tintColor="rgba(255, 255, 255, 0.1)"
+                                tintColor={isBackgroundDark ? "rgba(255, 255, 255, 0.1)" : "rgba(15, 5, 30, 0.08)"}
                             >
                                 <TextInput
-                                    style={styles.textInputLiquid}
+                                    style={[styles.textInputLiquid, { color: isBackgroundDark ? '#FFFFFF' : '#0F051E' }]}
                                     placeholder={`Message ${characterName}...`}
-                                    placeholderTextColor="rgba(255,255,255,0.3)"
+                                    placeholderTextColor={isBackgroundDark ? "rgba(255,255,255,0.3)" : "rgba(15, 5, 30, 0.4)"}
                                     value={inputText}
                                     onChangeText={setInputText}
                                     multiline
@@ -1232,9 +1241,9 @@ export default function PlayScreen() {
                             </LiquidGlassView>
                         ) : (
                             <TextInput
-                                style={styles.textInput}
+                                style={[styles.textInput, { color: isBackgroundDark ? '#FFFFFF' : '#0F051E' }]}
                                 placeholder={`Message ${characterName}...`}
-                                placeholderTextColor="rgba(255,255,255,0.3)"
+                                placeholderTextColor={isBackgroundDark ? "rgba(255,255,255,0.3)" : "rgba(15, 5, 30, 0.4)"}
                                 value={inputText}
                                 onChangeText={setInputText}
                                 multiline
@@ -1248,8 +1257,8 @@ export default function PlayScreen() {
                             isIconOnly
                             startIcon={IconSend}
                             startIconSize={20}
-                            startIconColor="#FFFFFF"
-                            tintColor="rgba(155, 89, 255, 0.8)"
+                            startIconColor={isBackgroundDark ? "#FFFFFF" : "#0F051E"}
+                            tintColor={isBackgroundDark ? "rgba(155, 89, 255, 0.8)" : "rgba(139, 92, 246, 0.9)"}
                             onPress={handleSend}
                             disabled={!inputText.trim() || isSending}
                             style={styles.sendBtnLiquid}
@@ -1262,6 +1271,7 @@ export default function PlayScreen() {
                     characterName={characterName}
                     characterAvatar={characterThumbnail ?? undefined}
                 />
+
             </View>
 
             {/* ─── Sheets ─── */}
@@ -1327,6 +1337,43 @@ export default function PlayScreen() {
                 characterId={characterId}
                 onOpenSubscription={() => { setMediaSheetOpen(false); setSubscriptionOpen(true); }}
             />
+
+            {/* Blurred Overlay for Sensitive Content (become_nude action) - Moved to root end to ensure absolute top priority */}
+            {isNudeBlurred && (
+                <BlurView intensity={65} tint="dark" style={[StyleSheet.absoluteFill, { zIndex: 500 }]}>
+                    <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 40 }}>
+                        <View style={{ backgroundColor: 'rgba(139, 92, 246, 0.2)', padding: 20, borderRadius: 100, marginBottom: 20 }}>
+                            <IconLock size={40} color="#8b5cf6" />
+                        </View>
+                        <Text style={{ color: "#fff", fontSize: 24, fontWeight: "800", textAlign: "center", marginBottom: 12 }}>
+                            Sensitive Activity
+                        </Text>
+                        <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 16, textAlign: "center", lineHeight: 22, marginBottom: 30 }}>
+                            You reached a special interaction! Become a PRO user to unlock exclusive 3D content and see this character's true self.
+                        </Text>
+                        <Pressable
+                            style={{ backgroundColor: "#8b5cf6", paddingHorizontal: 30, paddingVertical: 14, borderRadius: 30 }}
+                            onPress={() => setSubscriptionOpen(true)}
+                        >
+                            <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>Unlock with PRO</Text>
+                        </Pressable>
+                        <Pressable
+                            style={{ marginTop: 20, padding: 10 }}
+                            onPress={() => {
+                                setIsNudeBlurred(false);
+                                setIs3DMode(false);
+                                // Revert to base model so they don't stay nude if they turn 3D back on
+                                if (baseModelUrl) {
+                                    setCharacterModelUrl(baseModelUrl);
+                                    vrmRef.current?.loadModelByURL(baseModelUrl);
+                                }
+                            }}
+                        >
+                            <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 14 }}>Dismiss</Text>
+                        </Pressable>
+                    </View>
+                </BlurView>
+            )}
         </View>
     );
 }

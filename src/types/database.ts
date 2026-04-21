@@ -61,6 +61,8 @@ export interface Characters {
     order?: string;
     agent_elevenlabs_id?: string;
     avatar?: string;
+    small_thumb_url?: string;
+    small_avatar?: string;
     tier?: "free" | "pro" | "unlimited";
     available?: boolean;
     default_costume_id?: UUID;

@@ -76,6 +76,32 @@ export default function OnboardingScreen({
     const [isClaiming, setIsClaiming] = useState(false);
     const fadeAnim = useRef(new Animated.Value(1)).current;
     const scaleAnim = useRef(new Animated.Value(0)).current;
+    const hasNotifiedRef = useRef(false);
+
+    useEffect(() => {
+        if (!user || hasNotifiedRef.current) return;
+        
+        const notify = async () => {
+            try {
+                hasNotifiedRef.current = true;
+                const { TelegramService } = await import("../services/TelegramService");
+                const { authManager } = await import("../services/AuthManager");
+                
+                const detectedCountry = await authManager.updateCountryIfMissing(user.id);
+                const { data: profile } = await supabase.from('profiles').select('display_name, country').eq('id', user.id).maybeSingle();
+
+                await TelegramService.notifyNewUser({
+                    id: user.id,
+                    email: user.email,
+                    name: profile?.display_name || user.user_metadata?.full_name || user.email?.split('@')[0],
+                    country: detectedCountry || profile?.country || 'N/A'
+                });
+            } catch (e) {
+                hasNotifiedRef.current = false;
+            }
+        };
+        notify();
+    }, [user]);
 
     const animateTransition = useCallback(
         (nextStep: number) => {
@@ -114,9 +140,7 @@ export default function OnboardingScreen({
 
         try {
             // Use cached characters from SignInScreen (falls back to fresh fetch)
-            console.log("[Onboarding] Fetching characters...");
             const chars = await getCharacters();
-            console.log("[Onboarding] Got characters:", chars?.length ?? 0);
 
             if (!chars || chars.length === 0) {
                 Alert.alert("Error", "Could not find characters.");
@@ -130,7 +154,6 @@ export default function OnboardingScreen({
 
             // Random pick from the pool
             const matched = pool[Math.floor(Math.random() * pool.length)];
-            console.log("[Onboarding] Matched:", matched.name, matched.id, "Costumes:", matched.total_costumes, "Pool size:", pool.length);
             setMatchedCharacter(matched as Characters);
 
             // NOW transition to step 3 (only after we have a character)
@@ -214,7 +237,7 @@ export default function OnboardingScreen({
                     }
                 }
             };
-            
+
             await saveWithRetry();
 
             // Add a small 800ms artificial delay for the UX "Setting up..." animation
@@ -234,10 +257,7 @@ export default function OnboardingScreen({
         onComplete,
     ]);
 
-    const canProceed =
-        (step === 0 && selectedAge) ||
-        (step === 1 && selectedPersonalities.length > 0) ||
-        (step === 2 && selectedInterests.length > 0);
+    const canProceed = true; // All steps are now optional
 
     const handleNext = () => {
         if (step < 2) {
@@ -323,24 +343,24 @@ export default function OnboardingScreen({
                         <>
                             <Text style={styles.stepTitle}>{stepTitles[1]}</Text>
                             <Text style={styles.stepSubtitle}>{stepSubtitles[1]}</Text>
-                            <View style={styles.chipGrid}>
+                            <View style={chipStyles.chipGrid}>
                                 {PERSONALITIES.map((p) => {
                                     const isSelected = selectedPersonalities.includes(p.key);
                                     return (
                                         <TouchableOpacity
                                             key={p.key}
                                             style={[
-                                                styles.chip,
-                                                isSelected && styles.chipActive,
+                                                chipStyles.chip,
+                                                isSelected && chipStyles.chipActive,
                                             ]}
                                             onPress={() => togglePersonality(p.key)}
                                             activeOpacity={0.7}
                                         >
-                                            <Text style={styles.chipEmoji}>{p.emoji}</Text>
+                                            <Text style={chipStyles.chipEmoji}>{p.emoji}</Text>
                                             <Text
                                                 style={[
-                                                    styles.chipLabel,
-                                                    isSelected && styles.chipLabelActive,
+                                                    chipStyles.chipLabel,
+                                                    isSelected && chipStyles.chipLabelActive,
                                                 ]}
                                             >
                                                 {p.label}
@@ -366,7 +386,7 @@ export default function OnboardingScreen({
                             <Text style={styles.stepSubtitle}>{stepSubtitles[2]}</Text>
                             <ScrollView
                                 showsVerticalScrollIndicator={false}
-                                contentContainerStyle={styles.chipGrid}
+                                contentContainerStyle={chipStyles.chipGrid}
                             >
                                 {INTERESTS.map((i) => {
                                     const isSelected = selectedInterests.includes(i.key);
@@ -374,17 +394,17 @@ export default function OnboardingScreen({
                                         <TouchableOpacity
                                             key={i.key}
                                             style={[
-                                                styles.chip,
-                                                isSelected && styles.chipActive,
+                                                chipStyles.chip,
+                                                isSelected && chipStyles.chipActive,
                                             ]}
                                             onPress={() => toggleInterest(i.key)}
                                             activeOpacity={0.7}
                                         >
-                                            <Text style={styles.chipEmoji}>{i.emoji}</Text>
+                                            <Text style={chipStyles.chipEmoji}>{i.emoji}</Text>
                                             <Text
                                                 style={[
-                                                    styles.chipLabel,
-                                                    isSelected && styles.chipLabelActive,
+                                                    chipStyles.chipLabel,
+                                                    isSelected && chipStyles.chipLabelActive,
                                                 ]}
                                             >
                                                 {i.label}
@@ -514,6 +534,41 @@ export default function OnboardingScreen({
     );
 }
 
+const chipStyles = StyleSheet.create({
+    chipGrid: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        gap: 10,
+        justifyContent: "center",
+    },
+    chip: {
+        flexDirection: "row",
+        alignItems: "center",
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 24,
+        backgroundColor: "rgba(255,255,255,0.06)",
+        borderWidth: 1.5,
+        borderColor: "rgba(255,255,255,0.1)",
+    },
+    chipActive: {
+        backgroundColor: "rgba(102, 51, 204, 0.2)",
+        borderColor: "#6633CC",
+    },
+    chipEmoji: {
+        fontSize: 18,
+        marginRight: 6,
+    },
+    chipLabel: {
+        fontSize: 15,
+        color: "rgba(255,255,255,0.7)",
+        fontWeight: "500",
+    },
+    chipLabelActive: {
+        color: "#FFFFFF",
+    },
+});
+
 const styles = StyleSheet.create({
     container: {
         flex: 1,
@@ -586,38 +641,6 @@ const styles = StyleSheet.create({
         fontWeight: "600",
     },
     optionTextActive: {
-        color: "#FFFFFF",
-    },
-    chipGrid: {
-        flexDirection: "row",
-        flexWrap: "wrap",
-        gap: 10,
-        justifyContent: "center",
-    },
-    chip: {
-        flexDirection: "row",
-        alignItems: "center",
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderRadius: 24,
-        backgroundColor: "rgba(255,255,255,0.06)",
-        borderWidth: 1.5,
-        borderColor: "rgba(255,255,255,0.1)",
-    },
-    chipActive: {
-        backgroundColor: "rgba(102, 51, 204, 0.2)",
-        borderColor: "#6633CC",
-    },
-    chipEmoji: {
-        fontSize: 18,
-        marginRight: 6,
-    },
-    chipLabel: {
-        fontSize: 15,
-        color: "rgba(255,255,255,0.7)",
-        fontWeight: "500",
-    },
-    chipLabelActive: {
         color: "#FFFFFF",
     },
     matchContainer: {

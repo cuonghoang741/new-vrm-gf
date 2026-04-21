@@ -162,8 +162,8 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
         ({ item }: { item: Background }) => {
             const isSelected = item.id === currentBackgroundId;
             const isOwned = ownedIds.has(item.id);
-            // If not pro, everything unowned is locked
-            const isLocked = !isPro && !isOwned;
+            const isProItem = item.tier === "pro";
+            const isLocked = isProItem && !isPro && !isOwned;
 
             return (
                 <Pressable

@@ -6,6 +6,8 @@ import Purchases, {
 import { Platform } from "react-native";
 import { analyticsService } from "../services/AnalyticsService";
 
+Purchases.setLogLevel(Purchases.LOG_LEVEL.ERROR);
+
 // const REVENUECAT_API_KEY_IOS = "appl_NaXLvvZfTtuEAgTeAAuXUYCgTpD";
 const REVENUECAT_API_KEY_IOS = "appl_NaXLvvZfTtuEAgTeAAuXUYCgTpD";
 const REVENUECAT_API_KEY_ANDROID = "test_gnnCBUoBlRDSIdXbWzzRZoTPwOW";

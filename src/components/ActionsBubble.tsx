@@ -72,6 +72,7 @@ export default function ActionsBubble({
                 isIconOnly
                 startIcon={showLabels ? IconChevronUp : IconChevronDown}
                 startIconColor={iconColor}
+                textColor={iconColor}
                 onPress={() => setShowLabels(!showLabels)}
             />
 
@@ -83,6 +84,7 @@ export default function ActionsBubble({
                         size="sm"
                         startIcon={IconSettings}
                         startIconColor={iconColor}
+                        textColor={iconColor}
                         onPress={onOpenSettings}
                         isIconOnly={!showLabels}
                     >
@@ -94,6 +96,7 @@ export default function ActionsBubble({
                             size="sm"
                             startIcon={IconUser}
                             startIconColor={iconColor}
+                            textColor={iconColor}
                             onPress={onOpenCharacter}
                             isIconOnly={!showLabels}
                         >
@@ -108,6 +111,7 @@ export default function ActionsBubble({
                             size="sm"
                             startIcon={IconWoman}
                             startIconColor={iconColor}
+                            textColor={iconColor}
                             onPress={onOpenCostume}
                             isIconOnly={!showLabels}
                         >
@@ -115,11 +119,23 @@ export default function ActionsBubble({
                         </Button>
                         <View style={styles.notificationDot} />
                     </View>
+                    {/* <Button
+                        variant="liquid"
+                        size="sm"
+                        startIcon={is3DMode ? IconCube : IconBadge3d}
+                        startIconColor={iconColor}
+                        textColor={iconColor}
+                        onPress={onToggle3D}
+                        isIconOnly={!showLabels}
+                    >
+                        {is3DMode ? "3D" : "2D"}
+                    </Button> */}
                     <Button
                         variant="liquid"
                         size="sm"
                         startIcon={IconMap2}
                         startIconColor={iconColor}
+                        textColor={iconColor}
                         onPress={onOpenScene}
                         isIconOnly={!showLabels}
                     >
@@ -131,6 +147,7 @@ export default function ActionsBubble({
                             size="sm"
                             startIcon={IconPhoto}
                             startIconColor={iconColor}
+                            textColor={iconColor}
                             onPress={onOpenGallery}
                             isIconOnly={!showLabels}
                         >
@@ -144,6 +161,7 @@ export default function ActionsBubble({
                             size="sm"
                             startIcon={isDancing ? IconX : IconMusic}
                             startIconColor={isDancing ? "#EF4444" : iconColor}
+                            textColor={isDancing ? "#EF4444" : iconColor}
                             onPress={onToggleDance}
                             isIconOnly={!showLabels}
                         >
@@ -161,7 +179,8 @@ export default function ActionsBubble({
                     variant="liquid"
                     size="sm"
                     startIcon={IconVideo}
-                    startIconColor={isCameraMode ? '#8B5CF6' : iconColor}
+                    startIconColor={isCameraMode ? "#EF4444" : iconColor}
+                    textColor={isCameraMode ? "#EF4444" : iconColor}
                     onPress={onToggleCamera}
                     isIconOnly={!showLabels}
                 >
@@ -177,7 +196,8 @@ export default function ActionsBubble({
                         colorScheme={isInCall ? "error" : undefined}
                         size="sm"
                         startIcon={isInCall ? IconPhoneOff : IconPhoneCall}
-                        startIconColor={isInCall ? '#FFF' : iconColor}
+                        startIconColor={isInCall ? "#EF4444" : iconColor}
+                        textColor={isInCall ? "#EF4444" : iconColor}
                         onPress={onToggleCall}
                         isIconOnly={!showLabels}
                     >
@@ -193,7 +213,8 @@ export default function ActionsBubble({
                     variant="liquid"
                     size="sm"
                     startIcon={IconCrown}
-                    startIconColor="#F59E0B"
+                    startIconColor="#FBBF24"
+                    textColor="#FBBF24"
                     onPress={onOpenSubscription}
                     isIconOnly={!showLabels}
                 >

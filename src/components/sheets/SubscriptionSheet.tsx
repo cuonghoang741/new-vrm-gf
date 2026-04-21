@@ -57,6 +57,7 @@ interface Props {
 
 export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess, currentModelUrl, currentBackgroundUrl, currentCharacterId }: Props) {
     const insets = useSafeAreaInsets();
+    const lastAnimRef = useRef<string>("");
     const {
         isPro,
         isLoading: contextLoading,
@@ -71,10 +72,19 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
     const [activeProductId, setActiveProductId] = useState<string | null>(null);
     const vrmRef = useRef<VRMViewerHandle>(null);
     const [vrmReady, setVrmReady] = useState(false);
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+    useEffect(() => {
+        Animated.timing(fadeAnim, {
+            toValue: isOpened ? 1 : 0,
+            duration: 300,
+            useNativeDriver: true,
+        }).start();
+    }, [isOpened]);
 
     useEffect(() => {
         if (!isOpened) {
-            setVrmReady(false);
+            // we don't necessarily want to setVrmReady(false) here if we want it to stay ready
+            // setVrmReady(false);
         }
     }, [isOpened]);
 
@@ -85,27 +95,26 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
 
     // Auto-scroll to selected index once the list is available
     useEffect(() => {
-        if (isOpened && characters.length > 0 && selectedIndex >= 0) {
+        if (characters.length > 0 && selectedIndex >= 0) {
             // Need a tiny timeout to ensure FlatList has rendered its items
             setTimeout(() => {
                 flatListRef.current?.scrollToIndex({ index: selectedIndex, animated: true, viewPosition: 0.5 });
             }, 300);
         }
-    }, [isOpened, characters.length, selectedIndex]);
+    }, [characters.length, selectedIndex]);
 
     // Sync selectedIndex whenever characters or currentCharacterId changes
     useEffect(() => {
-        if (isOpened && characters.length > 0 && currentCharacterId) {
+        if (characters.length > 0 && currentCharacterId) {
             const idx = characters.findIndex(c => c.id === currentCharacterId);
             if (idx >= 0 && idx !== selectedIndex) {
                 setSelectedIndex(idx);
             }
         }
-    }, [isOpened, characters, currentCharacterId]);
+    }, [characters, currentCharacterId]);
 
-    // Fetch characters for test carousel
+    // Fetch characters for test carousel - once on mount
     useEffect(() => {
-        if (!isOpened) return;
         const loadCharacters = async () => {
             try {
                 const chars = await getCharacters();
@@ -117,7 +126,7 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
             }
         };
         loadCharacters();
-    }, [isOpened]);
+    }, []);
 
     const selectedChar = characters[selectedIndex];
 
@@ -143,7 +152,7 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
 
     // Fetch costumes when selected character changes
     useEffect(() => {
-        if (!selectedChar || !isOpened) return;
+        if (!selectedChar) return;
         setCostumes([]);
         setSelectedCostume(null);
         setIsCostumesLoading(true);
@@ -162,7 +171,7 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
             setIsCostumesLoading(false);
         };
         loadCostumes();
-    }, [selectedChar?.id, isOpened]);
+    }, [selectedChar?.id]);
 
     // Keep blur state in sync with selectedCostume, but don't turn it off immediately on null
     // to prevent revealing the previous character when switching.
@@ -174,7 +183,7 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
 
     const loadActiveModel = useCallback(() => {
         if (!vrmRef.current || !vrmReady) return;
-        
+
         const modelUrl = selectedCostume?.model_url || selectedChar?.base_model_url || currentModelUrl;
         if (modelUrl) {
             console.log("[SubscriptionSheet] Loading model:", modelUrl);
@@ -182,7 +191,7 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
         } else if (!currentModelUrl) {
             vrmRef.current.loadModelByName("001/001_vrm/001_01.vrm");
         }
-        
+
         const bgImage = selectedChar?.backgrounds?.image || currentBackgroundUrl;
         if (bgImage) {
             vrmRef.current.setBackgroundImage(bgImage);
@@ -190,10 +199,10 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
     }, [selectedChar, selectedCostume, vrmReady, currentModelUrl, currentBackgroundUrl]);
 
     useEffect(() => {
-        if (isOpened && vrmReady) {
+        if (vrmReady) {
             loadActiveModel();
         }
-    }, [isOpened, vrmReady, loadActiveModel]);
+    }, [vrmReady, loadActiveModel]);
 
     const goToPrev = () => {
         if (characters.length === 0) return;
@@ -209,15 +218,18 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
         // Add a slight delay to ensure the VRM is fully visible and the internal WebGL loader
         // has finished its 500ms idle animation fallback inside index.html.
         setTimeout(() => {
-            const dances = [
+            const pool = [
                 "Dance - Give Your Soul.fbx",
                 "Feminine - Exaggerated 2.fbx",
                 "Heart-Flutter Pose.fbx",
                 "Making a snow angel.fbx",
                 "Sly - Finger gun gesture.fbx"
             ];
-            const randomDance = dances[Math.floor(Math.random() * dances.length)];
-            vrmRef.current?.loadAnimationByName(randomDance);
+
+            let next = pool[Math.floor(Math.random() * pool.length)];
+            lastAnimRef.current = next;
+
+            vrmRef.current?.loadAnimationByName(next);
         }, 600);
     }, []);
 
@@ -316,29 +328,31 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
     };
 
     return (
-        <Modal
-            visible={isOpened}
-            animationType="fade"
-            presentationStyle="overFullScreen"
-            transparent
-            onRequestClose={onClose}
+        <Animated.View
+            style={[
+                styles.container,
+                StyleSheet.absoluteFillObject,
+                {
+                    opacity: fadeAnim,
+                    zIndex: isOpened ? 1000 : -1,
+                    pointerEvents: isOpened ? "auto" : "none"
+                }
+            ]}
         >
-            <View style={styles.container}>
+            <View style={styles.contentWrap}>
                 <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-                {isOpened && (
-                    <VRMViewer
-                        ref={vrmRef}
-                        style={StyleSheet.absoluteFillObject}
-                        onReady={() => setVrmReady(true)}
-                        onModelLoaded={handleModelLoaded}
-                    />
-                )}
+                <VRMViewer
+                    ref={vrmRef}
+                    style={StyleSheet.absoluteFillObject}
+                    onReady={() => setVrmReady(true)}
+                    onModelLoaded={handleModelLoaded}
+                />
 
                 {/* Blur overlay when a costume is selected or transitioning */}
                 {shouldBlurPreview && (
                     <BlurView
-                        intensity={80}
+                        intensity={60}
                         tint="dark"
                         style={StyleSheet.absoluteFill}
                     />
@@ -415,7 +429,7 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                                                     ]}
                                                 >
                                                     <Image
-                                                        source={{ uri: item.thumbnail_url ?? undefined }}
+                                                        source={{ uri: item.small_thumb_url ?? item.thumbnail_url ?? undefined }}
                                                         style={styles.thumbnail}
                                                         contentFit="cover"
                                                     />
@@ -491,7 +505,7 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
 
                     {/* Bottom panel */}
                     <BlurView
-                        intensity={80}
+                        intensity={60}
                         tint="dark"
                         style={[styles.bottomPanel, { paddingBottom: insets.bottom + 10 }]}
                     >
@@ -639,12 +653,13 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                     </BlurView>
                 </View>
             </View>
-        </Modal>
+        </Animated.View>
     );
 }
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#000" },
+    contentWrap: { flex: 1 },
     header: {
         position: "absolute",
         top: 0,
@@ -658,7 +673,7 @@ const styles = StyleSheet.create({
     closeBtn: { overflow: "hidden", borderRadius: 20 },
     closeBtnInner: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
     mainContent: { flex: 1, zIndex: 10 },
-    scrollContent: { paddingTop: 100, paddingHorizontal: 24 },
+    scrollContent: { paddingTop: 100, paddingHorizontal: 24, paddingBottom: 40 },
 
     // Hero
     heroSection: { marginBottom: 32, alignItems: "flex-start" },
@@ -721,8 +736,9 @@ const styles = StyleSheet.create({
         elevation: 8,
     },
     thumbnail: {
-        width: "100%",
-        height: "100%",
+        width: 50,
+        height: 50,
+        borderRadius: 25,
     },
 
     actionsRow: {

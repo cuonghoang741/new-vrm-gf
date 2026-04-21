@@ -13,16 +13,30 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 async function sendTelegramNotification(message: string) {
     try {
-        await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+        const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 chat_id: TELEGRAM_CHAT_ID,
-                message_thread_id: TELEGRAM_MESSAGE_THREAD_ID,
+                message_thread_id: TELEGRAM_MESSAGE_THREAD_ID || undefined,
                 text: message,
                 parse_mode: 'HTML'
             })
         });
+
+        const resData = await response.json();
+        if (resData.ok && resData.result?.message_id) {
+            // Pin the purchase message
+            await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/pinChatMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chat_id: TELEGRAM_CHAT_ID,
+                    message_id: resData.result.message_id,
+                    disable_notification: true
+                })
+            });
+        }
     } catch (e) {
         console.error('Failed to send Telegram notification:', e);
     }

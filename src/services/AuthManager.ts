@@ -138,31 +138,47 @@ export class AuthManager {
   }
 
   /**
-   * Update user profile with country (based on timezone) if not set
+   * Update user profile with country (pure JS way) if not set
    */
-  async updateCountryIfMissing(userId: string) {
+  async updateCountryIfMissing(userId: string): Promise<string> {
     try {
-      // Check if country is already set
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("country")
-        .eq("id", userId)
-        .maybeSingle();
-      if (error || data?.country) return;
+      const { data, error } = await supabase.from("profiles").select("country").eq("id", userId).maybeSingle();
+      if (error) return "N/A";
 
-      // Get timezone (e.g., "Asia/Ho_Chi_Minh")
       const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (!timeZone) return data?.country || "N/A";
 
-      if (timeZone) {
-        await supabase
-          .from("profiles")
-          .update({ country: timeZone })
-          .eq("id", userId);
+      if (data?.country && data.country !== 'N/A' && data.country !== 'null') {
+        return data.country;
       }
+
+      const tzMap: Record<string, string> = {
+        'Asia/Ho_Chi_Minh': 'VN', 'Asia/Saigon': 'VN', 'Asia/Bangkok': 'TH', 'Asia/Singapore': 'SG',
+        'Asia/Jakarta': 'ID', 'Asia/Kuala_Lumpur': 'MY', 'Asia/Manila': 'PH', 'Asia/Tokyo': 'JP',
+        'Asia/Seoul': 'KR', 'Asia/Shanghai': 'CN', 'Asia/Hong_Kong': 'HK', 'Asia/Taipei': 'TW',
+        'America/New_York': 'US', 'America/Chicago': 'US', 'America/Denver': 'US', 'America/Phoenix': 'US',
+        'America/Los_Angeles': 'US', 'America/Anchorage': 'US', 'America/Honolulu': 'US',
+        'America/Toronto': 'CA', 'America/Vancouver': 'CA', 'America/Mexico_City': 'MX',
+        'Europe/London': 'GB', 'Europe/Paris': 'FR', 'Europe/Berlin': 'DE', 'Europe/Rome': 'IT',
+        'Europe/Madrid': 'ES', 'Europe/Amsterdam': 'NL', 'Europe/Brussels': 'BE', 'Europe/Stockholm': 'SE',
+        'Europe/Oslo': 'NO', 'Europe/Copenhagen': 'DK', 'Europe/Helsinki': 'FI', 'Europe/Zurich': 'CH',
+        'Europe/Vienna': 'AT', 'Europe/Dublin': 'IE', 'Europe/Lisbon': 'PT', 'Europe/Warsaw': 'PL',
+        'Australia/Sydney': 'AU', 'Australia/Melbourne': 'AU', 'Australia/Perth': 'AU',
+        'Pacific/Auckland': 'NZ', 'Asia/Dubai': 'AE', 'America/Sao_Paulo': 'BR',
+        'Africa/Johannesburg': 'ZA', 'Asia/Kolkata': 'IN', 'Asia/Calcutta': 'IN',
+      };
+
+      let detectedCountry = tzMap[timeZone] || 'N/A';
+
+      if (detectedCountry && detectedCountry !== 'N/A') {
+        await supabase.from("profiles").update({ country: detectedCountry, last_country: detectedCountry }).eq("id", userId);
+      }
+      return detectedCountry;
     } catch (e) {
-      console.warn("Timezone detection failed:", e);
+      return "N/A";
     }
   }
+
 
   /**
    * Subscribe to auth state changes

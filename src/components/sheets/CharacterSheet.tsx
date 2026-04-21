@@ -18,12 +18,15 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import * as Haptics from "expo-haptics";
 import { supabase } from "../../config/supabase";
 import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
+import { LinearGradient } from 'expo-linear-gradient';
 
 interface Character {
     id: string;
     name: string;
     thumbnail_url: string | null;
     avatar?: string | null;
+    small_thumb_url?: string | null;
+    small_avatar?: string | null;
     description: string | null;
     tier: string | null;
     available?: boolean;
@@ -160,10 +163,14 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
                     {/* Avatar */}
                     <View style={styles.rowAvatarContainer}>
                         <Image
-                            source={{ uri: item.thumbnail_url ?? undefined }}
+                            source={{ uri: item.small_thumb_url ?? item.thumbnail_url ?? undefined }}
                             style={styles.rowAvatar}
                             contentFit="cover"
                             transition={200}
+                        />
+                        <LinearGradient
+                            colors={['transparent', 'rgba(0,0,0,0.4)']}
+                            style={styles.avatarGradient}
                         />
                         {isSelected && (
                             <View style={styles.selectedBadge}>
@@ -179,12 +186,17 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
                                 {item.name}
                             </Text>
                             {isLocked && isAvailable && (
-                                <View style={styles.proPill}>
+                                <LinearGradient
+                                    colors={['#8B5CF6', '#D946EF']}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 0 }}
+                                    style={styles.proPill}
+                                >
                                     <Text style={styles.proPillText}>PRO</Text>
-                                </View>
+                                </LinearGradient>
                             )}
                             {!isAvailable && (
-                                <View style={[styles.proPill, { backgroundColor: '#64748B', borderColor: '#475569' }]}>
+                                <View style={[styles.proPill, { backgroundColor: '#475569', borderColor: 'transparent' }]}>
                                     <Text style={styles.proPillText}>COMING SOON</Text>
                                 </View>
                             )}
@@ -221,7 +233,9 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
 
                     {/* Right */}
                     <View style={styles.rowRight}>
-                        <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.2)" />
+                        <View style={styles.chevronCircle}>
+                            <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.4)" />
+                        </View>
                     </View>
                 </Pressable>
             );
@@ -326,40 +340,61 @@ const styles = StyleSheet.create({
     },
 
     // Avatar
-    rowAvatarContainer: { position: "relative", marginRight: 16 },
+    rowAvatarContainer: { 
+        position: "relative", 
+        marginRight: 16,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 5,
+    },
     rowAvatar: {
-        width: 72,
-        height: 72,
-        borderRadius: 18,
-        backgroundColor: "rgba(0,0,0,0.2)",
+        width: 84,
+        height: 112,
+        borderRadius: 14,
+        backgroundColor: "rgba(255,255,255,0.05)",
+    },
+    avatarGradient: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: '40%',
+        borderRadius: 14,
     },
     selectedBadge: {
         position: "absolute",
-        bottom: -6,
-        right: -6,
+        bottom: -4,
+        right: -4,
         backgroundColor: "#8B5CF6",
-        width: 22,
-        height: 22,
-        borderRadius: 11,
+        width: 24,
+        height: 24,
+        borderRadius: 12,
         alignItems: "center",
         justifyContent: "center",
         borderWidth: 2,
-        borderColor: "#000",
+        borderColor: "#1A1A1A",
+        elevation: 4,
     },
 
     // Content
-    rowContent: { flex: 1, justifyContent: "center" },
+    rowContent: { flex: 1, justifyContent: "center", paddingVertical: 2 },
     rowTitleContainer: {
         flexDirection: "row",
         alignItems: "center",
-        marginBottom: 4,
+        marginBottom: 6,
     },
-    rowName: { fontSize: 18, fontWeight: "700", color: "#FFFFFF" },
+    rowName: { 
+        fontSize: 19, 
+        fontWeight: "900", 
+        color: "#FFFFFF",
+        letterSpacing: 0.3,
+    },
     rowDescription: {
         fontSize: 13,
-        color: "rgba(255,255,255,0.6)",
-        marginBottom: 8,
-        lineHeight: 18,
+        color: "rgba(255,255,255,0.5)",
+        marginBottom: 10,
+        lineHeight: 16,
     },
 
     // Stats
@@ -367,43 +402,52 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         flexWrap: "wrap",
-        gap: 8,
+        gap: 6,
     },
     statChip: {
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: "rgba(255,255,255,0.06)",
+        backgroundColor: "rgba(255,255,255,0.1)",
         paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 8,
+        paddingVertical: 5,
+        borderRadius: 10,
         gap: 4,
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.05)",
     },
     statValue: {
         fontSize: 11,
-        fontWeight: "600",
-        color: "rgba(255,255,255,0.6)",
+        fontWeight: "700",
+        color: "rgba(255,255,255,0.8)",
     },
 
     // Right
-    rowRight: { marginLeft: 12, alignItems: "center", justifyContent: "center" },
+    rowRight: { marginLeft: 8, alignItems: "center", justifyContent: "center" },
+    chevronCircle: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: "rgba(255,255,255,0.05)",
+        alignItems: "center",
+        justifyContent: "center",
+    },
 
     // Badges
     proPill: {
-        backgroundColor: "#8b5cf6",
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        borderRadius: 6,
-        marginLeft: 8,
-        borderWidth: 1,
-        borderColor: "rgba(255,255,255,1)",
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 8,
+        marginLeft: 10,
+        justifyContent: "center",
+        alignItems: "center",
     },
-    proPillText: { fontSize: 9, fontWeight: "900", color: "#fff" },
+    proPillText: { fontSize: 10, fontWeight: "900", color: "#fff" },
 
     // Skeleton
     skeletonContainer: { paddingHorizontal: 20, gap: 12 },
     skeletonRow: {
         width: "100%",
-        height: 96,
+        height: 136,
         borderRadius: 20,
         backgroundColor: "rgba(255,255,255,0.06)",
     },

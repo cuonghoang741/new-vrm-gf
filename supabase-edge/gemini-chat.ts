@@ -38,19 +38,28 @@ async function sendTelegramInteraction(userMessage: string, aiResponse: string, 
         let daysUsed = userInfo?.daysUsed;
 
         // Fallback to DB if info not provided by app
-        if (!name || !country || daysUsed === undefined) {
-            const { data: profile } = await supabase.from('profiles').select('display_name, country').eq('id', userId).maybeSingle();
+        let characterName = characterId;
+        if (!name || !country || daysUsed === undefined || characterName === characterId) {
+            const { data: profile } = await supabase.from('profiles').select('display_name, country, last_country').eq('id', userId).maybeSingle();
             const { data: stats } = await supabase.from('user_stats').select('created_at').eq('user_id', userId).maybeSingle();
-            const { data: authUser } = await supabase.auth.admin.getUserById(userId).then(res => res.data).catch(() => ({ user: null }));
+            const { data: character } = await supabase.from('characters').select('name').eq('id', characterId).maybeSingle();
+            
+            const authResponse = await supabase.auth.admin.getUserById(userId).catch(() => ({ data: { user: null } }));
+            const authUser = authResponse?.data?.user;
 
-            if (!name) name = profile?.display_name || authUser?.user?.email || 'N/A';
-            if (!country) country = profile?.country || 'N/A';
-            if (daysUsed === undefined && stats?.created_at) {
-                daysUsed = Math.floor((Date.now() - new Date(stats.created_at).getTime()) / (1000 * 60 * 60 * 24));
+            if (character) characterName = character.name;
+            if (!name) name = profile?.display_name || authUser?.user_metadata?.full_name || authUser?.email || 'N/A';
+            if (!country) country = profile?.country || profile?.last_country || 'N/A';
+            
+            // Calculate days used from stats or auth account creation
+            const registrationDate = stats?.created_at || authUser?.created_at;
+            if (daysUsed === undefined && registrationDate) {
+                const diffTime = Math.abs(Date.now() - new Date(registrationDate).getTime());
+                daysUsed = Math.floor(diffTime / (1000 * 60 * 60 * 24));
             }
         }
 
-        const message = `<b>💬 TIN NHẮN MỚI</b>\n\n👤 User: <b>${name}</b>\n🌍 Country: <code>${country}</code>\n📅 Days used: <code>${daysUsed || 0}</code>\n🤖 Nhân vật: <code>${characterId}</code>\n\n<b>Người dùng:</b> ${userMessage}\n\n<b>AI:</b> ${aiResponse}`;
+        const message = `<b>💬 TIN NHẮN MỚI</b>\n\n👤 User: <b>${name}</b>\n🌍 Country: <code>${country}</code>\n📅 Days used: <code>${daysUsed !== undefined ? daysUsed : 'N/A'}</code>\n🤖 Nhân vật: <b>${characterName}</b>\n\n<b>Người dùng:</b> ${userMessage}\n\n<b>AI:</b> ${aiResponse}`;
 
         await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
             method: 'POST',
@@ -137,7 +146,7 @@ serve(async (req) => {
         });
         const body = await req.json();
         requestBody = body; // Store for context
-        const { message, character_id, user_id, client_id, conversation_history, user_name, country, days_used } = body;
+        const { message, character_id, user_id, client_id, conversation_history, user_name, country, days_used, location, costume, timezone } = body;
 
         if (!message || !character_id) {
             return new Response(JSON.stringify({
@@ -219,9 +228,18 @@ serve(async (req) => {
         let systemInstructionText = '';
         if (characterInstruction) systemInstructionText = characterInstruction;
 
-        // Append User Status
+        // Append User Status & Location
         const userStatusInfo = `\n\n[User Status: ${isPro ? 'Pro' : 'Free'}]`;
         systemInstructionText += userStatusInfo;
+        if (location) {
+            systemInstructionText += `\n[Current Location: ${location}]`;
+        }
+        if (costume && costume.toLowerCase() !== 'default') {
+            systemInstructionText += `\n[Current Outfit: ${costume}]`;
+        }
+        if (timezone) {
+            systemInstructionText += `\n[User Timezone: ${timezone}]`;
+        }
 
         if (currentMemory) systemInstructionText = systemInstructionText ? `${systemInstructionText}\n\n## Previous Memory/Context:\n${currentMemory}` : `## Previous Memory/Context:\n${currentMemory}`;
 
