@@ -9,23 +9,25 @@ export const FacebookService = {
             // For purchase complete, we want to use the dedicated logPurchase API
             // Note: SubscriptionSheet fires BOTH 'subscription_purchase' and 'purchase_complete'
             // We use 'purchase_complete' to register the real Revenue event, avoiding double counting.
-            if (eventName === 'purchase_complete') {
-                const amount = Number(params?.amount || 0);
-                const currency = String(params?.currency || 'USD');
+            // 1. Special Handling for Revenue Events (Purchase)
+            const isPurchaseEvent = 
+                eventName === 'purchase_complete' || 
+                eventName === 'currency_purchase_complete';
+
+            if (isPurchaseEvent) {
+                const amount = Number(params?.amount || params?.price || 0);
+                const currency = String(params?.currency || params?.currency_code || 'USD');
 
                 if (amount > 0) {
                     await AppEventsLogger.logPurchase(amount, currency, params);
-                    console.log(`[Facebook] Purchase revenue logged: ${amount} ${currency}`);
+                    console.log(`[Facebook] Purchase revenue logged: ${amount} ${currency} (${eventName})`);
                 } else {
                     await AppEventsLogger.logEvent('fb_mobile_purchase', params);
-                    console.log(`[Facebook] Event logged: fb_mobile_purchase (was ${eventName})`);
                 }
-
-                // Return early so we don't duplicate via logEvent below
                 return;
             }
 
-            // Map other generic event names to Facebook specific ones
+            // 2. Map other generic event names to Facebook specific ones
             let mappedEventName = eventName;
 
             switch (eventName) {
@@ -45,9 +47,13 @@ export const FacebookService = {
                     mappedEventName = 'fb_mobile_tutorial_completion';
                     break;
                 case 'subscription_purchase':
-                    // Kept as 'subscription_purchase' to track the sub action,
-                    // while Revenue generation is handled by 'purchase_complete' above.
-                    mappedEventName = 'subscription_purchase';
+                    // Map to Facebook's Subscribe event
+                    mappedEventName = 'fb_mobile_subscribe';
+                    const price = Number(params?.price || 0);
+                    if (price > 0) {
+                        params.valueToSum = price;
+                        params.fb_currency = params?.currency || 'USD';
+                    }
                     break;
             }
 

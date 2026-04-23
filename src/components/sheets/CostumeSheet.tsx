@@ -143,7 +143,7 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
         (costume: Costume) => {
             const isProItem = costume.tier === "pro";
             const isOwned = ownedIds.has(costume.id);
-            if (isProItem && !isPro && !isOwned) {
+            if (isProItem && !isPro) {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
                 onIsOpenedChange(false);
                 sheetRef.current?.dismiss();
@@ -163,7 +163,7 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
             const isSelected = item.model_url === currentCostumeUrl;
             const isProItem = item.tier === "pro";
             const isOwned = ownedIds.has(item.id);
-            const isLocked = isProItem && !isPro && !isOwned;
+            const isLocked = isProItem && !isPro;
 
             return (
                 <Pressable

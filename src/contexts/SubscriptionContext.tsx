@@ -120,6 +120,11 @@ export function SubscriptionProvider({ children, userId }: { children: ReactNode
 
             const isSuccess = checkIsPro(info);
             if (isSuccess) {
+                // Log both for comprehensive tracking
+                analyticsService.logSubscriptionPurchase(
+                    pkg.product.identifier,
+                    pkg.product.price
+                );
                 analyticsService.logPurchaseComplete(
                     pkg.product.identifier,
                     'subscription',
