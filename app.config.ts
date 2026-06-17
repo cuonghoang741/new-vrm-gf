@@ -108,6 +108,15 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         './withCustomPodfile',
         "./plugins/withFirebaseSetup",
         "./plugins/withAndroidBackupRulesFix",
+        [
+            "react-native-google-mobile-ads",
+            {
+                androidAppId: "ca-app-pub-4908431670564026~7331803480",
+                iosAppId: "ca-app-pub-4908431670564026~7220122843",
+                userTrackingUsageDescription:
+                    "This identifier will be used to deliver personalized ads to you.",
+            },
+        ],
         "@react-native-firebase/app",
         "expo-apple-authentication",
         "expo-web-browser",

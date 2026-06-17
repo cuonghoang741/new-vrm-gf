@@ -5,6 +5,7 @@ import Purchases, {
 } from "react-native-purchases";
 import { Platform } from "react-native";
 import { analyticsService } from "../services/AnalyticsService";
+import { AdsManager } from "../services/AdsManager";
 
 Purchases.setLogLevel(Purchases.LOG_LEVEL.ERROR);
 
@@ -115,6 +116,9 @@ export function SubscriptionProvider({ children, userId }: { children: ReactNode
     const purchasePackage = useCallback(async (pkg: PurchasesPackage) => {
         try {
             analyticsService.logPurchaseStart('subscription', pkg.product.identifier);
+            // Suppress the App Open ad that would fire when returning from the
+            // Google/Apple purchase popup (policy rule 18).
+            AdsManager.suppressNextResumeAd();
             const { customerInfo: info } = await Purchases.purchasePackage(pkg);
             updateFromInfo(info);
 
@@ -146,6 +150,7 @@ export function SubscriptionProvider({ children, userId }: { children: ReactNode
 
     const restorePurchases = useCallback(async () => {
         try {
+            AdsManager.suppressNextResumeAd();
             const info = await Purchases.restorePurchases();
             updateFromInfo(info);
             const successful = checkIsPro(info);

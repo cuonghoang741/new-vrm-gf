@@ -8,15 +8,20 @@ import { ElevenLabsProvider } from "@elevenlabs/react-native";
 import { OTAAutoUpdate } from "./src/components/OTA-update/OTAAutoUpdate";
 
 import { AnalyticsProvider } from "./src/providers/AnalyticsProvider";
+import { AdsProvider } from "./src/providers/AdsProvider";
+import { AdOverlay } from "./src/components/ads/AdOverlay";
 
 function AppWithSubscription() {
   const { user } = useAuth();
   return (
     <SubscriptionProvider userId={user?.id}>
-      <ElevenLabsProvider audioSessionConfig={{ allowMixingWithOthers: true }}>
-        <AppNavigator />
-        <OTAAutoUpdate />
-      </ElevenLabsProvider>
+      <AdsProvider>
+        <ElevenLabsProvider audioSessionConfig={{ allowMixingWithOthers: true }}>
+          <AppNavigator />
+          <OTAAutoUpdate />
+          <AdOverlay />
+        </ElevenLabsProvider>
+      </AdsProvider>
     </SubscriptionProvider>
   );
 }

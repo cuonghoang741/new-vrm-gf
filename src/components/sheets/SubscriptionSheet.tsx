@@ -20,6 +20,7 @@ import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PurchasesPackage } from "react-native-purchases";
 import * as WebBrowser from "expo-web-browser";
+import { openBrowserSafe } from "../../utils/openBrowserSafe";
 import {
     IconX,
     IconCube3dSphere,
@@ -638,15 +639,15 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                                 <Text style={styles.footerLink}>Restore</Text>
                             </Pressable>
                             <Text style={styles.footerDot}>•</Text>
-                            <Pressable onPress={() => WebBrowser.openBrowserAsync("https://truefeel-legal-haven.lovable.app/terms")}>
+                            <Pressable onPress={() => openBrowserSafe("https://truefeel-legal-haven.lovable.app/terms")}>
                                 <Text style={styles.footerLink}>Terms</Text>
                             </Pressable>
                             <Text style={styles.footerDot}>•</Text>
-                            <Pressable onPress={() => WebBrowser.openBrowserAsync("https://truefeel-legal-haven.lovable.app/privacy")}>
+                            <Pressable onPress={() => openBrowserSafe("https://truefeel-legal-haven.lovable.app/privacy")}>
                                 <Text style={styles.footerLink}>Privacy</Text>
                             </Pressable>
                             <Text style={styles.footerDot}>•</Text>
-                            <Pressable onPress={() => WebBrowser.openBrowserAsync("https://truefeel-legal-haven.lovable.app/eula")}>
+                            <Pressable onPress={() => openBrowserSafe("https://truefeel-legal-haven.lovable.app/eula")}>
                                 <Text style={styles.footerLink}>EULA</Text>
                             </Pressable>
                         </View>

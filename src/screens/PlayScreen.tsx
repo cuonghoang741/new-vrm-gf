@@ -61,6 +61,11 @@ import MediaSheet from "../components/sheets/MediaSheet";
 import ActionsBubble from "../components/ActionsBubble";
 import { useSubscription } from "../contexts/SubscriptionContext";
 import { analyticsService } from "../services/AnalyticsService";
+import { useInterstitialAd } from "../hooks/useInterstitialAd";
+import { useRewardedAd } from "../hooks/useRewardedAd";
+import { AdUnits } from "../config/ads";
+import { FREE_MESSAGE_LIMIT, REWARD_MESSAGE_BONUS } from "../config/limits";
+import { Alert } from "react-native";
 
 import * as SecureStore from "expo-secure-store";
 
@@ -97,6 +102,8 @@ export default function PlayScreen() {
     const [mediaSheetOpen, setMediaSheetOpen] = useState(false);
 
     const { isPro, refreshStatus } = useSubscription();
+    const { showInterstitial } = useInterstitialAd();
+    const { show: showRewardedForMessages } = useRewardedAd(AdUnits.rewarded);
 
     // Character state
     const [characterId, setCharacterId] = useState<string | null>(null);
@@ -125,6 +132,11 @@ export default function PlayScreen() {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [inputText, setInputText] = useState("");
     const [isSending, setIsSending] = useState(false);
+
+    // Free-tier message quota (PRO is unlimited). `bonusMsgs` grows when a free
+    // user watches a rewarded ad.
+    const [freeMsgUsed, setFreeMsgUsed] = useState(0);
+    const [bonusMsgs, setBonusMsgs] = useState(0);
 
     // Call duration tracking
     const callStartTimeRef = useRef<number | null>(null);
@@ -195,6 +207,13 @@ export default function PlayScreen() {
                     chatService.saveCallMessage(endMessage, characterId, user.id, true);
 
                     callStartTimeRef.current = null;
+
+                    // Interstitial at the natural break after a real call ends.
+                    // Skipped for PRO, frequency-capped, and skipped if not
+                    // preloaded (the hook falls through without making the user wait).
+                    if (!isPro && durationSeconds >= 15) {
+                        showInterstitial();
+                    }
                 }
             },
             onError: (err: any) => console.error("ElevenLabs Error:", err),
@@ -647,12 +666,40 @@ export default function PlayScreen() {
     }, [isPro, characterId, user?.id, is3DMode, characterModelUrl]);
 
     // ─── Send message ───
+    // Free user hit the message quota: offer a rewarded ad (clearly labelled)
+    // or the PRO upgrade. Bonus messages are only granted if the reward is earned.
+    const requestMoreMessages = useCallback(() => {
+        Alert.alert(
+            "Hết lượt nhắn miễn phí",
+            `Xem một quảng cáo để được thêm ${REWARD_MESSAGE_BONUS} tin nhắn, hoặc nâng cấp PRO để nhắn không giới hạn.`,
+            [
+                { text: "Để sau", style: "cancel" },
+                { text: "Nâng cấp PRO", onPress: () => setSubscriptionOpen(true) },
+                {
+                    text: `Xem quảng cáo (+${REWARD_MESSAGE_BONUS})`,
+                    onPress: async () => {
+                        const earned = await showRewardedForMessages();
+                        if (earned) setBonusMsgs((n) => n + REWARD_MESSAGE_BONUS);
+                    },
+                },
+            ]
+        );
+    }, [showRewardedForMessages]);
+
     const handleSend = useCallback(async () => {
         const text = inputText.trim();
         if (!text || isSending || !characterId || !user?.id) return;
+
+        // Enforce the free-tier message quota.
+        if (!isPro && freeMsgUsed >= FREE_MESSAGE_LIMIT + bonusMsgs) {
+            requestMoreMessages();
+            return;
+        }
+
         setInputText("");
         const userMsg: ChatMessage = { id: `temp-${Date.now()}`, role: "user", text, createdAt: new Date() };
         setMessages((prev) => [...prev, userMsg]);
+        if (!isPro) setFreeMsgUsed((n) => n + 1);
         setIsSending(true);
         setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
 
@@ -712,7 +759,7 @@ export default function PlayScreen() {
             setMessages((prev) => [...prev, errMsg]);
             setIsSending(false);
         }
-    }, [inputText, isSending, characterId, user?.id, messages, executeAction]);
+    }, [inputText, isSending, characterId, user?.id, messages, executeAction, isPro, freeMsgUsed, bonusMsgs, requestMoreMessages]);
 
     // ─── Sheet handlers ───
     const handleCharacterSelect = useCallback(async (char: any) => {

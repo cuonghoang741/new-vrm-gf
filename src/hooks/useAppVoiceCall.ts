@@ -6,6 +6,7 @@ import { CharacterRepository } from '../repositories/CharacterRepository';
 import { analyticsService } from '../services/AnalyticsService';
 import { useVoiceConversation } from './useVoiceConversation';
 import { callQuotaService, CallQuotaService } from '../services/CallQuotaService';
+import { AdsManager } from '../services/AdsManager';
 
 type UseAppVoiceCallOptions = {
     activeCharacterId: string | undefined;
@@ -100,6 +101,8 @@ export const useAppVoiceCall = ({
                 );
                 if (currentStatus) return true;
 
+                // Suppress App Open ad around the system permission dialog (rule 18).
+                AdsManager.suppressNextResumeAd();
                 const result = await PermissionsAndroid.request(
                     PermissionsAndroid.PERMISSIONS.CAMERA,
                     {
@@ -140,6 +143,7 @@ export const useAppVoiceCall = ({
                 );
                 if (currentStatus) return true;
 
+                AdsManager.suppressNextResumeAd();
                 const result = await PermissionsAndroid.request(
                     PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
                     {

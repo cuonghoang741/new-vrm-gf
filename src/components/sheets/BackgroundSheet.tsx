@@ -7,6 +7,7 @@ import {
     FlatList,
     Animated,
     Dimensions,
+    Alert,
 } from "react-native";
 import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -14,6 +15,8 @@ import * as Haptics from "expo-haptics";
 import { supabase } from "../../config/supabase";
 import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
 import { IconSun, IconMoon } from "@tabler/icons-react-native";
+import { useRewardedAd } from "../../hooks/useRewardedAd";
+import { AdUnits } from "../../config/ads";
 
 const { width } = Dimensions.get("window");
 const GRID_PADDING = 20;
@@ -54,6 +57,9 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
     const sheetRef = useRef<BottomSheetRef>(null);
     const [backgrounds, setBackgrounds] = useState<Background[]>([]);
     const [ownedIds, setOwnedIds] = useState<Set<string>>(new Set());
+    // Backgrounds temporarily unlocked by watching a rewarded ad (this session).
+    const [tempUnlocked, setTempUnlocked] = useState<Set<string>>(new Set());
+    const { show: showRewardedForBackground } = useRewardedAd(AdUnits.rewarded);
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const listRef = useRef<FlatList>(null);
@@ -139,29 +145,67 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
         return () => clearTimeout(timer);
     }, [isOpened, currentBackgroundId, backgrounds.length]);
 
-    const handleSelect = useCallback(
+    const applySelection = useCallback(
         (bg: Background) => {
-            const isProItem = bg.tier === "pro";
-            const isOwned = ownedIds.has(bg.id);
-            if (isProItem && !isPro && !isOwned) {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-                onIsOpenedChange(false);
-                sheetRef.current?.dismiss();
-                setTimeout(() => onOpenSubscription?.(), 300);
-                return;
-            }
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             onIsOpenedChange(false);
             sheetRef.current?.dismiss();
             onSelect(bg);
         },
-        [onSelect, onIsOpenedChange, isPro, onOpenSubscription, ownedIds]
+        [onSelect, onIsOpenedChange]
+    );
+
+    const handleSelect = useCallback(
+        (bg: Background) => {
+            const isProItem = bg.tier === "pro";
+            const isOwned = ownedIds.has(bg.id) || tempUnlocked.has(bg.id);
+            if (isProItem && !isPro && !isOwned) {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                // Offer a rewarded ad to unlock, or the PRO upgrade.
+                Alert.alert(
+                    "Background bị khóa",
+                    "Xem một quảng cáo để mở khóa background này, hoặc nâng cấp PRO để mở tất cả.",
+                    [
+                        { text: "Hủy", style: "cancel" },
+                        {
+                            text: "Nâng cấp PRO",
+                            onPress: () => {
+                                onIsOpenedChange(false);
+                                sheetRef.current?.dismiss();
+                                setTimeout(() => onOpenSubscription?.(), 300);
+                            },
+                        },
+                        {
+                            text: "Xem quảng cáo",
+                            onPress: async () => {
+                                const earned = await showRewardedForBackground();
+                                if (earned) {
+                                    setTempUnlocked((prev) => new Set(prev).add(bg.id));
+                                    applySelection(bg);
+                                }
+                            },
+                        },
+                    ]
+                );
+                return;
+            }
+            applySelection(bg);
+        },
+        [
+            isPro,
+            onOpenSubscription,
+            onIsOpenedChange,
+            ownedIds,
+            tempUnlocked,
+            showRewardedForBackground,
+            applySelection,
+        ]
     );
 
     const renderItem = useCallback(
         ({ item }: { item: Background }) => {
             const isSelected = item.id === currentBackgroundId;
-            const isOwned = ownedIds.has(item.id);
+            const isOwned = ownedIds.has(item.id) || tempUnlocked.has(item.id);
             const isProItem = item.tier === "pro";
             const isLocked = isProItem && !isPro && !isOwned;
 
@@ -216,7 +260,7 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
                 </Pressable>
             );
         },
-        [currentBackgroundId, handleSelect, isPro, ownedIds]
+        [currentBackgroundId, handleSelect, isPro, ownedIds, tempUnlocked]
     );
 
     const renderSkeleton = () => (

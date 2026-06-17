@@ -25,6 +25,8 @@ import * as AppleAuthentication from "expo-apple-authentication";
 import * as WebBrowser from "expo-web-browser";
 import { authService } from "../services";
 import { fetchAndCacheCharacters } from "../cache/charactersCache";
+import { AdsManager } from "../services/AdsManager";
+import { openBrowserSafe } from "../utils/openBrowserSafe";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -98,6 +100,7 @@ export default function SignInScreen() {
         }
         setIsAppleLoading(true);
         try {
+            AdsManager.suppressNextResumeAd();
             const credential = await AppleAuthentication.signInAsync({
                 requestedScopes: [
                     AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
@@ -123,6 +126,7 @@ export default function SignInScreen() {
             const redirectTo = `${APP_SCHEME}://auth/callback`;
             const oauthData = await authService.signInWithGoogleOAuth(redirectTo);
             if (!oauthData.url) return;
+            AdsManager.suppressNextResumeAd();
             const result = await WebBrowser.openAuthSessionAsync(
                 oauthData.url,
                 `${APP_SCHEME}://auth/callback`,
@@ -320,9 +324,9 @@ export default function SignInScreen() {
 
                     <Text style={styles.termsText}>
                         By continuing, you agree to our{" "}
-                        <Text style={styles.termsLink} onPress={() => WebBrowser.openBrowserAsync("https://truefeel-legal-haven.lovable.app/terms")}>Terms of Service</Text>,{" "}
-                        <Text style={styles.termsLink} onPress={() => WebBrowser.openBrowserAsync("https://truefeel-legal-haven.lovable.app/privacy")}>Privacy Policy</Text> and{" "}
-                        <Text style={styles.termsLink} onPress={() => WebBrowser.openBrowserAsync("https://truefeel-legal-haven.lovable.app/eula")}>EULA</Text>
+                        <Text style={styles.termsLink} onPress={() => openBrowserSafe("https://truefeel-legal-haven.lovable.app/terms")}>Terms of Service</Text>,{" "}
+                        <Text style={styles.termsLink} onPress={() => openBrowserSafe("https://truefeel-legal-haven.lovable.app/privacy")}>Privacy Policy</Text> and{" "}
+                        <Text style={styles.termsLink} onPress={() => openBrowserSafe("https://truefeel-legal-haven.lovable.app/eula")}>EULA</Text>
                     </Text>
                 </View>
             </View>

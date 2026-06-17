@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { Image } from "expo-image";
 import * as WebBrowser from "expo-web-browser";
+import { openBrowserSafe } from "../../utils/openBrowserSafe";
 import {
     IconLogout,
     IconInfoCircle,
@@ -320,7 +321,7 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                                     onPress={() => {
                                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                         analyticsService.logEvent('open_privacy_policy');
-                                        WebBrowser.openBrowserAsync("https://truefeel-legal-haven.lovable.app/privacy");
+                                        openBrowserSafe("https://truefeel-legal-haven.lovable.app/privacy");
                                     }}
                                 />
                                 <View style={styles.separator} />
@@ -329,7 +330,7 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                                     label="Terms of Service"
                                     onPress={() => {
                                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                        WebBrowser.openBrowserAsync("https://truefeel-legal-haven.lovable.app/terms");
+                                        openBrowserSafe("https://truefeel-legal-haven.lovable.app/terms");
                                     }}
                                 />
                                 <View style={styles.separator} />
@@ -338,7 +339,7 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                                     label="EULA"
                                     onPress={() => {
                                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                        WebBrowser.openBrowserAsync("https://truefeel-legal-haven.lovable.app/eula");
+                                        openBrowserSafe("https://truefeel-legal-haven.lovable.app/eula");
                                     }}
                                 />
                                 <View style={styles.separator} />
