@@ -2,13 +2,14 @@ import { ConfigContext, ExpoConfig } from "expo/config";
 import { version } from './package.json';
 
 // EAS config
-const EAS_PROJECT_ID = "763d2cb3-8cdf-4678-bed6-b4baabdacdf9"; // Set from 'eas init'
-const PROJECT_SLUG = "truefeel";
+const EAS_PROJECT_ID = "956f5391-596e-4873-8dc2-331df23f5cd3"; // Set from 'eas init'
+const PROJECT_SLUG = "truemate";
+const EAS_OWNER = "hoangcuongdcyb365";
 
 // App production config
 const APP_NAME = "TrueFeel";
 const BUNDLE_IDENTIFIER = "com.truefeel";
-const PACKAGE_NAME = "com.eduto.truefeel";
+const PACKAGE_NAME = "com.truemate.girlfriend";
 const ICON = "./assets/logo.png";
 const ANDROID_ICON_FOREGROUND = "./assets/logo.png";
 const SCHEME = "truefeel";
@@ -25,6 +26,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     scheme: SCHEME,
     version: version,
     slug: PROJECT_SLUG,
+    owner: EAS_OWNER,
     orientation: "portrait",
     userInterfaceStyle: "dark",
     newArchEnabled: true,
@@ -105,6 +107,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     plugins: [
         './withCustomPodfile',
         "./plugins/withFirebaseSetup",
+        "./plugins/withAndroidBackupRulesFix",
         "@react-native-firebase/app",
         "expo-apple-authentication",
         "expo-web-browser",
