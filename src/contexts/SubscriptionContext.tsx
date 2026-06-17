@@ -9,21 +9,19 @@ import { AdsManager } from "../services/AdsManager";
 
 Purchases.setLogLevel(Purchases.LOG_LEVEL.ERROR);
 
-// const REVENUECAT_API_KEY_IOS = "appl_NaXLvvZfTtuEAgTeAAuXUYCgTpD";
 const REVENUECAT_API_KEY_IOS = "appl_NaXLvvZfTtuEAgTeAAuXUYCgTpD";
-const REVENUECAT_API_KEY_ANDROID = "test_gnnCBUoBlRDSIdXbWzzRZoTPwOW";
+const REVENUECAT_API_KEY_ANDROID = "goog_UWaWUNwJbAHkjnsXXzIPToKeefY";
+
+/** RevenueCat entitlement identifier that grants PRO access. */
+export const ENTITLEMENT_ID = "pro";
 
 export const checkIsPro = (info: CustomerInfo | null) => {
     if (!info) return false;
-    // Some configurations may not even have entitlements mapped correctly, check if we own anything
-    const activeKeys = Object.keys(info.entitlements.active);
-
-    // Fallback: If RevenueCat says we have an active entitlement of ANY name, just give pro!
-    if (activeKeys.length > 0) return true;
-
-    return activeKeys.some(
-        (key) => key.toLowerCase() === "pro" || key.toLowerCase() === "premium"
-    );
+    // Primary: the "pro" entitlement is active.
+    if (info.entitlements.active[ENTITLEMENT_ID] !== undefined) return true;
+    // Tolerant fallback: any active entitlement (guards against dashboard
+    // mapping drift so a paying user is never wrongly treated as free).
+    return Object.keys(info.entitlements.active).length > 0;
 };
 
 interface SubscriptionContextData {
