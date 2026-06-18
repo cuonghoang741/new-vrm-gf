@@ -27,6 +27,7 @@ import { authService } from "../services";
 import { fetchAndCacheCharacters } from "../cache/charactersCache";
 import { AdsManager } from "../services/AdsManager";
 import { openBrowserSafe } from "../utils/openBrowserSafe";
+import { GalaxyBackground } from "../components/GalaxyBackground";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -206,6 +207,9 @@ export default function SignInScreen() {
                 style={styles.gradientOverlay}
                 pointerEvents="none"
             />
+
+            {/* Twinkling galaxy overlay */}
+            <GalaxyBackground transparentBase starCount={70} />
 
             {/* Content */}
             <View style={styles.content} pointerEvents="box-none">

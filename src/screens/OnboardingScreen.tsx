@@ -13,6 +13,7 @@ import {
     ActivityIndicator,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import { GalaxyBackground } from "../components/GalaxyBackground";
 import { StatusBar } from "expo-status-bar";
 import {
     IconArrowRight,
@@ -288,6 +289,7 @@ export default function OnboardingScreen({
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
             />
+            <GalaxyBackground transparentBase />
 
             <View style={styles.content}>
                 {/* Progress bar */}

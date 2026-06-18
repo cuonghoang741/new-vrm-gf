@@ -11,7 +11,7 @@ const APP_NAME = "TrueFeel";
 const BUNDLE_IDENTIFIER = "com.truefeel";
 const PACKAGE_NAME = "com.truemate.girlfriend";
 const ICON = "./assets/logo.png";
-const ANDROID_ICON_FOREGROUND = "./assets/logo.png";
+const ANDROID_ICON_FOREGROUND = "./assets/adaptive-icon.png";
 const SCHEME = "truefeel";
 
 // Analytics & SDK Configs (Placeholders)

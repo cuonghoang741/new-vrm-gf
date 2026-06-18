@@ -156,13 +156,52 @@
             justify-content: center;
             flex-direction: column;
             gap: 18px;
+            overflow: hidden;
             background:
-                radial-gradient(125% 120% at 50% 0%, rgba(255, 197, 222, 0.55), rgba(208, 191, 255, 0.42) 48%, rgba(255, 252, 254, 0.30) 100%),
-                rgba(255, 250, 253, 0.55);
-            -webkit-backdrop-filter: blur(16px) saturate(1.15);
-            backdrop-filter: blur(16px) saturate(1.15);
+                radial-gradient(140% 120% at 78% 10%, rgba(255, 111, 165, 0.32), transparent 55%),
+                radial-gradient(120% 120% at 14% 90%, rgba(155, 92, 255, 0.30), transparent 60%),
+                linear-gradient(160deg, #0A0420 0%, #1A0B3A 45%, #2A0E47 72%, #0C0524 100%);
             z-index: 1001;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+        }
+
+        /* Tiled twinkling starfields (two layers for depth). */
+        #loadingOverlay::before,
+        #loadingOverlay::after {
+            content: "";
+            position: absolute;
+            inset: -50%;
+            pointer-events: none;
+            background-repeat: repeat;
+            z-index: -1;
+        }
+
+        #loadingOverlay::before {
+            background-image:
+                radial-gradient(1.2px 1.2px at 20px 30px, #ffffff, transparent),
+                radial-gradient(1px 1px at 80px 120px, #ffe9f4, transparent),
+                radial-gradient(1.4px 1.4px at 150px 60px, #ffffff, transparent),
+                radial-gradient(1px 1px at 60px 170px, #e9d5ff, transparent),
+                radial-gradient(1.2px 1.2px at 175px 175px, #ffffff, transparent),
+                radial-gradient(1px 1px at 120px 20px, #ffd9ec, transparent);
+            background-size: 200px 200px;
+            animation: tm-twinkle 3.2s ease-in-out infinite;
+        }
+
+        #loadingOverlay::after {
+            background-image:
+                radial-gradient(1px 1px at 40px 60px, #ffffff, transparent),
+                radial-gradient(0.8px 0.8px at 110px 30px, #ffd9ec, transparent),
+                radial-gradient(1px 1px at 160px 130px, #ffffff, transparent),
+                radial-gradient(0.8px 0.8px at 30px 150px, #e9d5ff, transparent);
+            background-size: 260px 260px;
+            opacity: 0.7;
+            animation: tm-twinkle 4.6s ease-in-out infinite reverse;
+        }
+
+        @keyframes tm-twinkle {
+            0%, 100% { opacity: 0.35; }
+            50% { opacity: 0.95; }
         }
 
         .tm-loader {
@@ -196,7 +235,7 @@
             font-size: 23px;
             font-weight: 800;
             letter-spacing: 0.4px;
-            background: linear-gradient(90deg, #A88BA5, #FF6FA5 60%, #FF8FB8);
+            background: linear-gradient(90deg, #FFD9EC, #FF6FA5 55%, #C8A8F0);
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
@@ -224,7 +263,7 @@
         #loadingText {
             font-size: 13.5px;
             font-weight: 600;
-            color: #9B7E9E;
+            color: #E9D5FF;
             letter-spacing: 0.3px;
         }
 
