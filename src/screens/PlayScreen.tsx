@@ -1225,13 +1225,24 @@ export default function PlayScreen() {
                             renderItem={renderMessage}
                             keyExtractor={(item) => item.id}
                             style={styles.messageList}
-                            contentContainerStyle={styles.messageListContent}
+                            contentContainerStyle={[styles.messageListContent, messages.length === 0 && styles.messageListContentEmpty]}
                             showsVerticalScrollIndicator={false}
                             keyboardShouldPersistTaps="handled"
                             keyboardDismissMode="on-drag"
                             onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
                             ListEmptyComponent={
-                                <View style={styles.emptyChat}><Text style={styles.emptyChatEmoji}>💬</Text><Text style={styles.emptyChatText}>Say hello to {characterName}!</Text></View>
+                                <View style={styles.emptyChat}>
+                                    <BlurView
+                                        intensity={30}
+                                        tint="dark"
+                                        experimentalBlurMethod="dimezisBlurView"
+                                        style={styles.emptyCard}
+                                    >
+                                        <Text style={styles.emptyChatEmoji}>👋</Text>
+                                        <Text style={styles.emptyChatTitle}>Say hello to {characterName}</Text>
+                                        <Text style={styles.emptyChatSub}>Start the conversation 💕</Text>
+                                    </BlurView>
+                                </View>
                             }
                             ListFooterComponent={
                                 isSending ? (
@@ -1244,7 +1255,7 @@ export default function PlayScreen() {
                                             <Text style={styles.aiName}>{characterName}</Text>
                                             <View style={{ flexDirection: 'row', alignItems: 'center', height: 20, paddingTop: 4 }}>
                                                 {[dot1Anim, dot2Anim, dot3Anim].map((anim, i) => (
-                                                    <Animated.View key={i} style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: 'rgba(255,255,255,0.5)', marginHorizontal: 2, transform: [{ translateY: anim }] }} />
+                                                    <Animated.View key={i} style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: 'rgba(255,143,184,0.95)', marginHorizontal: 2, transform: [{ translateY: anim }] }} />
                                                 ))}
                                             </View>
                                         </LiquidGlassView>
@@ -1253,7 +1264,7 @@ export default function PlayScreen() {
                                             <Text style={styles.aiName}>{characterName}</Text>
                                             <View style={{ flexDirection: 'row', alignItems: 'center', height: 20, paddingTop: 4 }}>
                                                 {[dot1Anim, dot2Anim, dot3Anim].map((anim, i) => (
-                                                    <Animated.View key={i} style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: 'rgba(255,255,255,0.5)', marginHorizontal: 2, transform: [{ translateY: anim }] }} />
+                                                    <Animated.View key={i} style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: 'rgba(255,143,184,0.95)', marginHorizontal: 2, transform: [{ translateY: anim }] }} />
                                                 ))}
                                             </View>
                                         </View>
@@ -1601,8 +1612,9 @@ const styles = StyleSheet.create({
     // Messages
     messageList: { flexGrow: 1 },
     messageListContent: { padding: 16, paddingBottom: 8 },
+    messageListContentEmpty: { flexGrow: 1, justifyContent: "center", alignItems: "center" },
     messageBubble: { maxWidth: "80%", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 18, marginBottom: 8 },
-    userBubble: { alignSelf: "flex-end", backgroundColor: "#9B59FF", borderBottomRightRadius: 6 },
+    userBubble: { alignSelf: "flex-end", backgroundColor: "#FF6FA5", borderBottomRightRadius: 6 },
     aiBubble: { alignSelf: "flex-start", backgroundColor: "rgba(15, 5, 30, 0.75)", borderWidth: 1, borderColor: "rgba(255, 143, 184, 0.2)", borderBottomLeftRadius: 6 },
     userBubbleLiquid: {
         alignSelf: "flex-end",
@@ -1640,9 +1652,20 @@ const styles = StyleSheet.create({
     },
     userText: { color: "#FFFFFF" },
     aiText: { color: "rgba(255,255,255,0.85)" },
-    emptyChat: { alignItems: "center", justifyContent: "center", paddingVertical: 40 },
-    emptyChatEmoji: { fontSize: 40, marginBottom: 12 },
-    emptyChatText: { fontSize: 15, color: "rgba(255,255,255,0.4)" },
+    emptyChat: { alignItems: "center", justifyContent: "center", paddingVertical: 24 },
+    emptyCard: {
+        alignItems: "center",
+        paddingVertical: 26,
+        paddingHorizontal: 32,
+        borderRadius: 26,
+        overflow: "hidden",
+        backgroundColor: "rgba(255,255,255,0.06)",
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: "rgba(255,255,255,0.18)",
+    },
+    emptyChatEmoji: { fontSize: 46, marginBottom: 12 },
+    emptyChatTitle: { fontSize: 16, fontWeight: "700", color: "#FFFFFF", marginBottom: 6, textAlign: "center" },
+    emptyChatSub: { fontSize: 13, color: "rgba(255, 194, 218, 0.85)", textAlign: "center" },
 
     // Input
     inputBar: {
