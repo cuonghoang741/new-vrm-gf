@@ -108,6 +108,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         './withCustomPodfile',
         "./plugins/withFirebaseSetup",
         "./plugins/withAndroidBackupRulesFix",
+        "./plugins/withCopyIndexHtml",
         [
             "react-native-google-mobile-ads",
             {
