@@ -1,7 +1,6 @@
 import React from 'react';
 import { ActivityIndicator, Platform, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import { LiquidGlassView, isLiquidGlassSupported } from '@callstack/liquid-glass';
 
 import { useTheme } from '@/contexts';
@@ -165,8 +164,9 @@ const Button: React.FC<ButtonProps> = ({
     );
   } else if (variant === 'liquid' && !isLiquidGlassSupported) {
     // Frosted-glass fallback for platforms without native liquid glass (Android).
-    // Real blur via expo-blur (dimezisBlurView) + dark tint so buttons read as
-    // translucent glass instead of a bright solid fill.
+    // Uses a STATIC translucent dark fill (no real-time blur) — real blur
+    // (dimezisBlurView) over the live 3D scene tanks performance when many
+    // buttons are on screen.
     const liquidBtnStyle = makeButtonStyles(theme, {
       size,
       variant,
@@ -178,24 +178,21 @@ const Button: React.FC<ButtonProps> = ({
       shadow,
     }).button;
     return (
-      <HapticPressable onPress={onPress} disabled={disabled || loading}>
-        <BlurView
-          intensity={24}
-          tint="dark"
-          experimentalBlurMethod="dimezisBlurView"
-          style={[
-            liquidBtnStyle,
-            {
-              overflow: 'hidden',
-              backgroundColor: tintColor || 'rgba(255,255,255,0.06)',
-              borderWidth: StyleSheet.hairlineWidth,
-              borderColor: 'rgba(255,255,255,0.18)',
-            },
-            style,
-          ]}
-        >
-          {buttonContent}
-        </BlurView>
+      <HapticPressable
+        onPress={onPress}
+        disabled={disabled || loading}
+        style={({ pressed }) => [
+          liquidBtnStyle,
+          {
+            backgroundColor: tintColor || 'rgba(18,10,28,0.55)',
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: 'rgba(255,255,255,0.18)',
+          },
+          pressed && { opacity: 0.85 },
+          style,
+        ]}
+      >
+        {buttonContent}
       </HapticPressable>
     );
   }

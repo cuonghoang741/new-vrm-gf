@@ -28,7 +28,7 @@ export function AdOverlay() {
             {state.loading && (
                 <View style={styles.center}>
                     <ActivityIndicator size="large" color="#FFFFFF" />
-                    <Text style={styles.text}>Đang tải quảng cáo…</Text>
+                    <Text style={styles.text}>Loading ad…</Text>
                 </View>
             )}
         </View>

@@ -152,12 +152,7 @@ const MediaSheet = forwardRef<MediaSheetRef, MediaSheetProps>(
                         {/* PRO blur overlay */}
                         {isLocked && (
                             <View style={styles.lockedOverlay}>
-                                <BlurView
-                                    intensity={40}
-                                    tint="dark"
-                                    experimentalBlurMethod="dimezisBlurView"
-                                    style={StyleSheet.absoluteFill}
-                                />
+                                <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(10,6,20,0.4)" }]} />
                                 <View style={styles.lockBadge}>
                                     <IconLock size={16} color="#fff" />
                                 </View>

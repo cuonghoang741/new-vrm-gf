@@ -87,8 +87,9 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
 
     useEffect(() => {
         if (!isOpened) {
-            // we don't necessarily want to setVrmReady(false) here if we want it to stay ready
-            // setVrmReady(false);
+            // Unmounting the preview WebView when closed; reset readiness so it
+            // re-initializes (and reloads the model) on next open.
+            setVrmReady(false);
         }
     }, [isOpened]);
 
@@ -346,12 +347,16 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
             <View style={styles.contentWrap}>
                 <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-                <VRMViewer
-                    ref={vrmRef}
-                    style={StyleSheet.absoluteFillObject}
-                    onReady={() => setVrmReady(true)}
-                    onModelLoaded={handleModelLoaded}
-                />
+                {/* Only run the 3D preview WebView while the sheet is open —
+                    a second live WebGL context behind the screen tanks perf. */}
+                {isOpened && (
+                    <VRMViewer
+                        ref={vrmRef}
+                        style={StyleSheet.absoluteFillObject}
+                        onReady={() => setVrmReady(true)}
+                        onModelLoaded={handleModelLoaded}
+                    />
+                )}
 
                 {/* Blur overlay when a costume is selected or transitioning */}
                 {shouldBlurPreview && (

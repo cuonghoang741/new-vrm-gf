@@ -21,7 +21,6 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { Image } from "expo-image";
 import { BlurView } from "expo-blur";
-import { LinearGradient } from "expo-linear-gradient";
 import { LiquidGlassView, isLiquidGlassSupported } from "@callstack/liquid-glass";
 
 import {
@@ -41,6 +40,7 @@ import {
     IconPhone,
     IconBadge3d,
     IconLock,
+    IconDiamondFilled,
 } from "@tabler/icons-react-native";
 
 import { CameraView } from "expo-camera";
@@ -1084,16 +1084,8 @@ export default function PlayScreen() {
             <View style={styles.topBar}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                     {!isPro && (
-                        <Pressable onPress={() => setSubscriptionOpen(true)} hitSlop={8}>
-                            <LinearGradient
-                                colors={["#FF6FA5", "#C8A8F0"]}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                                style={styles.upgradeProPill}
-                            >
-                                <IconCrown size={13} color="#FFFFFF" fill="#FFFFFF" />
-                                <Text style={styles.upgradeProText}>PRO</Text>
-                            </LinearGradient>
+                        <Pressable onPress={() => setSubscriptionOpen(true)} hitSlop={8} style={styles.upgradeProInner}>
+                            <IconDiamondFilled size={26} color="#FF6FA5" />
                         </Pressable>
                     )}
                     <View>
@@ -1303,12 +1295,7 @@ export default function PlayScreen() {
                                 />
                             </LiquidGlassView>
                         ) : (
-                            <BlurView
-                                intensity={32}
-                                tint="dark"
-                                experimentalBlurMethod="dimezisBlurView"
-                                style={styles.inputBlurWrapper}
-                            >
+                            <View style={styles.inputBlurWrapper}>
                                 <TextInput
                                     style={[styles.textInputLiquid, { color: '#FFFFFF' }]}
                                     placeholder={`Message ${characterName}...`}
@@ -1320,7 +1307,7 @@ export default function PlayScreen() {
                                     returnKeyType="default"
                                     blurOnSubmit={false}
                                 />
-                            </BlurView>
+                            </View>
                         )}
                         <Button
                             variant="liquid"
@@ -1489,24 +1476,16 @@ const styles = StyleSheet.create({
         textShadowColor: "rgba(0,0,0,0.5)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4,
     },
     statusText: { fontSize: 12, color: "#48BB78", fontWeight: "500", marginTop: 2 },
-    upgradeProPill: {
-        flexDirection: "row",
+    upgradeProInner: {
+        width: 38,
+        height: 38,
+        justifyContent: "center",
         alignItems: "center",
-        gap: 4,
-        paddingHorizontal: 10,
-        paddingVertical: 5,
-        borderRadius: 14,
         shadowColor: "#FF6FA5",
-        shadowOpacity: 0.5,
+        shadowOpacity: 0.6,
         shadowRadius: 6,
-        shadowOffset: { width: 0, height: 2 },
+        shadowOffset: { width: 0, height: 0 },
         elevation: 4,
-    },
-    upgradeProText: {
-        color: "#FFFFFF",
-        fontSize: 12,
-        fontWeight: "800",
-        letterSpacing: 0.5,
     },
     settingsBtn: {
         // kept for potential reuse
@@ -1710,7 +1689,7 @@ const styles = StyleSheet.create({
         minHeight: 44,
         maxHeight: 120,
         justifyContent: 'center',
-        backgroundColor: 'rgba(255,255,255,0.06)',
+        backgroundColor: 'rgba(18,10,28,0.55)',
         borderWidth: StyleSheet.hairlineWidth,
         borderColor: 'rgba(255,255,255,0.18)',
     },
