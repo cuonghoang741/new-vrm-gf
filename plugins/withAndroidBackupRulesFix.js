@@ -30,6 +30,11 @@ const withAndroidBackupRulesFix = (config) => {
         .filter(Boolean);
       const merged = Array.from(new Set([...existing, ...ATTRS]));
       application.$['tools:replace'] = merged.join(',');
+
+      // Allow cleartext (HTTP) so the VRM WebView can load its locally-served
+      // index.html on Android (react-native-webview serves required assets over
+      // http://localhost). Remote 3D assets are all HTTPS.
+      application.$['android:usesCleartextTraffic'] = 'true';
     }
 
     return config;
