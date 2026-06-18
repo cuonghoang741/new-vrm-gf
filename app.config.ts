@@ -76,7 +76,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
             foregroundImage: ANDROID_ICON_FOREGROUND,
         },
         package: PACKAGE_NAME,
-        versionCode: 50,
+        // Auto-increasing, always-unique versionCode (minutes since epoch).
+        // Guarantees every build is higher than the last with no manual bumping.
+        versionCode: Math.floor(Date.now() / 60000),
         googleServicesFile: "./google-services.json",
         edgeToEdgeEnabled: true,
         predictiveBackGestureEnabled: false,
