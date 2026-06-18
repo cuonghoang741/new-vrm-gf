@@ -1287,17 +1287,24 @@ export default function PlayScreen() {
                                 />
                             </LiquidGlassView>
                         ) : (
-                            <TextInput
-                                style={[styles.textInput, { color: isBackgroundDark ? '#FFFFFF' : '#0F051E' }]}
-                                placeholder={`Message ${characterName}...`}
-                                placeholderTextColor={isBackgroundDark ? "rgba(255,255,255,0.3)" : "rgba(15, 5, 30, 0.4)"}
-                                value={inputText}
-                                onChangeText={setInputText}
-                                multiline
-                                maxLength={500}
-                                returnKeyType="default"
-                                blurOnSubmit={false}
-                            />
+                            <BlurView
+                                intensity={32}
+                                tint="dark"
+                                experimentalBlurMethod="dimezisBlurView"
+                                style={styles.inputBlurWrapper}
+                            >
+                                <TextInput
+                                    style={[styles.textInputLiquid, { color: '#FFFFFF' }]}
+                                    placeholder={`Message ${characterName}...`}
+                                    placeholderTextColor="rgba(255,255,255,0.55)"
+                                    value={inputText}
+                                    onChangeText={setInputText}
+                                    multiline
+                                    maxLength={500}
+                                    returnKeyType="default"
+                                    blurOnSubmit={false}
+                                />
+                            </BlurView>
                         )}
                         <Button
                             variant="liquid"
@@ -1658,6 +1665,17 @@ const styles = StyleSheet.create({
         maxHeight: 120,
         backgroundColor: Platform.OS === 'android' ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
         justifyContent: 'center',
+    },
+    inputBlurWrapper: {
+        flex: 1,
+        borderRadius: 22,
+        overflow: 'hidden',
+        minHeight: 44,
+        maxHeight: 120,
+        justifyContent: 'center',
+        backgroundColor: 'rgba(255,255,255,0.06)',
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: 'rgba(255,255,255,0.18)',
     },
     textInputLiquid: {
         flex: 1,

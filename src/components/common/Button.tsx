@@ -1,6 +1,7 @@
 import React from 'react';
 import { ActivityIndicator, Platform, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { LiquidGlassView, isLiquidGlassSupported } from '@callstack/liquid-glass';
 
 import { useTheme } from '@/contexts';
@@ -163,27 +164,38 @@ const Button: React.FC<ButtonProps> = ({
       </HapticPressable>
     );
   } else if (variant === 'liquid' && !isLiquidGlassSupported) {
+    // Frosted-glass fallback for platforms without native liquid glass (Android).
+    // Real blur via expo-blur (dimezisBlurView) + dark tint so buttons read as
+    // translucent glass instead of a bright solid fill.
+    const liquidBtnStyle = makeButtonStyles(theme, {
+      size,
+      variant,
+      colorScheme,
+      fullWidth,
+      disabled: !!disabled,
+      loading: !!loading,
+      isIconOnly,
+      shadow,
+    }).button;
     return (
-      <HapticPressable
-        style={({ pressed }) => [
-          makeButtonStyles(theme, {
-            size,
-            variant,
-            colorScheme,
-            fullWidth,
-            disabled: !!disabled,
-            loading: !!loading,
-            isIconOnly,
-            pressed: !!pressed,
-            shadow,
-          }).button,
-          { backgroundColor: tintColor || 'white' },
-          style,
-        ]}
-        onPress={onPress}
-        disabled={disabled || loading}
-      >
-        {buttonContent}
+      <HapticPressable onPress={onPress} disabled={disabled || loading}>
+        <BlurView
+          intensity={24}
+          tint="dark"
+          experimentalBlurMethod="dimezisBlurView"
+          style={[
+            liquidBtnStyle,
+            {
+              overflow: 'hidden',
+              backgroundColor: tintColor || 'rgba(255,255,255,0.06)',
+              borderWidth: StyleSheet.hairlineWidth,
+              borderColor: 'rgba(255,255,255,0.18)',
+            },
+            style,
+          ]}
+        >
+          {buttonContent}
+        </BlurView>
       </HapticPressable>
     );
   }
