@@ -1,7 +1,7 @@
 {
     "cli": {
         "version": ">= 13.2.0",
-        "appVersionSource": "remote"
+        "appVersionSource": "local"
     },
     "build": {
         "development": {
@@ -60,7 +60,7 @@
                 "buildType": "app-bundle"
             },
             "channel": "production",
-            "autoIncrement": true
+            "autoIncrement": false
         }
     },
     "submit": {

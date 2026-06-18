@@ -76,7 +76,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
             foregroundImage: ANDROID_ICON_FOREGROUND,
         },
         package: PACKAGE_NAME,
-        versionCode: 1,
+        versionCode: 50,
         googleServicesFile: "./google-services.json",
         edgeToEdgeEnabled: true,
         predictiveBackGestureEnabled: false,
