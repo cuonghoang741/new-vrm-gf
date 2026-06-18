@@ -328,9 +328,9 @@ export default function SignInScreen() {
 
                     <Text style={styles.termsText}>
                         By continuing, you agree to our{" "}
-                        <Text style={styles.termsLink} onPress={() => openBrowserSafe("https://truefeel-legal-haven.lovable.app/terms")}>Terms of Service</Text>,{" "}
-                        <Text style={styles.termsLink} onPress={() => openBrowserSafe("https://truefeel-legal-haven.lovable.app/privacy")}>Privacy Policy</Text> and{" "}
-                        <Text style={styles.termsLink} onPress={() => openBrowserSafe("https://truefeel-legal-haven.lovable.app/eula")}>EULA</Text>
+                        <Text style={styles.termsLink} onPress={() => openBrowserSafe("https://personal-muse-3d.lovable.app/terms")}>Terms of Service</Text>,{" "}
+                        <Text style={styles.termsLink} onPress={() => openBrowserSafe("https://personal-muse-3d.lovable.app/privacy")}>Privacy Policy</Text> and{" "}
+                        <Text style={styles.termsLink} onPress={() => openBrowserSafe("https://personal-muse-3d.lovable.app/eula")}>EULA</Text>
                     </Text>
                 </View>
             </View>

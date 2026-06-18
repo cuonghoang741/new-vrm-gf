@@ -321,7 +321,7 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                                     onPress={() => {
                                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                         analyticsService.logEvent('open_privacy_policy');
-                                        openBrowserSafe("https://truefeel-legal-haven.lovable.app/privacy");
+                                        openBrowserSafe("https://personal-muse-3d.lovable.app/privacy");
                                     }}
                                 />
                                 <View style={styles.separator} />
@@ -330,7 +330,7 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                                     label="Terms of Service"
                                     onPress={() => {
                                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                        openBrowserSafe("https://truefeel-legal-haven.lovable.app/terms");
+                                        openBrowserSafe("https://personal-muse-3d.lovable.app/terms");
                                     }}
                                 />
                                 <View style={styles.separator} />
@@ -339,7 +339,7 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                                     label="EULA"
                                     onPress={() => {
                                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                        openBrowserSafe("https://truefeel-legal-haven.lovable.app/eula");
+                                        openBrowserSafe("https://personal-muse-3d.lovable.app/eula");
                                     }}
                                 />
                                 <View style={styles.separator} />
