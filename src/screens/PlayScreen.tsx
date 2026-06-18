@@ -172,6 +172,7 @@ export default function PlayScreen() {
         userId: user?.id,
         webBridgeRef: vrmRef,
         isPro,
+        userName: userProfile?.display_name || user?.user_metadata?.full_name || undefined,
         onQuotaExhausted: () => setSubscriptionOpen(true),
         voiceCallbacks: {
             onConnect: () => {

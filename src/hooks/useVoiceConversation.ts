@@ -18,6 +18,10 @@ type VoiceState = {
 type StartCallOptions = {
     agentId: string;
     userId?: string;
+    /** Per-session ElevenLabs agent overrides (prompt / language / voice). */
+    overrides?: any;
+    /** Per-session dynamic variables, e.g. { character_name, user_name }. */
+    dynamicVariables?: Record<string, string | number | boolean>;
 };
 
 /**
@@ -63,7 +67,11 @@ export const useVoiceConversation = (callbacks: VoiceCallbacks) => {
             try {
                 await conversation.startSession({
                     agentId: options.agentId,
-                });
+                    ...(options.overrides ? { overrides: options.overrides } : {}),
+                    ...(options.dynamicVariables
+                        ? { dynamicVariables: options.dynamicVariables }
+                        : {}),
+                } as any);
             } catch (error) {
                 setIsBooting(false);
                 throw error;

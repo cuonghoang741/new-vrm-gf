@@ -15,6 +15,8 @@ type UseAppVoiceCallOptions = {
     webBridgeRef: React.MutableRefObject<any>;
     isPro: boolean;
     onQuotaExhausted?: () => void;
+    /** Current user's display name, injected as the {{user_name}} variable. */
+    userName?: string;
 };
 
 export const useAppVoiceCall = ({
@@ -23,7 +25,8 @@ export const useAppVoiceCall = ({
     voiceCallbacks,
     webBridgeRef,
     isPro,
-    onQuotaExhausted
+    onQuotaExhausted,
+    userName,
 }: UseAppVoiceCallOptions) => {
     // Separate states for voice mode vs camera mode
     const [isVoiceMode, setIsVoiceMode] = useState(false);  // Voice-only call (no zoom)
@@ -32,7 +35,7 @@ export const useAppVoiceCall = ({
     const [remainingQuotaSeconds, setRemainingQuotaSeconds] = useState<number>(CallQuotaService.getDefaultQuota(isPro));
 
     const isSwitchingModeRef = useRef(false);
-    const agentIdCacheRef = useRef<Map<string, string>>(new Map());
+    const characterCacheRef = useRef<Map<string, any>>(new Map());
     const remainingQuotaRef = useRef(remainingQuotaSeconds);
     const isProRef = useRef(isPro);
 
@@ -49,23 +52,23 @@ export const useAppVoiceCall = ({
         sendText: sendVoiceText,
     } = useVoiceConversation(voiceCallbacks);
 
-    const resolveAgentId = useCallback(async (): Promise<string | null> => {
+    const resolveCharacter = useCallback(async (): Promise<any | null> => {
         if (!activeCharacterId) return null;
 
         // Check cache first
-        if (agentIdCacheRef.current.has(activeCharacterId)) {
-            return agentIdCacheRef.current.get(activeCharacterId)!;
+        if (characterCacheRef.current.has(activeCharacterId)) {
+            return characterCacheRef.current.get(activeCharacterId)!;
         }
 
         try {
             const repo = new CharacterRepository();
             const character = await repo.fetchCharacter(activeCharacterId);
-            if (character?.agent_elevenlabs_id) {
-                agentIdCacheRef.current.set(activeCharacterId, character.agent_elevenlabs_id);
-                return character.agent_elevenlabs_id;
+            if (character) {
+                characterCacheRef.current.set(activeCharacterId, character);
+                return character;
             }
         } catch (error) {
-            console.warn('[useAppVoiceCall] Failed to fetch character agent ID:', error);
+            console.warn('[useAppVoiceCall] Failed to fetch character:', error);
         }
         return null;
     }, [activeCharacterId]);
@@ -257,16 +260,44 @@ export const useAppVoiceCall = ({
         const hasMicPermission = await ensureMicrophonePermission();
         if (!hasMicPermission) return false;
 
-        const agentId = await resolveAgentId();
+        const character = await resolveCharacter();
+        const agentId = character?.agent_elevenlabs_id;
         if (!agentId) {
             Alert.alert('Voice unavailable', 'This character does not have a voice agent available yet.');
             return false;
         }
 
+        // Build per-session overrides from the current character's data.
+        // NOTE: each override field must be enabled on the ElevenLabs agent
+        // (Security > Overrides) or it is ignored.
+        let deviceLanguage: string | undefined;
+        try {
+            deviceLanguage = Intl.DateTimeFormat().resolvedOptions().locale?.split('-')[0];
+        } catch { /* Intl may be unavailable */ }
+
+        const data = character?.data || {};
+        const language = data.language || deviceLanguage;
+        const voiceId = data.voice_id || data.voiceId;
+        const prompt = character?.instruction;
+
+        const agentOverride: any = {};
+        if (prompt) agentOverride.prompt = { prompt };
+        if (language) agentOverride.language = language;
+
+        const overrides: any = {};
+        if (Object.keys(agentOverride).length) overrides.agent = agentOverride;
+        if (voiceId) overrides.tts = { voiceId };
+
+        const dynamicVariables: Record<string, string> = {};
+        if (character?.name) dynamicVariables.character_name = character.name;
+        if (userName) dynamicVariables.user_name = userName;
+
         try {
             await startVoiceConversation({
                 agentId,
                 userId: userId ?? undefined,
+                overrides: Object.keys(overrides).length ? overrides : undefined,
+                dynamicVariables: Object.keys(dynamicVariables).length ? dynamicVariables : undefined,
             });
             return true;
         } catch (error) {
@@ -278,9 +309,10 @@ export const useAppVoiceCall = ({
         voiceState.isConnected,
         activeCharacterId,
         ensureMicrophonePermission,
-        resolveAgentId,
+        resolveCharacter,
         startVoiceConversation,
-        userId
+        userId,
+        userName,
     ]);
 
     // Toggle Voice Mode (no zoom, no camera) -> NOW ZOOM IN (User Preference)
@@ -444,7 +476,7 @@ export const useAppVoiceCall = ({
         handleToggleMic: handleToggleVoiceMode,
         sendVoiceText,
         endCall,
-        agentIdCacheRef,
+        characterCacheRef,
         ensureCameraPermission,
         ensureMicrophonePermission,
 

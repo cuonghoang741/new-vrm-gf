@@ -7,6 +7,8 @@ interface Character {
     thumbnail_url?: string;
     agent_elevenlabs_id?: string;
     background_default_id?: string;
+    instruction?: string;
+    data?: any;
 }
 
 export class CharacterRepository {
@@ -17,7 +19,7 @@ export class CharacterRepository {
         try {
             const { data, error } = await supabase
                 .from('characters')
-                .select('id, name, base_model_url, thumbnail_url, agent_elevenlabs_id, background_default_id')
+                .select('id, name, base_model_url, thumbnail_url, agent_elevenlabs_id, background_default_id, instruction, data')
                 .eq('id', characterId)
                 .single();
 
