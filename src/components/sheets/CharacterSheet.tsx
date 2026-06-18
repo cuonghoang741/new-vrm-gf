@@ -6,6 +6,7 @@ import {
     Pressable,
     FlatList,
     Animated,
+    Alert,
 } from "react-native";
 import { Image } from "expo-image";
 import {
@@ -19,6 +20,7 @@ import * as Haptics from "expo-haptics";
 import { supabase } from "../../config/supabase";
 import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
 import { LinearGradient } from 'expo-linear-gradient';
+import { purchaseItem } from "../../services/checkinService";
 
 interface Character {
     id: string;
@@ -30,6 +32,7 @@ interface Character {
     description: string | null;
     tier: string | null;
     available?: boolean;
+    price_ruby?: number | null;
     data?: {
         height_cm?: number;
         rounds?: { r1: number; r2: number; r3: number };
@@ -61,6 +64,7 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
     const sheetRef = useRef<BottomSheetRef>(null);
     const [characters, setCharacters] = useState<Character[]>([]);
     const [ownedIds, setOwnedIds] = useState<Set<string>>(new Set());
+    const [tempUnlocked, setTempUnlocked] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const shimmerOpacity = useRef(new Animated.Value(0.3)).current;
@@ -78,7 +82,7 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
         try {
             const { data, error } = await supabase
                 .from("characters")
-                .select("id, name, thumbnail_url, avatar, description, tier, data, available")
+                .select("id, name, thumbnail_url, avatar, description, tier, data, available, price_ruby")
                 .eq("is_public", true)
                 .order("order", { ascending: true });
             if (error) throw error;
@@ -122,30 +126,74 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
         }
     }, [loading]);
 
-    const handleSelect = useCallback(
+    const applySelection = useCallback(
         (char: Character) => {
-            if (char.available === false) return;
-            const isOwned = ownedIds.has(char.id);
-            // Switching characters requires PRO or ownership
-            if (!isPro && !isOwned && char.id !== currentCharacterId) {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-                onIsOpenedChange(false);
-                sheetRef.current?.dismiss();
-                setTimeout(() => onOpenSubscription?.(), 300);
-                return;
-            }
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             onIsOpenedChange(false);
             sheetRef.current?.dismiss();
             onSelect(char);
         },
-        [onSelect, onIsOpenedChange, isPro, onOpenSubscription, currentCharacterId, ownedIds]
+        [onSelect, onIsOpenedChange]
+    );
+
+    const goPro = useCallback(() => {
+        onIsOpenedChange(false);
+        sheetRef.current?.dismiss();
+        setTimeout(() => onOpenSubscription?.(), 300);
+    }, [onIsOpenedChange, onOpenSubscription]);
+
+    const doBuy = useCallback(
+        async (char: Character, price: number) => {
+            if (!userId) return;
+            const res = await purchaseItem(userId, "character", char.id);
+            if (res.ok) {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                setTempUnlocked((prev) => new Set(prev).add(char.id));
+                applySelection(char);
+            } else if (res.error === "insufficient") {
+                Alert.alert(
+                    "Not enough ruby 💎",
+                    `You need ${res.need} ruby but have ${res.have}. Check in daily to earn more!`,
+                    [{ text: "OK" }, { text: "Upgrade PRO", onPress: goPro }]
+                );
+            } else {
+                Alert.alert("Purchase failed", res.error || "Please try again.");
+            }
+        },
+        [userId, applySelection, goPro]
+    );
+
+    const handleSelect = useCallback(
+        (char: Character) => {
+            if (char.available === false) return;
+            const isOwned = ownedIds.has(char.id) || tempUnlocked.has(char.id);
+            // Switching characters requires PRO, ownership, or buying with ruby.
+            if (!isPro && !isOwned && char.id !== currentCharacterId) {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                const price = char.price_ruby ?? 0;
+                const buttons: any[] = [{ text: "Cancel", style: "cancel" }];
+                buttons.push({ text: "Upgrade PRO", onPress: goPro });
+                if (price > 0 && userId) {
+                    buttons.push({ text: `Buy • ${price} 💎`, onPress: () => doBuy(char, price) });
+                }
+                Alert.alert(
+                    "Locked character",
+                    price > 0
+                        ? `Unlock ${char.name} with ${price} 💎 ruby, or upgrade PRO to unlock everything.`
+                        : `Upgrade to PRO to unlock ${char.name}.`,
+                    buttons
+                );
+                return;
+            }
+            applySelection(char);
+        },
+        [isPro, ownedIds, tempUnlocked, currentCharacterId, userId, goPro, doBuy, applySelection]
     );
 
     const renderItem = useCallback(
         ({ item }: { item: Character }) => {
             const isSelected = item.id === currentCharacterId;
-            const isOwned = ownedIds.has(item.id);
+            const isOwned = ownedIds.has(item.id) || tempUnlocked.has(item.id);
             const isAvailable = item.available !== false;
             const isLocked = !isPro && !isOwned && !isSelected;
 
@@ -240,7 +288,7 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
                 </Pressable>
             );
         },
-        [currentCharacterId, handleSelect, isPro, ownedIds]
+        [currentCharacterId, handleSelect, isPro, ownedIds, tempUnlocked]
     );
 
     const renderSkeleton = () => (

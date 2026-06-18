@@ -7,12 +7,14 @@ import {
     FlatList,
     Animated,
     Dimensions,
+    Alert,
 } from "react-native";
 import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { supabase } from "../../config/supabase";
 import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
+import { purchaseItem } from "../../services/checkinService";
 
 const { width } = Dimensions.get("window");
 const GRID_PADDING = 20;
@@ -26,6 +28,7 @@ interface Costume {
     model_url: string | null;
     url: string | null;
     tier: string | null;
+    price_ruby?: number | null;
 }
 
 interface CostumeSheetProps {
@@ -54,6 +57,7 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
     const sheetRef = useRef<BottomSheetRef>(null);
     const [costumes, setCostumes] = useState<Costume[]>([]);
     const [ownedIds, setOwnedIds] = useState<Set<string>>(new Set());
+    const [tempUnlocked, setTempUnlocked] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const listRef = useRef<FlatList>(null);
@@ -71,7 +75,7 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
         try {
             const { data, error } = await supabase
                 .from("character_costumes")
-                .select("id, costume_name, thumbnail, model_url, url, tier")
+                .select("id, costume_name, thumbnail, model_url, url, tier, price_ruby")
                 .eq("character_id", characterId)
                 .eq("available", true)
                 .order("created_at", { ascending: true });
@@ -139,31 +143,75 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
         return () => clearTimeout(timer);
     }, [isOpened, currentCostumeUrl, costumes.length]);
 
-    const handleSelect = useCallback(
+    const applySelection = useCallback(
         (costume: Costume) => {
-            const isProItem = costume.tier === "pro";
-            const isOwned = ownedIds.has(costume.id);
-            if (isProItem && !isPro) {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-                onIsOpenedChange(false);
-                sheetRef.current?.dismiss();
-                setTimeout(() => onOpenSubscription?.(), 300);
-                return;
-            }
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             onIsOpenedChange(false);
             sheetRef.current?.dismiss();
             onSelect(costume);
         },
-        [onSelect, onIsOpenedChange, isPro, onOpenSubscription, ownedIds]
+        [onSelect, onIsOpenedChange]
+    );
+
+    const goPro = useCallback(() => {
+        onIsOpenedChange(false);
+        sheetRef.current?.dismiss();
+        setTimeout(() => onOpenSubscription?.(), 300);
+    }, [onIsOpenedChange, onOpenSubscription]);
+
+    const doBuy = useCallback(
+        async (costume: Costume, price: number) => {
+            if (!userId) return;
+            const res = await purchaseItem(userId, "character_costume", costume.id);
+            if (res.ok) {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                setTempUnlocked((prev) => new Set(prev).add(costume.id));
+                applySelection(costume);
+            } else if (res.error === "insufficient") {
+                Alert.alert(
+                    "Not enough ruby 💎",
+                    `You need ${res.need} ruby but have ${res.have}. Check in daily to earn more!`,
+                    [{ text: "OK" }, { text: "Upgrade PRO", onPress: goPro }]
+                );
+            } else {
+                Alert.alert("Purchase failed", res.error || "Please try again.");
+            }
+        },
+        [userId, applySelection, goPro]
+    );
+
+    const handleSelect = useCallback(
+        (costume: Costume) => {
+            const isProItem = costume.tier === "pro";
+            const isOwned = ownedIds.has(costume.id) || tempUnlocked.has(costume.id);
+            if (isProItem && !isPro && !isOwned) {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                const price = costume.price_ruby ?? 0;
+                const buttons: any[] = [{ text: "Cancel", style: "cancel" }];
+                buttons.push({ text: "Upgrade PRO", onPress: goPro });
+                if (price > 0 && userId) {
+                    buttons.push({ text: `Buy • ${price} 💎`, onPress: () => doBuy(costume, price) });
+                }
+                Alert.alert(
+                    "Locked costume",
+                    price > 0
+                        ? `Unlock with ${price} 💎 ruby, or upgrade PRO to unlock everything.`
+                        : "Upgrade to PRO to unlock this costume.",
+                    buttons
+                );
+                return;
+            }
+            applySelection(costume);
+        },
+        [isPro, ownedIds, tempUnlocked, userId, goPro, doBuy, applySelection]
     );
 
     const renderItem = useCallback(
         ({ item }: { item: Costume }) => {
             const isSelected = item.model_url === currentCostumeUrl;
             const isProItem = item.tier === "pro";
-            const isOwned = ownedIds.has(item.id);
-            const isLocked = isProItem && !isPro;
+            const isOwned = ownedIds.has(item.id) || tempUnlocked.has(item.id);
+            const isLocked = isProItem && !isPro && !isOwned;
 
             return (
                 <Pressable
@@ -202,7 +250,7 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
                 </Pressable>
             );
         },
-        [currentCostumeUrl, handleSelect, isPro, ownedIds]
+        [currentCostumeUrl, handleSelect, isPro, ownedIds, tempUnlocked]
     );
 
     const renderSkeleton = () => (

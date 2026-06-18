@@ -15,8 +15,7 @@ import * as Haptics from "expo-haptics";
 import { supabase } from "../../config/supabase";
 import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
 import { IconSun, IconMoon } from "@tabler/icons-react-native";
-import { useRewardedAd } from "../../hooks/useRewardedAd";
-import { AdUnits } from "../../config/ads";
+import { purchaseItem } from "../../services/checkinService";
 
 const { width } = Dimensions.get("window");
 const GRID_PADDING = 20;
@@ -31,6 +30,7 @@ interface Background {
     tier: string | null;
     video_url: string | null;
     is_dark?: boolean;
+    price_ruby?: number | null;
 }
 
 interface BackgroundSheetProps {
@@ -57,9 +57,8 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
     const sheetRef = useRef<BottomSheetRef>(null);
     const [backgrounds, setBackgrounds] = useState<Background[]>([]);
     const [ownedIds, setOwnedIds] = useState<Set<string>>(new Set());
-    // Backgrounds temporarily unlocked by watching a rewarded ad (this session).
+    // Backgrounds unlocked by buying with ruby this session (shown unlocked immediately).
     const [tempUnlocked, setTempUnlocked] = useState<Set<string>>(new Set());
-    const { show: showRewardedForBackground } = useRewardedAd(AdUnits.rewarded);
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const listRef = useRef<FlatList>(null);
@@ -77,7 +76,7 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
         try {
             const { data, error } = await supabase
                 .from("backgrounds")
-                .select("id, name, thumbnail, image, tier, video_url, is_dark")
+                .select("id, name, thumbnail, image, tier, video_url, is_dark, price_ruby")
                 .eq("available", true)
                 .eq("public", true)
                 .order("created_at", { ascending: true });
@@ -155,51 +154,57 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
         [onSelect, onIsOpenedChange]
     );
 
+    const goPro = useCallback(() => {
+        onIsOpenedChange(false);
+        sheetRef.current?.dismiss();
+        setTimeout(() => onOpenSubscription?.(), 300);
+    }, [onIsOpenedChange, onOpenSubscription]);
+
+    const doBuy = useCallback(
+        async (bg: Background, price: number) => {
+            if (!userId) return;
+            const res = await purchaseItem(userId, "background", bg.id);
+            if (res.ok) {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                setTempUnlocked((prev) => new Set(prev).add(bg.id));
+                applySelection(bg);
+            } else if (res.error === "insufficient") {
+                Alert.alert(
+                    "Not enough ruby 💎",
+                    `You need ${res.need} ruby but have ${res.have}. Check in daily to earn more!`,
+                    [{ text: "OK" }, { text: "Upgrade PRO", onPress: goPro }]
+                );
+            } else {
+                Alert.alert("Purchase failed", res.error || "Please try again.");
+            }
+        },
+        [userId, applySelection, goPro]
+    );
+
     const handleSelect = useCallback(
         (bg: Background) => {
             const isProItem = bg.tier === "pro";
             const isOwned = ownedIds.has(bg.id) || tempUnlocked.has(bg.id);
             if (isProItem && !isPro && !isOwned) {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-                // Offer a rewarded ad to unlock, or the PRO upgrade.
+                const price = bg.price_ruby ?? 0;
+                const buttons: any[] = [{ text: "Cancel", style: "cancel" }];
+                buttons.push({ text: "Upgrade PRO", onPress: goPro });
+                if (price > 0 && userId) {
+                    buttons.push({ text: `Buy • ${price} 💎`, onPress: () => doBuy(bg, price) });
+                }
                 Alert.alert(
-                    "Background bị khóa",
-                    "Xem một quảng cáo để mở khóa background này, hoặc nâng cấp PRO để mở tất cả.",
-                    [
-                        { text: "Hủy", style: "cancel" },
-                        {
-                            text: "Nâng cấp PRO",
-                            onPress: () => {
-                                onIsOpenedChange(false);
-                                sheetRef.current?.dismiss();
-                                setTimeout(() => onOpenSubscription?.(), 300);
-                            },
-                        },
-                        {
-                            text: "Xem quảng cáo",
-                            onPress: async () => {
-                                const earned = await showRewardedForBackground();
-                                if (earned) {
-                                    setTempUnlocked((prev) => new Set(prev).add(bg.id));
-                                    applySelection(bg);
-                                }
-                            },
-                        },
-                    ]
+                    "Locked background",
+                    price > 0
+                        ? `Unlock with ${price} 💎 ruby, or upgrade PRO to unlock everything.`
+                        : "Upgrade to PRO to unlock this background.",
+                    buttons
                 );
                 return;
             }
             applySelection(bg);
         },
-        [
-            isPro,
-            onOpenSubscription,
-            onIsOpenedChange,
-            ownedIds,
-            tempUnlocked,
-            showRewardedForBackground,
-            applySelection,
-        ]
+        [isPro, ownedIds, tempUnlocked, userId, goPro, doBuy, applySelection]
     );
 
     const renderItem = useCallback(
