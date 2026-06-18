@@ -1324,7 +1324,12 @@ export default function PlayScreen() {
             {/* ─── Sheets ─── */}
             <CharacterSheet
                 isOpened={charSheetOpen}
-                onIsOpenedChange={setCharSheetOpen}
+                onIsOpenedChange={(open) => {
+                    setCharSheetOpen(open);
+                    // Show an interstitial when leaving the character sheet
+                    // (frequency-capped & skipped for PRO inside the hook).
+                    if (!open) showInterstitial();
+                }}
                 currentCharacterId={characterId}
                 onSelect={handleCharacterSelect}
                 isPro={isPro}

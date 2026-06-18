@@ -33,6 +33,8 @@ import {
     IconChevronLeft,
     IconChevronRight,
     IconCrown,
+    IconAdOff,
+    IconMessageHeart,
 } from "@tabler/icons-react-native";
 import { useSubscription } from "../../contexts/SubscriptionContext";
 import VRMViewer, { VRMViewerHandle } from "../VRMViewer";
@@ -40,9 +42,9 @@ import { getCharacters } from "../../cache/charactersCache";
 import { supabase } from "../../config/supabase";
 
 const FEATURES = [
-    { icon: IconCube3dSphere, text: "Full 3D VRM interaction experience", color: "#FF6FA5" },
-    // { icon: IconVideo, text: "Unlimited HD Video Calls anytime", color: "#9C27B0" },
-    // { icon: IconLock, text: "Unlock all secret & exclusive content", color: "#FF9800" },
+    { icon: IconAdOff, text: "No ads — enjoy uninterrupted", color: "#FF6FA5" },
+    { icon: IconMessageHeart, text: "Unlimited messages, no limits", color: "#FF8FB8" },
+    { icon: IconCube3dSphere, text: "Full 3D VRM interaction experience", color: "#C8A8F0" },
     { icon: IconUsers, text: "Access every character instantly", color: "#4CAF50" },
     { icon: IconSparkles, text: "Premium costumes & animations", color: "#2196F3" },
 ];
