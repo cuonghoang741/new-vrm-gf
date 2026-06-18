@@ -2,9 +2,9 @@ import { ConfigContext, ExpoConfig } from "expo/config";
 import { version } from './package.json';
 
 // EAS config
-const EAS_PROJECT_ID = "956f5391-596e-4873-8dc2-331df23f5cd3"; // Set from 'eas init'
+const EAS_PROJECT_ID = "67c3b1c6-2b5a-43e7-b3a6-db0ef60204c3"; // Set from 'eas init'
 const PROJECT_SLUG = "truemate";
-const EAS_OWNER = "hoangcuongdcyb365";
+const EAS_OWNER = "hoanghuydt8125";
 
 // App production config
 const APP_NAME = "TrueFeel";
