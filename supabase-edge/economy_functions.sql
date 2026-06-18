@@ -17,8 +17,8 @@ declare
 begin
   select ruby into v_ruby from user_currency where user_id = p_user_id;
   if not found then
-    insert into user_currency (user_id, owner_key, vcoin, ruby)
-    values (p_user_id, p_user_id::text, 0, 0);
+    insert into user_currency (user_id, vcoin, ruby)
+    values (p_user_id, 0, 0);
     return 0;
   end if;
   return coalesce(v_ruby, 0);
@@ -58,8 +58,8 @@ begin
   v_ruby := coalesce(v_ruby, 0);
 
   if not exists (select 1 from user_currency where user_id = p_user_id) then
-    insert into user_currency (user_id, owner_key, vcoin, ruby)
-    values (p_user_id, p_user_id::text, 0, 0);
+    insert into user_currency (user_id, vcoin, ruby)
+    values (p_user_id, 0, 0);
   end if;
 
   update user_currency
@@ -117,8 +117,8 @@ begin
   end if;
 
   update user_currency set ruby = ruby - v_price, updated_at = now() where user_id = p_user_id;
-  insert into user_assets (user_id, owner_key, item_type, item_id)
-  values (p_user_id, p_user_id::text, p_item_type, p_item_id);
+  insert into user_assets (user_id, item_type, item_id)
+  values (p_user_id, p_item_type, p_item_id);
 
   return jsonb_build_object('ok', true, 'price', v_price, 'ruby_left', v_ruby - v_price);
 end;
