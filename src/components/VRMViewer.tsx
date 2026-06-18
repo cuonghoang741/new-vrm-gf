@@ -5,7 +5,7 @@ import React, {
     forwardRef,
     useState,
 } from "react";
-import { StyleSheet, View, Platform } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { WebView, WebViewMessageEvent } from "react-native-webview";
 
 // ─── Public handle exposed via ref ───
@@ -178,11 +178,9 @@ const VRMViewer = forwardRef<VRMViewerHandle, VRMViewerProps>(
             <View style={[styles.container, style]}>
                 <WebView
                     ref={webViewRef}
-                    source={
-                        Platform.OS === "android"
-                            ? { uri: "file:///android_asset/index.html" }
-                            : require("../../assets/index.html")
-                    }
+                    // Bundle the HTML via Metro on both platforms. (Android has no
+                    // android_asset/index.html copy step, so file:// there 404s.)
+                    source={require("../../assets/index.html")}
                     style={[styles.webview, transparent && styles.transparent]}
                     originWhitelist={["*"]}
                     javaScriptEnabled={true}
