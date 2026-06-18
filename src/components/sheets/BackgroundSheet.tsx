@@ -219,7 +219,7 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
                 >
                     <View style={[
                         styles.previewContainer,
-                        isSelected && { borderColor: "#8B5CF6", backgroundColor: "rgba(139, 92, 246, 0.1)" }
+                        isSelected && { borderColor: "#FF6FA5", backgroundColor: "rgba(255, 111, 165, 0.1)" }
                     ]}>
                         <Image
                             source={{ uri: item.thumbnail ?? item.image }}
@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
         padding: 20, minHeight: 200,
     },
     errorText: { fontSize: 16, color: "#fff", marginBottom: 8 },
-    retryText: { fontSize: 16, fontWeight: "600", color: "#8B5CF6" },
+    retryText: { fontSize: 16, fontWeight: "600", color: "#FF6FA5" },
     listContent: { paddingHorizontal: 20, paddingBottom: 40, paddingTop: 8 },
 
     gridItem: {
@@ -398,7 +398,7 @@ const styles = StyleSheet.create({
         position: "absolute",
         bottom: 6,
         right: 6,
-        backgroundColor: "#8B5CF6",
+        backgroundColor: "#FF6FA5",
         width: 18,
         height: 18,
         borderRadius: 9,

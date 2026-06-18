@@ -194,14 +194,14 @@ const styles = StyleSheet.create({
     avatar: { width: 80, height: 80, borderRadius: 40 },
     avatarFallback: {
         width: 80, height: 80, borderRadius: 40,
-        backgroundColor: "#8B5CF6", alignItems: "center", justifyContent: "center",
+        backgroundColor: "#FF6FA5", alignItems: "center", justifyContent: "center",
     },
     avatarText: { fontSize: 32, fontWeight: "800", color: "#FFFFFF" },
     cameraButton: {
         position: "absolute", bottom: 0, right: 0,
         width: 28, height: 28, borderRadius: 14,
         backgroundColor: "rgba(0,0,0,0.6)", alignItems: "center", justifyContent: "center",
-        borderWidth: 2, borderColor: "rgba(139, 92, 246, 0.4)",
+        borderWidth: 2, borderColor: "rgba(255, 111, 165, 0.4)",
     },
     changePhotoText: { fontSize: 13, color: "rgba(255,255,255,0.4)" },
 
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
     // Save button
     saveButton: {
         flexDirection: "row", alignItems: "center", justifyContent: "center",
-        backgroundColor: "#8B5CF6", borderRadius: 16,
+        backgroundColor: "#FF6FA5", borderRadius: 16,
         paddingVertical: 16, marginTop: 8, gap: 8,
     },
     saveButtonDisabled: { opacity: 0.5 },

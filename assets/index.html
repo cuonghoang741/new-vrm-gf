@@ -147,27 +147,94 @@
         /* swift overlay buttons will replace web buttons */
 
 
-        /* Loading overlay and blur */
+        /* Loading overlay and blur — TrueMate pastel theme */
         #loadingOverlay {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
+            inset: 0;
             display: none;
             align-items: center;
             justify-content: center;
             flex-direction: column;
-            background: rgba(0, 0, 0, 0.25);
+            gap: 18px;
+            background:
+                radial-gradient(125% 120% at 50% 0%, rgba(255, 197, 222, 0.55), rgba(208, 191, 255, 0.42) 48%, rgba(255, 252, 254, 0.30) 100%),
+                rgba(255, 250, 253, 0.55);
+            -webkit-backdrop-filter: blur(16px) saturate(1.15);
+            backdrop-filter: blur(16px) saturate(1.15);
             z-index: 1001;
-            font-family: Arial, sans-serif;
-            color: white;
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+        }
+
+        .tm-loader {
+            position: relative;
+            width: 88px;
+            height: 88px;
+            display: grid;
+            place-items: center;
+        }
+
+        .tm-ring {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background: conic-gradient(from 0deg, #FF6FA5, #C8A8F0, #FFB3C9, #FF8FB8, #FF6FA5);
+            -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 10px), #000 calc(100% - 9px));
+            mask: radial-gradient(farthest-side, transparent calc(100% - 10px), #000 calc(100% - 9px));
+            animation: tm-spin 1s linear infinite;
+            filter: drop-shadow(0 4px 16px rgba(255, 111, 165, 0.40));
+        }
+
+        .tm-heart {
+            font-size: 30px;
+            line-height: 1;
+            color: #FF5C9A;
+            animation: tm-pulse 1.2s ease-in-out infinite;
+            text-shadow: 0 2px 10px rgba(255, 92, 154, 0.45);
+        }
+
+        .tm-title {
+            font-size: 23px;
+            font-weight: 800;
+            letter-spacing: 0.4px;
+            background: linear-gradient(90deg, #A88BA5, #FF6FA5 60%, #FF8FB8);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .tm-progress {
+            width: 188px;
+            height: 8px;
+            border-radius: 99px;
+            background: rgba(168, 139, 165, 0.22);
+            overflow: hidden;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06);
+        }
+
+        .tm-progress > i {
+            display: block;
+            height: 100%;
+            width: 0%;
+            border-radius: 99px;
+            background: linear-gradient(90deg, #FF6FA5, #C8A8F0);
+            box-shadow: 0 0 10px rgba(255, 111, 165, 0.5);
+            transition: width 0.3s ease;
         }
 
         #loadingText {
-            margin-top: 12px;
-            font-size: 16px;
+            font-size: 13.5px;
+            font-weight: 600;
+            color: #9B7E9E;
+            letter-spacing: 0.3px;
+        }
+
+        @keyframes tm-spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes tm-pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.18); }
         }
 
         .loading-blur {
@@ -181,15 +248,12 @@
     <div id="bgFadeOverlay"></div>
     <video id="bgVideo" muted loop playsinline></video>
     <div id="loadingOverlay">
-        <svg width="44" height="44" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg" stroke="#fff">
-            <g fill="none" fill-rule="evenodd" stroke-width="4">
-                <circle cx="22" cy="22" r="18" stroke-opacity="0.3" />
-                <path d="M40 22c0-9.94-8.06-18-18-18" stroke="#fff">
-                    <animateTransform attributeName="transform" type="rotate" from="0 22 22" to="360 22 22" dur="1s"
-                        repeatCount="indefinite" />
-                </path>
-            </g>
-        </svg>
+        <div class="tm-loader">
+            <div class="tm-ring"></div>
+            <div class="tm-heart">♥</div>
+        </div>
+        <div class="tm-title">TrueMate</div>
+        <div class="tm-progress"><i id="loadingBar"></i></div>
         <div id="loadingText">Loading... 0%</div>
     </div>
     <div id="divInfo">
@@ -811,14 +875,19 @@
                     } catch { }
                 }
                 const text = document.getElementById('loadingText');
+                const bar = document.getElementById('loadingBar');
                 if (!isLoading && text) text.textContent = 'Loading... 0%';
+                if (!isLoading && bar) bar.style.width = '0%';
             } catch { }
         }
         function updateLoadingProgress(percent) {
             try {
+                const pct = Math.max(0, Math.min(100, percent | 0));
                 const text = document.getElementById('loadingText');
-                if (text) text.textContent = `Loading... ${Math.max(0, Math.min(100, percent | 0))}%`;
-                if ((percent | 0) >= 100 && progress100At == null) { try { progress100At = performance.now(); notifyInitialReadyIfDone(); } catch { } }
+                if (text) text.textContent = `Loading... ${pct}%`;
+                const bar = document.getElementById('loadingBar');
+                if (bar) bar.style.width = `${pct}%`;
+                if (pct >= 100 && progress100At == null) { try { progress100At = performance.now(); notifyInitialReadyIfDone(); } catch { } }
             } catch { }
         }
 

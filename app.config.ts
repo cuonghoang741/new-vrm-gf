@@ -30,7 +30,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     orientation: "portrait",
     userInterfaceStyle: "dark",
     newArchEnabled: true,
-    backgroundColor: "#8B5CF6",
+    backgroundColor: "#FFC2DA",
 
 
 
@@ -53,7 +53,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     splash: {
         image: "./assets/splash-icon.png",
         resizeMode: "contain",
-        backgroundColor: "#8B5CF6",
+        backgroundColor: "#FFC2DA",
     },
 
     ios: {
@@ -72,7 +72,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
 
     android: {
         adaptiveIcon: {
-            backgroundColor: "#8B5CF6",
+            backgroundColor: "#FFC2DA",
             foregroundImage: ANDROID_ICON_FOREGROUND,
         },
         package: PACKAGE_NAME,
@@ -150,7 +150,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
             {
                 image: "./assets/splash-icon.png",
                 resizeMode: "contain",
-                backgroundColor: "#8B5CF6",
+                backgroundColor: "#FFC2DA",
             },
         ],
         [

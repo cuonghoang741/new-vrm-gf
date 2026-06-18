@@ -3,7 +3,7 @@ import React, { createContext, useContext, PropsWithChildren } from 'react';
 // ─── Theme tokens ─────────────────────────────────────────
 const darkColors = {
     background: {
-        brand_solid: '#8B5CF6',
+        brand_solid: '#FF6FA5',
         brand_primary_alt: '#1E1E2E',
         error_solid: '#EF4444',
         success_solid: '#22C55E',
@@ -11,7 +11,7 @@ const darkColors = {
     },
     text: {
         primary_on_brand: '#FFFFFF',
-        brand_secondary: '#C4B5FD',
+        brand_secondary: '#FFC9DE',
         gray_primary: '#E5E5E5',
         error_primary: '#FCA5A5',
         success_primary: '#86EFAC',
@@ -19,7 +19,7 @@ const darkColors = {
     },
     border: {
         primary: 'rgba(255,255,255,0.12)',
-        brand_alt: '#7C3AED',
+        brand_alt: '#E85C93',
         border_error: '#DC2626',
         border_success: '#16A34A',
         border_warning: '#D97706',

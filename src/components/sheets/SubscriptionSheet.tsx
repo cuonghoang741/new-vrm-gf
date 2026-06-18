@@ -40,7 +40,7 @@ import { getCharacters } from "../../cache/charactersCache";
 import { supabase } from "../../config/supabase";
 
 const FEATURES = [
-    { icon: IconCube3dSphere, text: "Full 3D VRM interaction experience", color: "#8b5cf6" },
+    { icon: IconCube3dSphere, text: "Full 3D VRM interaction experience", color: "#FF6FA5" },
     // { icon: IconVideo, text: "Unlimited HD Video Calls anytime", color: "#9C27B0" },
     // { icon: IconLock, text: "Unlock all secret & exclusive content", color: "#FF9800" },
     { icon: IconUsers, text: "Access every character instantly", color: "#4CAF50" },
@@ -384,7 +384,7 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                         {/* Hero */}
                         <View style={styles.heroSection}>
                             <LinearGradient
-                                colors={["#8b5cf6", "#7c3aed"]}
+                                colors={["#FF6FA5", "#E85C93"]}
                                 start={{ x: 0, y: 0 }}
                                 end={{ x: 1, y: 0 }}
                                 style={styles.proBadge}
@@ -619,7 +619,7 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                                 onPress={isProcessing || contextLoading ? undefined : handleSubscribe}
                             >
                                 <LinearGradient
-                                    colors={["#8b5cf6", "#7c3aed"]}
+                                    colors={["#FF6FA5", "#E85C93"]}
                                     start={{ x: 0, y: 0 }}
                                     end={{ x: 1, y: 0 }}
                                     style={styles.ctaGradient}
@@ -780,7 +780,7 @@ const styles = StyleSheet.create({
         borderColor: "transparent",
         backgroundColor: "rgba(255,255,255,0.05)",
     },
-    costumeItemActive: { borderColor: "#8b5cf6", backgroundColor: "rgba(139, 92, 246, 0.15)" },
+    costumeItemActive: { borderColor: "#FF6FA5", backgroundColor: "rgba(255, 111, 165, 0.15)" },
     costumeThumb: { width: 34, height: 34, borderRadius: 17 },
     danceBtn: {
         alignItems: "center",
@@ -839,7 +839,7 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
         position: "relative",
     },
-    planCardSelected: { borderColor: "#8b5cf6", backgroundColor: "rgba(139,92,246,0.1)" },
+    planCardSelected: { borderColor: "#FF6FA5", backgroundColor: "rgba(255, 111, 165,0.1)" },
     planInfo: { flex: 1 },
     planName: {
         color: "rgba(255,255,255,0.6)",
@@ -857,7 +857,7 @@ const styles = StyleSheet.create({
         borderWidth: 2,
         borderColor: "rgba(255,255,255,0.3)",
     },
-    radioSelected: { borderColor: "#8b5cf6", backgroundColor: "#8b5cf6" },
+    radioSelected: { borderColor: "#FF6FA5", backgroundColor: "#FF6FA5" },
     discountBadge: {
         position: "absolute",
         top: -10,
@@ -874,7 +874,7 @@ const styles = StyleSheet.create({
         borderRadius: 28,
         overflow: "hidden",
         marginBottom: 16,
-        shadowColor: "#8b5cf6",
+        shadowColor: "#FF6FA5",
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 12,

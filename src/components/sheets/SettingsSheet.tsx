@@ -402,15 +402,15 @@ const styles = StyleSheet.create({
     // Profile card
     profileCard: {
         flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-        backgroundColor: "rgba(139, 92, 246, 0.12)", borderRadius: 20,
+        backgroundColor: "rgba(255, 111, 165, 0.12)", borderRadius: 20,
         padding: 16, marginBottom: 24,
-        borderWidth: 1, borderColor: "rgba(139, 92, 246, 0.2)",
+        borderWidth: 1, borderColor: "rgba(255, 111, 165, 0.2)",
     },
     profileLeft: { flexDirection: "row", alignItems: "center", flex: 1 },
     profileAvatar: { width: 52, height: 52, borderRadius: 26, marginRight: 14 },
     profileAvatarFallback: {
         width: 52, height: 52, borderRadius: 26,
-        backgroundColor: "#8B5CF6", alignItems: "center", justifyContent: "center",
+        backgroundColor: "#FF6FA5", alignItems: "center", justifyContent: "center",
         marginRight: 14,
     },
     profileAvatarText: { fontSize: 22, fontWeight: "800", color: "#FFFFFF" },

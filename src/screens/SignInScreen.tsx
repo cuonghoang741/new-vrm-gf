@@ -505,7 +505,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
     },
     termsLink: {
-        color: "rgba(155, 89, 255, 0.7)",
+        color: "rgba(255, 143, 184, 0.7)",
         textDecorationLine: "underline",
     },
 });

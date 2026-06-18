@@ -368,7 +368,7 @@ export default function OnboardingScreen({
                                             {isSelected && (
                                                 <IconCheck
                                                     size={14}
-                                                    color="#6633CC"
+                                                    color="#E85C93"
                                                     style={{ marginLeft: 4 }}
                                                 />
                                             )}
@@ -412,7 +412,7 @@ export default function OnboardingScreen({
                                             {isSelected && (
                                                 <IconCheck
                                                     size={14}
-                                                    color="#6633CC"
+                                                    color="#E85C93"
                                                     style={{ marginLeft: 4 }}
                                                 />
                                             )}
@@ -428,7 +428,7 @@ export default function OnboardingScreen({
                         <View style={styles.matchContainer}>
                             {isMatching ? (
                                 <View style={styles.matchingAnimation}>
-                                    <IconSparkles size={48} color="#6633CC" />
+                                    <IconSparkles size={48} color="#E85C93" />
                                     <Text style={styles.matchingText}>
                                         Finding your perfect companion...
                                     </Text>
@@ -482,7 +482,7 @@ export default function OnboardingScreen({
                                             disabled={isClaiming}
                                         >
                                             <LinearGradient
-                                                colors={isClaiming ? ["#4a2599", "#6633BB"] : ["#6633CC", "#8855EE"]}
+                                                colors={isClaiming ? ["#7a2d52", "#D44D85"] : ["#E85C93", "#FF8FB8"]}
                                                 style={styles.startButtonGradient}
                                                 start={{ x: 0, y: 0 }}
                                                 end={{ x: 1, y: 0 }}
@@ -552,8 +552,8 @@ const chipStyles = StyleSheet.create({
         borderColor: "rgba(255,255,255,0.1)",
     },
     chipActive: {
-        backgroundColor: "rgba(102, 51, 204, 0.2)",
-        borderColor: "#6633CC",
+        backgroundColor: "rgba(232, 92, 147, 0.2)",
+        borderColor: "#E85C93",
     },
     chipEmoji: {
         fontSize: 18,
@@ -595,7 +595,7 @@ const styles = StyleSheet.create({
         backgroundColor: "rgba(255,255,255,0.15)",
     },
     progressDotActive: {
-        backgroundColor: "#6633CC",
+        backgroundColor: "#E85C93",
         width: 48,
     },
     stepContent: {
@@ -632,8 +632,8 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     optionActive: {
-        backgroundColor: "rgba(102, 51, 204, 0.2)",
-        borderColor: "#6633CC",
+        backgroundColor: "rgba(232, 92, 147, 0.2)",
+        borderColor: "#E85C93",
     },
     ageText: {
         fontSize: 18,
@@ -666,7 +666,7 @@ const styles = StyleSheet.create({
         width: 8,
         height: 8,
         borderRadius: 4,
-        backgroundColor: "rgba(102,51,204,0.5)",
+        backgroundColor: "rgba(232, 92, 147,0.5)",
     },
     resultCard: {
         alignItems: "center",
@@ -694,7 +694,7 @@ const styles = StyleSheet.create({
         padding: 24,
         width: "100%",
         borderWidth: 1,
-        borderColor: "rgba(102,51,204,0.3)",
+        borderColor: "rgba(232, 92, 147,0.3)",
         marginBottom: 32,
     },
     characterImage: {
@@ -703,7 +703,7 @@ const styles = StyleSheet.create({
         borderRadius: 60,
         marginBottom: 16,
         borderWidth: 3,
-        borderColor: "rgba(102,51,204,0.5)",
+        borderColor: "rgba(232, 92, 147,0.5)",
     },
     characterName: {
         fontSize: 24,
@@ -721,7 +721,7 @@ const styles = StyleSheet.create({
         width: "100%",
         borderRadius: 16,
         overflow: "hidden",
-        shadowColor: "#6633CC",
+        shadowColor: "#E85C93",
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.4,
         shadowRadius: 12,
@@ -743,18 +743,18 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "#6633CC",
+        backgroundColor: "#E85C93",
         borderRadius: 16,
         paddingVertical: 18,
         gap: 8,
-        shadowColor: "#6633CC",
+        shadowColor: "#E85C93",
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.4,
         shadowRadius: 12,
         elevation: 8,
     },
     nextButtonDisabled: {
-        backgroundColor: "rgba(102,51,204,0.3)",
+        backgroundColor: "rgba(232, 92, 147,0.3)",
         shadowOpacity: 0,
     },
     nextButtonText: {

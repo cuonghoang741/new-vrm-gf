@@ -232,7 +232,7 @@ const MediaSheet = forwardRef<MediaSheetRef, MediaSheetProps>(
                                 setActiveTab("image");
                             }}
                         >
-                            <IconPhoto size={18} color={activeTab === "image" ? "#8B5CF6" : "rgba(255,255,255,0.4)"} />
+                            <IconPhoto size={18} color={activeTab === "image" ? "#FF6FA5" : "rgba(255,255,255,0.4)"} />
                             <Text style={[styles.tabText, activeTab === "image" && styles.tabTextActive]}>
                                 Images ({images.length})
                             </Text>
@@ -244,7 +244,7 @@ const MediaSheet = forwardRef<MediaSheetRef, MediaSheetProps>(
                                 setActiveTab("video");
                             }}
                         >
-                            <IconVideo size={18} color={activeTab === "video" ? "#8B5CF6" : "rgba(255,255,255,0.4)"} />
+                            <IconVideo size={18} color={activeTab === "video" ? "#FF6FA5" : "rgba(255,255,255,0.4)"} />
                             <Text style={[styles.tabText, activeTab === "video" && styles.tabTextActive]}>
                                 Videos ({videos.length})
                             </Text>
@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
         minHeight: 200,
     },
     errorText: { fontSize: 16, color: "#fff", marginBottom: 8 },
-    retryText: { fontSize: 16, fontWeight: "600", color: "#8B5CF6" },
+    retryText: { fontSize: 16, fontWeight: "600", color: "#FF6FA5" },
 
     // Tabs
     tabBar: {
@@ -328,7 +328,7 @@ const styles = StyleSheet.create({
         gap: 6,
     },
     tabActive: {
-        backgroundColor: "rgba(139, 92, 246, 0.15)",
+        backgroundColor: "rgba(255, 111, 165, 0.15)",
     },
     tabText: {
         fontSize: 14,
@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
         color: "rgba(255,255,255,0.4)",
     },
     tabTextActive: {
-        color: "#8B5CF6",
+        color: "#FF6FA5",
     },
 
     // Grid
@@ -385,7 +385,7 @@ const styles = StyleSheet.create({
         width: 32,
         height: 32,
         borderRadius: 16,
-        backgroundColor: "rgba(139, 92, 246, 0.5)",
+        backgroundColor: "rgba(255, 111, 165, 0.5)",
         alignItems: "center",
         justifyContent: "center",
         marginBottom: 4,

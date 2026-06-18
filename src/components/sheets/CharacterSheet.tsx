@@ -187,7 +187,7 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
                             </Text>
                             {isLocked && isAvailable && (
                                 <LinearGradient
-                                    colors={['#8B5CF6', '#D946EF']}
+                                    colors={['#FF6FA5', '#FF6FA5']}
                                     start={{ x: 0, y: 0 }}
                                     end={{ x: 1, y: 0 }}
                                     style={styles.proPill}
@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
         minHeight: 200,
     },
     errorText: { fontSize: 16, color: "#fff", marginBottom: 8 },
-    retryText: { fontSize: 16, fontWeight: "600", color: "#8B5CF6" },
+    retryText: { fontSize: 16, fontWeight: "600", color: "#FF6FA5" },
     listContent: {
         paddingHorizontal: 20,
         paddingBottom: 40,
@@ -331,8 +331,8 @@ const styles = StyleSheet.create({
         borderColor: "rgba(255,255,255,0.05)",
     },
     rowItemSelected: {
-        backgroundColor: "rgba(139, 92, 246, 0.15)",
-        borderColor: "#8B5CF6",
+        backgroundColor: "rgba(255, 111, 165, 0.15)",
+        borderColor: "#FF6FA5",
     },
     pressed: {
         transform: [{ scale: 0.98 }],
@@ -366,7 +366,7 @@ const styles = StyleSheet.create({
         position: "absolute",
         bottom: -4,
         right: -4,
-        backgroundColor: "#8B5CF6",
+        backgroundColor: "#FF6FA5",
         width: 24,
         height: 24,
         borderRadius: 12,

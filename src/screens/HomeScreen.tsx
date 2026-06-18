@@ -70,7 +70,7 @@ export default function HomeScreen() {
             {/* Loading overlay */}
             {!isVRMReady && (
                 <View style={styles.loadingOverlay}>
-                    <ActivityIndicator size="large" color="#6633CC" />
+                    <ActivityIndicator size="large" color="#E85C93" />
                     <Text style={styles.loadingText}>Loading model...</Text>
                 </View>
             )}
@@ -100,7 +100,7 @@ export default function HomeScreen() {
                 >
                     <Icon3dRotate
                         size={22}
-                        color={controlsEnabled ? "#6633CC" : "#FFFFFF"}
+                        color={controlsEnabled ? "#E85C93" : "#FFFFFF"}
                     />
                 </TouchableOpacity>
 
@@ -240,8 +240,8 @@ const styles = StyleSheet.create({
         elevation: 4,
     },
     actionBtnActive: {
-        backgroundColor: "rgba(102, 51, 204, 0.3)",
-        borderColor: "rgba(102, 51, 204, 0.5)",
+        backgroundColor: "rgba(232, 92, 147, 0.3)",
+        borderColor: "rgba(232, 92, 147, 0.5)",
     },
     bottomBar: {
         position: "absolute",

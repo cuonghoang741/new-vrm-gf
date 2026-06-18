@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: "center",
         alignItems: "center",
-        backgroundColor: "#8B5CF6",
+        backgroundColor: "#FF6FA5",
     },
     splashLogo: {
         width: 100,

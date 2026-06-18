@@ -987,7 +987,7 @@ export default function PlayScreen() {
                                 { marginBottom: 0 }
                             ]}
                             effect="regular"
-                            tintColor={isUser ? 'rgba(155, 89, 255, 0.5)' : 'rgba(15, 5, 30, 0.4)'}
+                            tintColor={isUser ? 'rgba(255, 143, 184, 0.5)' : 'rgba(15, 5, 30, 0.4)'}
                         >
                             {isAI && <Text style={styles.aiName}>{characterName}</Text>}
                             <Text style={[styles.messageText, isUser ? styles.userText : styles.aiText]}>{item.text}</Text>
@@ -1305,7 +1305,7 @@ export default function PlayScreen() {
                             startIcon={IconSend}
                             startIconSize={20}
                             startIconColor={isBackgroundDark ? "#FFFFFF" : "#0F051E"}
-                            tintColor={isBackgroundDark ? "rgba(155, 89, 255, 0.8)" : "rgba(139, 92, 246, 0.9)"}
+                            tintColor={isBackgroundDark ? "rgba(255, 143, 184, 0.8)" : "rgba(255, 111, 165, 0.9)"}
                             onPress={handleSend}
                             disabled={!inputText.trim() || isSending}
                             style={styles.sendBtnLiquid}
@@ -1389,8 +1389,8 @@ export default function PlayScreen() {
             {isNudeBlurred && (
                 <BlurView intensity={65} tint="dark" style={[StyleSheet.absoluteFill, { zIndex: 500 }]}>
                     <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 40 }}>
-                        <View style={{ backgroundColor: 'rgba(139, 92, 246, 0.2)', padding: 20, borderRadius: 100, marginBottom: 20 }}>
-                            <IconLock size={40} color="#8b5cf6" />
+                        <View style={{ backgroundColor: 'rgba(255, 111, 165, 0.2)', padding: 20, borderRadius: 100, marginBottom: 20 }}>
+                            <IconLock size={40} color="#FF6FA5" />
                         </View>
                         <Text style={{ color: "#fff", fontSize: 24, fontWeight: "800", textAlign: "center", marginBottom: 12 }}>
                             Sensitive Activity
@@ -1399,7 +1399,7 @@ export default function PlayScreen() {
                             You reached a special interaction! Become a PRO user to unlock exclusive 3D content and see this character's true self.
                         </Text>
                         <Pressable
-                            style={{ backgroundColor: "#8b5cf6", paddingHorizontal: 30, paddingVertical: 14, borderRadius: 30 }}
+                            style={{ backgroundColor: "#FF6FA5", paddingHorizontal: 30, paddingVertical: 14, borderRadius: 30 }}
                             onPress={() => setSubscriptionOpen(true)}
                         >
                             <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>Unlock with PRO</Text>
@@ -1521,7 +1521,7 @@ const styles = StyleSheet.create({
         borderRadius: 20,
     },
     toggleOptionActive: {
-        backgroundColor: '#8B5CF6',
+        backgroundColor: '#FF6FA5',
     },
     toggleLabel: {
         fontSize: 12,
@@ -1591,18 +1591,18 @@ const styles = StyleSheet.create({
     messageListContent: { padding: 16, paddingBottom: 8 },
     messageBubble: { maxWidth: "80%", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 18, marginBottom: 8 },
     userBubble: { alignSelf: "flex-end", backgroundColor: "#9B59FF", borderBottomRightRadius: 6 },
-    aiBubble: { alignSelf: "flex-start", backgroundColor: "rgba(15, 5, 30, 0.75)", borderWidth: 1, borderColor: "rgba(155, 89, 255, 0.2)", borderBottomLeftRadius: 6 },
+    aiBubble: { alignSelf: "flex-start", backgroundColor: "rgba(15, 5, 30, 0.75)", borderWidth: 1, borderColor: "rgba(255, 143, 184, 0.2)", borderBottomLeftRadius: 6 },
     userBubbleLiquid: {
         alignSelf: "flex-end",
         borderBottomRightRadius: 6,
-        backgroundColor: Platform.OS === 'android' ? 'rgba(155, 89, 255, 0.2)' : 'transparent',
+        backgroundColor: Platform.OS === 'android' ? 'rgba(255, 143, 184, 0.2)' : 'transparent',
     },
     aiBubbleLiquid: {
         alignSelf: "flex-start",
         borderBottomLeftRadius: 6,
         backgroundColor: Platform.OS === 'android' ? 'rgba(15, 5, 30, 0.3)' : 'transparent',
     },
-    aiName: { fontSize: 11, fontWeight: "600", color: "rgba(155, 89, 255, 0.8)", marginBottom: 3 },
+    aiName: { fontSize: 11, fontWeight: "600", color: "rgba(255, 143, 184, 0.8)", marginBottom: 3 },
     messageText: {
         fontSize: 14, lineHeight: 20,
     },
@@ -1619,7 +1619,7 @@ const styles = StyleSheet.create({
     },
     lockBadge: {
         width: 48, height: 48, borderRadius: 24,
-        backgroundColor: "rgba(139, 92, 246, 0.6)",
+        backgroundColor: "rgba(255, 111, 165, 0.6)",
         alignItems: "center", justifyContent: "center",
         marginBottom: 8,
     },
@@ -1637,13 +1637,13 @@ const styles = StyleSheet.create({
         flexDirection: "row", alignItems: "flex-end",
         paddingHorizontal: 16, paddingVertical: 10,
         paddingBottom: Platform.OS === "ios" ? 30 : 10,
-        borderTopWidth: 1, borderTopColor: "rgba(155, 89, 255, 0.08)", gap: 10,
+        borderTopWidth: 1, borderTopColor: "rgba(255, 143, 184, 0.08)", gap: 10,
     },
     textInput: {
-        flex: 1, backgroundColor: "rgba(155, 89, 255, 0.08)",
+        flex: 1, backgroundColor: "rgba(255, 143, 184, 0.08)",
         borderRadius: 22, paddingHorizontal: 18, paddingVertical: 10,
         fontSize: 15, color: "#FFFFFF", maxHeight: 100,
-        borderWidth: 1, borderColor: "rgba(155, 89, 255, 0.15)",
+        borderWidth: 1, borderColor: "rgba(255, 143, 184, 0.15)",
     },
     liquidInputWrapper: {
         flex: 1,
@@ -1664,5 +1664,5 @@ const styles = StyleSheet.create({
     },
     sendBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: "#9B59FF", justifyContent: "center", alignItems: "center" },
     sendBtnLiquid: { width: 44, height: 44, borderRadius: 22 },
-    sendBtnDisabled: { backgroundColor: "rgba(155, 89, 255, 0.3)" },
+    sendBtnDisabled: { backgroundColor: "rgba(255, 143, 184, 0.3)" },
 });
