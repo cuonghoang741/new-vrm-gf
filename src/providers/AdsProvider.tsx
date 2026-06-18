@@ -23,7 +23,6 @@ export function AdsProvider({ children }: { children: ReactNode }) {
 
     const adRef = useRef<AppOpenAd | null>(null);
     const loadedRef = useRef(false);
-    const firstActivationRef = useRef(true);
     const appStateRef = useRef<AppStateStatus>(AppState.currentState);
 
     useEffect(() => {
@@ -99,10 +98,9 @@ export function AdsProvider({ children }: { children: ReactNode }) {
                 prev.match(/inactive|background/) && next === "active";
             if (!cameToForeground) return;
 
-            if (firstActivationRef.current) {
-                firstActivationRef.current = false;
-                return; // don't show on the very first activation
-            }
+            // Show on every genuine background -> foreground resume. (Cold start
+            // does not emit this transition, and showIfPossible() no-ops until the
+            // ad is preloaded, so there's no pre-splash ad.)
             showIfPossible();
         });
 
