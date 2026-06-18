@@ -139,6 +139,7 @@ const MediaSheet = forwardRef<MediaSheetRef, MediaSheetProps>(
                             style={styles.mediaThumbnail}
                             contentFit="cover"
                             transition={200}
+                            blurRadius={isLocked ? 28 : 0}
                         />
 
                         {/* Video indicator */}
@@ -151,7 +152,12 @@ const MediaSheet = forwardRef<MediaSheetRef, MediaSheetProps>(
                         {/* PRO blur overlay */}
                         {isLocked && (
                             <View style={styles.lockedOverlay}>
-                                <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
+                                <BlurView
+                                    intensity={40}
+                                    tint="dark"
+                                    experimentalBlurMethod="dimezisBlurView"
+                                    style={StyleSheet.absoluteFill}
+                                />
                                 <View style={styles.lockBadge}>
                                     <IconLock size={16} color="#fff" />
                                 </View>
