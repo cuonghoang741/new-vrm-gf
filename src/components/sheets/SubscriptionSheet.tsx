@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PurchasesPackage } from "react-native-purchases";
 import * as WebBrowser from "expo-web-browser";
 import { openBrowserSafe } from "../../utils/openBrowserSafe";
+import { AdsManager } from "../../services/AdsManager";
 import {
     IconX,
     IconCube3dSphere,
@@ -611,7 +612,7 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                         {isPro ? (
                             <Pressable
                                 style={styles.ctaButtonManage}
-                                onPress={() => Linking.openURL("https://apps.apple.com/account/subscriptions")}
+                                onPress={() => { AdsManager.suppressNextResumeAd(); Linking.openURL("https://apps.apple.com/account/subscriptions"); }}
                             >
                                 <Text style={styles.ctaTextManage}>Manage Subscription</Text>
                             </Pressable>

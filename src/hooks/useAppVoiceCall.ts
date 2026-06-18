@@ -122,7 +122,7 @@ export const useAppVoiceCall = ({
                         'Please enable camera access in Settings to use video calls.',
                         [
                             { text: 'Cancel', style: 'cancel' },
-                            { text: 'Open Settings', onPress: () => Linking.openSettings() },
+                            { text: 'Open Settings', onPress: () => { AdsManager.suppressNextResumeAd(); Linking.openSettings(); } },
                         ]
                     );
                 }
@@ -163,7 +163,7 @@ export const useAppVoiceCall = ({
                         'Please enable microphone access in Settings to use voice chat.',
                         [
                             { text: 'Cancel', style: 'cancel' },
-                            { text: 'Open Settings', onPress: () => Linking.openSettings() },
+                            { text: 'Open Settings', onPress: () => { AdsManager.suppressNextResumeAd(); Linking.openSettings(); } },
                         ]
                     );
                 }
