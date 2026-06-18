@@ -21,6 +21,7 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { Image } from "expo-image";
 import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import { LiquidGlassView, isLiquidGlassSupported } from "@callstack/liquid-glass";
 
 import {
@@ -42,7 +43,6 @@ import {
     IconLock,
 } from "@tabler/icons-react-native";
 
-const diamondIcon = require("../../assets/diamond-upgrade.png");
 import { CameraView } from "expo-camera";
 import { Video, ResizeMode } from "expo-av";
 import { useAuth } from "../hooks/useAuth";
@@ -1084,12 +1084,16 @@ export default function PlayScreen() {
             <View style={styles.topBar}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                     {!isPro && (
-                        <Pressable
-                            style={styles.upgradeProInner}
-                            onPress={() => setSubscriptionOpen(true)}
-                            hitSlop={8}
-                        >
-                            <Image source={diamondIcon} style={styles.upgradeProIcon} contentFit="contain" />
+                        <Pressable onPress={() => setSubscriptionOpen(true)} hitSlop={8}>
+                            <LinearGradient
+                                colors={["#FF6FA5", "#C8A8F0"]}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                                style={styles.upgradeProPill}
+                            >
+                                <IconCrown size={13} color="#FFFFFF" fill="#FFFFFF" />
+                                <Text style={styles.upgradeProText}>PRO</Text>
+                            </LinearGradient>
                         </Pressable>
                     )}
                     <View>
@@ -1485,15 +1489,24 @@ const styles = StyleSheet.create({
         textShadowColor: "rgba(0,0,0,0.5)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4,
     },
     statusText: { fontSize: 12, color: "#48BB78", fontWeight: "500", marginTop: 2 },
-    upgradeProInner: {
-        width: 38,
-        height: 38,
-        justifyContent: "center",
+    upgradeProPill: {
+        flexDirection: "row",
         alignItems: "center",
+        gap: 4,
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderRadius: 14,
+        shadowColor: "#FF6FA5",
+        shadowOpacity: 0.5,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 2 },
+        elevation: 4,
     },
-    upgradeProIcon: {
-        width: 34,
-        height: 34,
+    upgradeProText: {
+        color: "#FFFFFF",
+        fontSize: 12,
+        fontWeight: "800",
+        letterSpacing: 0.5,
     },
     settingsBtn: {
         // kept for potential reuse

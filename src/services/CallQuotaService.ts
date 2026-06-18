@@ -1,6 +1,6 @@
 import { supabase } from '../config/supabase';
 
-const FREE_QUOTA_SECONDS = 60;      // 1 minute free
+const FREE_QUOTA_SECONDS = 30;      // 30 seconds free
 const PRO_QUOTA_SECONDS = 3600;     // 60 minutes for PRO
 
 export class CallQuotaService {
