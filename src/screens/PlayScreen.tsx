@@ -1114,16 +1114,15 @@ export default function PlayScreen() {
                             ● Online {remainingQuotaSeconds > 0 ? `| 📞 ${formatTime(remainingQuotaSeconds)}` : ''}
                         </Text>
                     </View>
-                    {/* Ruby balance (display) — tap to open daily check-in. Kept on
-                        the LEFT so it never overlaps the right-side action bubble. */}
-                    <Pressable onPress={() => setCheckinOpen(true)} hitSlop={8} style={styles.rubyPill}>
-                        <IconDiamondFilled size={15} color="#FF6FA5" />
-                        <Text style={styles.rubyPillText}>{ruby}</Text>
-                    </Pressable>
                 </View>
             </View>
 
             <View style={styles.leftFloatingContainer}>
+                {/* Ruby balance — sits right above the 2D/3D toggle. Tap to check in. */}
+                <Pressable onPress={() => setCheckinOpen(true)} hitSlop={8} style={styles.rubyPill}>
+                    <IconDiamondFilled size={15} color="#FF6FA5" />
+                    <Text style={styles.rubyPillText}>{ruby}</Text>
+                </Pressable>
                 <LiquidGlassView
                     style={[
                         styles.liquidToggleWrapper,
@@ -1514,10 +1513,12 @@ const styles = StyleSheet.create({
     rubyPill: {
         flexDirection: "row",
         alignItems: "center",
+        alignSelf: "flex-start",
         gap: 5,
         paddingHorizontal: 12,
-        height: 34,
-        borderRadius: 17,
+        height: 32,
+        borderRadius: 16,
+        marginBottom: 8,
         backgroundColor: "rgba(0,0,0,0.4)",
         borderWidth: 1,
         borderColor: "rgba(255,143,184,0.35)",
