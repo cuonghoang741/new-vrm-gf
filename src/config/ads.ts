@@ -15,8 +15,12 @@ import { Platform } from "react-native";
  * ===========================================================================
  */
 
-/** Bật test ads khi dev. Build production (EAS) sẽ tự dùng ID thật. */
-export const USE_TEST_ADS = __DEV__;
+/**
+ * TEMP: forced TRUE so the tester/review submission serves TEST ads only —
+ * testers and Google reviewers can interact safely (no invalid-traffic risk).
+ * ⚠️ Flip back to `__DEV__` for the real-ads release once the app is approved.
+ */
+export const USE_TEST_ADS = true; // was: __DEV__
 
 /** AdMob App ID (khai báo trong app.config.ts — đây chỉ để tham chiếu). */
 export const ADMOB_APP_ID = {
