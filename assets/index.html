@@ -720,9 +720,8 @@
 
         const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: "high-performance" });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        // Cap pixel ratio — phones report 2.5–3.5x DPR which renders ~9x the
-        // pixels and tanks the framerate. 1.75 looks crisp but is far lighter.
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+        // Full quality, same as the reference viewer (no pixel-ratio downscale).
+        renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setClearColor(0x000000, 0);
         document.body.appendChild(renderer.domElement);
 
