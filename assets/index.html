@@ -1293,7 +1293,9 @@
             }
         }
 
+        let __loadToken = 0; // bumped on each load; stale loads are discarded
         function loadVRM(modelUrl, modelName, animationToLoad = null) {
+            const myToken = ++__loadToken;
             const loader = new GLTFLoader();
             loader.crossOrigin = 'anonymous';
             helperRoot.clear();
@@ -1305,6 +1307,12 @@
             loader.load(
                 modelUrl,
                 (gltf) => {
+                    // A newer load was requested while this one was in flight —
+                    // discard this stale result so rapid switching can't garble the scene.
+                    if (myToken !== __loadToken) {
+                        try { VRMUtils.deepDispose(gltf.scene); } catch { }
+                        return;
+                    }
                     const vrm = gltf.userData.vrm;
                     VRMUtils.removeUnnecessaryVertices(gltf.scene);
                     VRMUtils.combineSkeletons(gltf.scene);
@@ -1358,11 +1366,13 @@
                     try { __updateCameraTargetsForMode(); } catch { }
                 },
                 (progress) => {
+                    if (myToken !== __loadToken) return;
                     const percent = progress.total ? (100.0 * (progress.loaded / progress.total)) : 0;
                     updateFileDisplay(`Loading... ${percent.toFixed(0)}%`, document.getElementById('currentAnimation').textContent);
                     updateLoadingProgress(percent);
                 },
                 (error) => {
+                    if (myToken !== __loadToken) return;
                     /* error loading VRM */
                     updateFileDisplay('Error loading model', document.getElementById('currentAnimation').textContent);
                     setModelLoading(false);

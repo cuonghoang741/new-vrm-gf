@@ -204,9 +204,10 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
     }, [selectedChar, selectedCostume, vrmReady, currentModelUrl, currentBackgroundUrl]);
 
     useEffect(() => {
-        if (vrmReady) {
-            loadActiveModel();
-        }
+        if (!vrmReady) return;
+        // Debounce rapid carousel switching so only the final selection loads.
+        const t = setTimeout(() => loadActiveModel(), 250);
+        return () => clearTimeout(t);
     }, [vrmReady, loadActiveModel]);
 
     const goToPrev = () => {
@@ -513,10 +514,14 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                         <View style={{ height: 350 }} />
                     </ScrollView>
 
-                    {/* Bottom panel */}
-                    <BlurView
-                        intensity={60}
-                        tint="dark"
+                    {/* Bottom panel — solid dark overlay so the 3D behind doesn't
+                        bleed through (real-time blur over the live scene = lag). */}
+                    <LinearGradient
+                        colors={["rgba(12,7,22,0)", "rgba(12,7,22,0.97)"]}
+                        style={styles.bottomFade}
+                        pointerEvents="none"
+                    />
+                    <View
                         style={[styles.bottomPanel, { paddingBottom: insets.bottom + 10 }]}
                     >
                         {/* Plans */}
@@ -660,7 +665,7 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                                 <Text style={styles.footerLink}>EULA</Text>
                             </Pressable>
                         </View>
-                    </BlurView>
+                    </View>
                 </View>
             </View>
         </Animated.View>
@@ -834,6 +839,14 @@ const styles = StyleSheet.create({
         paddingTop: 24,
         paddingHorizontal: 24,
         overflow: "hidden",
+        backgroundColor: "rgba(12,7,22,0.97)",
+    },
+    bottomFade: {
+        position: "absolute",
+        left: 0,
+        right: 0,
+        bottom: 0,
+        height: 480,
     },
     plansRow: { flexDirection: "row", gap: 12, marginBottom: 20 },
     planCard: {
