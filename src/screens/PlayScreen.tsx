@@ -41,7 +41,6 @@ import {
     IconBadge3d,
     IconLock,
     IconDiamondFilled,
-    IconGift,
 } from "@tabler/icons-react-native";
 
 import { CameraView } from "expo-camera";
@@ -60,6 +59,7 @@ import SettingsSheet from "../components/sheets/SettingsSheet";
 import SubscriptionSheet from "../components/sheets/SubscriptionSheet";
 import MediaSheet from "../components/sheets/MediaSheet";
 import CheckinSheet from "../components/sheets/CheckinSheet";
+import { getRubyBalance } from "../services/checkinService";
 import ActionsBubble from "../components/ActionsBubble";
 import { useSubscription } from "../contexts/SubscriptionContext";
 import { analyticsService } from "../services/AnalyticsService";
@@ -103,6 +103,7 @@ export default function PlayScreen() {
     const [subscriptionOpen, setSubscriptionOpen] = useState(false);
     const [mediaSheetOpen, setMediaSheetOpen] = useState(false);
     const [checkinOpen, setCheckinOpen] = useState(false);
+    const [ruby, setRuby] = useState(0);
 
     const { isPro, refreshStatus } = useSubscription();
     const { showInterstitial } = useInterstitialAd();
@@ -161,6 +162,11 @@ export default function PlayScreen() {
             if (statsRes.data?.created_at) setUserCreatedAt(statsRes.data.created_at);
         });
     }, [user?.id, subscriptionOpen]);
+
+    // Keep the ruby balance fresh (refetch when buy/check-in sheets toggle).
+    useEffect(() => {
+        if (user?.id) getRubyBalance(user.id).then(setRuby).catch(() => { });
+    }, [user?.id, checkinOpen, bgSheetOpen, costumeSheetOpen, charSheetOpen]);
 
     const {
         voiceState,
@@ -1109,11 +1115,11 @@ export default function PlayScreen() {
                         </Text>
                     </View>
                 </View>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                    <Pressable onPress={() => setCheckinOpen(true)} hitSlop={8} style={styles.checkinBtn}>
-                        <IconGift size={22} color="#FF6FA5" />
-                    </Pressable>
-                </View>
+                {/* Ruby balance — tap to open daily check-in */}
+                <Pressable onPress={() => setCheckinOpen(true)} hitSlop={8} style={styles.rubyPill}>
+                    <IconDiamondFilled size={15} color="#FF6FA5" />
+                    <Text style={styles.rubyPillText}>{ruby}</Text>
+                </Pressable>
             </View>
 
             <View style={styles.leftFloatingContainer}>
@@ -1181,6 +1187,7 @@ export default function PlayScreen() {
                     onOpenScene={() => setBgSheetOpen(true)}
                     onOpenGallery={() => setMediaSheetOpen(true)}
                     onOpenSettings={() => setSettingsSheetOpen(true)}
+                    onOpenCheckin={() => setCheckinOpen(true)}
                     onToggleDance={() => {
                         if (!isPro) {
                             setSubscriptionOpen(true);
@@ -1413,6 +1420,7 @@ export default function PlayScreen() {
                 isOpened={checkinOpen}
                 onIsOpenedChange={setCheckinOpen}
                 userId={user?.id}
+                onClaimed={(bal) => setRuby(bal)}
             />
 
             {/* Blurred Overlay for Sensitive Content (become_nude action) - Moved to root end to ensure absolute top priority */}
@@ -1502,15 +1510,21 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 0 },
         elevation: 4,
     },
-    checkinBtn: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        justifyContent: "center",
+    rubyPill: {
+        flexDirection: "row",
         alignItems: "center",
-        backgroundColor: "rgba(0,0,0,0.35)",
+        gap: 5,
+        paddingHorizontal: 12,
+        height: 34,
+        borderRadius: 17,
+        backgroundColor: "rgba(0,0,0,0.4)",
         borderWidth: 1,
-        borderColor: "rgba(255,143,184,0.3)",
+        borderColor: "rgba(255,143,184,0.35)",
+    },
+    rubyPillText: {
+        color: "#FFFFFF",
+        fontSize: 14,
+        fontWeight: "700",
     },
     settingsBtn: {
         // kept for potential reuse

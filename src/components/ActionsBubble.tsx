@@ -16,6 +16,7 @@ import {
     IconChevronUp,
     IconSettings,
     IconBadge3d,
+    IconGift,
 } from "@tabler/icons-react-native";
 import Button from "./common/Button";
 
@@ -37,6 +38,7 @@ interface ActionsBubbleProps {
     onToggleCamera: () => void;
     onOpenSubscription: () => void;
     onOpenSettings: () => void;
+    onOpenCheckin: () => void;
 }
 
 export default function ActionsBubble({
@@ -57,6 +59,7 @@ export default function ActionsBubble({
     onToggleCamera,
     onOpenSubscription,
     onOpenSettings,
+    onOpenCheckin,
 }: ActionsBubbleProps) {
     const isInCall = ["connected", "connecting"].includes(conversationStatus);
     const [showLabels, setShowLabels] = useState(false);
@@ -79,6 +82,20 @@ export default function ActionsBubble({
             {/* ─── Normal mode: show all action buttons ─── */}
             {!isInCall && (
                 <>
+                    <View>
+                        <Button
+                            variant="liquid"
+                            size="sm"
+                            startIcon={IconGift}
+                            startIconColor={iconColor}
+                            textColor={iconColor}
+                            onPress={onOpenCheckin}
+                            isIconOnly={!showLabels}
+                        >
+                            Daily
+                        </Button>
+                        <View style={styles.notificationDot} />
+                    </View>
                     <Button
                         variant="liquid"
                         size="sm"
