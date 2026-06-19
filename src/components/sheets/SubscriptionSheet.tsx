@@ -352,6 +352,7 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                 {isOpened && (
                     <VRMViewer
                         ref={vrmRef}
+                        transparent={false}
                         style={StyleSheet.absoluteFillObject}
                         onReady={() => setVrmReady(true)}
                         onModelLoaded={handleModelLoaded}

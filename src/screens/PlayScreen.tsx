@@ -1012,24 +1012,27 @@ export default function PlayScreen() {
 
             {/* ─── Character Display Overlay ─── */}
             <View style={styles.charContainer}>
-                {/* 2D Background & Static character */}
-                <View style={styles.vrmFull}>
-                    {backgroundUrl && (
-                        <Image
-                            source={{ uri: backgroundUrl }}
-                            style={StyleSheet.absoluteFill}
-                            contentFit="cover"
-                        />
-                    )}
-                    {characterAvatar && (
-                        <Image
-                            source={{ uri: characterAvatar }}
-                            style={styles.staticCharacter}
-                            contentFit="contain"
-                            contentPosition="bottom center"
-                        />
-                    )}
-                </View>
+                {/* 2D Background & Static character — unmounted in 3D mode so the
+                    opaque 3D WebView doesn't composite over a full-screen RN layer. */}
+                {!is3DMode && (
+                    <View style={styles.vrmFull}>
+                        {backgroundUrl && (
+                            <Image
+                                source={{ uri: backgroundUrl }}
+                                style={StyleSheet.absoluteFill}
+                                contentFit="cover"
+                            />
+                        )}
+                        {characterAvatar && (
+                            <Image
+                                source={{ uri: characterAvatar }}
+                                style={styles.staticCharacter}
+                                contentFit="contain"
+                                contentPosition="bottom center"
+                            />
+                        )}
+                    </View>
+                )}
 
                 {/* 3D Mode Overlay - Always mounted to avoid slow reloads */}
                 <View
@@ -1044,6 +1047,7 @@ export default function PlayScreen() {
                 >
                     <VRMViewer
                         ref={vrmRef}
+                        transparent={false}
                         onReady={() => setVrmReady(true)}
                     />
                 </View>

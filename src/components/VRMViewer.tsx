@@ -186,7 +186,7 @@ const VRMViewer = forwardRef<VRMViewerHandle, VRMViewerProps>(
                             ? { uri: "file:///android_asset/index.html" }
                             : require("../../assets/index.html")
                     }
-                    style={[styles.webview, transparent && styles.transparent]}
+                    style={[styles.webview, transparent ? styles.transparent : styles.opaque]}
                     originWhitelist={["*"]}
                     javaScriptEnabled={true}
                     domStorageEnabled={true}
@@ -202,12 +202,10 @@ const VRMViewer = forwardRef<VRMViewerHandle, VRMViewerProps>(
                     overScrollMode="never"
                     showsHorizontalScrollIndicator={false}
                     showsVerticalScrollIndicator={false}
-                    // Transparent background for overlay usage
-                    {...(transparent
-                        ? {
-                            androidLayerType: "hardware",
-                        }
-                        : {})}
+                    // GPU-composite the WebView always (a software layer renders the
+                    // WebGL canvas on the CPU = severe lag). An opaque WebView also
+                    // avoids per-frame alpha-blending the 3D scene over the RN tree.
+                    androidLayerType="hardware"
                 />
             </View>
         );
@@ -229,5 +227,8 @@ const styles = StyleSheet.create({
     },
     transparent: {
         backgroundColor: "transparent",
+    },
+    opaque: {
+        backgroundColor: "#0a0a1a",
     },
 });
