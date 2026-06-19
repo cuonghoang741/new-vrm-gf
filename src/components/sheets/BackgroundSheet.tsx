@@ -14,7 +14,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { supabase } from "../../config/supabase";
 import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
-import { IconSun, IconMoon } from "@tabler/icons-react-native";
+import { IconSun, IconMoon, IconDiamondFilled } from "@tabler/icons-react-native";
 import { purchaseItem } from "../../services/checkinService";
 
 const { width } = Dimensions.get("window");
@@ -239,6 +239,12 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
                                 </View>
                             </View>
                         )}
+                        {isLocked && (item.price_ruby ?? 0) > 0 && (
+                            <View style={styles.priceBadge}>
+                                <IconDiamondFilled size={10} color="#FF6FA5" />
+                                <Text style={styles.priceBadgeText}>{item.price_ruby}</Text>
+                            </View>
+                        )}
                         {isSelected && !isLocked && (
                             <View style={styles.selectedBadge}>
                                 <Ionicons name="checkmark" size={10} color="#fff" />
@@ -374,6 +380,23 @@ const styles = StyleSheet.create({
     lockOverlay: {
         ...StyleSheet.absoluteFillObject,
         backgroundColor: "rgba(0,0,0,0.35)",
+    },
+    priceBadge: {
+        position: "absolute",
+        top: 6,
+        left: 6,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 3,
+        backgroundColor: "rgba(0,0,0,0.65)",
+        paddingHorizontal: 6,
+        paddingVertical: 3,
+        borderRadius: 9,
+    },
+    priceBadgeText: {
+        color: "#fff",
+        fontSize: 11,
+        fontWeight: "700",
     },
     lockIconBadge: {
         position: "absolute",
