@@ -1114,12 +1114,13 @@ export default function PlayScreen() {
                             ● Online {remainingQuotaSeconds > 0 ? `| 📞 ${formatTime(remainingQuotaSeconds)}` : ''}
                         </Text>
                     </View>
+                    {/* Ruby balance (display) — tap to open daily check-in. Kept on
+                        the LEFT so it never overlaps the right-side action bubble. */}
+                    <Pressable onPress={() => setCheckinOpen(true)} hitSlop={8} style={styles.rubyPill}>
+                        <IconDiamondFilled size={15} color="#FF6FA5" />
+                        <Text style={styles.rubyPillText}>{ruby}</Text>
+                    </Pressable>
                 </View>
-                {/* Ruby balance — tap to open daily check-in */}
-                <Pressable onPress={() => setCheckinOpen(true)} hitSlop={8} style={styles.rubyPill}>
-                    <IconDiamondFilled size={15} color="#FF6FA5" />
-                    <Text style={styles.rubyPillText}>{ruby}</Text>
-                </Pressable>
             </View>
 
             <View style={styles.leftFloatingContainer}>
