@@ -29,6 +29,8 @@ export interface VRMViewerHandle {
     prevBackground: () => void;
     /** Enable / disable OrbitControls (rotate, zoom, pan) */
     setControlsEnabled: (enabled: boolean) => void;
+    /** Blur the rendered 3D canvas (e.g. to tease a locked costume preview). */
+    setPreviewBlur: (on: boolean) => void;
     /** Enable / disable call mode (head tracking, close-up camera) */
     setCallMode: (enabled: boolean) => void;
     /** Reset camera to default position */
@@ -124,6 +126,9 @@ const VRMViewer = forwardRef<VRMViewerHandle, VRMViewerProps>(
                 },
                 setControlsEnabled: (enabled: boolean) => {
                     injectJS(`window.setControlsEnabled && window.setControlsEnabled(${enabled})`);
+                },
+                setPreviewBlur: (on: boolean) => {
+                    injectJS(`window.setPreviewBlur && window.setPreviewBlur(${on})`);
                 },
                 setCallMode: (enabled: boolean) => {
                     injectJS(`window.setCallMode && window.setCallMode(${enabled})`);

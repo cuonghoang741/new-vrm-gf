@@ -862,6 +862,17 @@
             return controls ? controls.enabled : false;
         };
 
+        // Blur the rendered 3D canvas (cheap GPU CSS filter) — used to tease
+        // locked costume previews in the subscription sheet.
+        window.setPreviewBlur = function (on) {
+            try {
+                const c = renderer && renderer.domElement;
+                if (!c) return;
+                c.style.transition = 'filter 0.25s ease';
+                c.style.filter = on ? 'blur(16px)' : '';
+            } catch (e) { }
+        };
+
         // Public API for native: reset camera to default position
         window.resetCamera = function () {
             try {

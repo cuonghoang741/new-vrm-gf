@@ -247,6 +247,11 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
         }
     }, [selectedCostume, handleDanceTest]);
 
+    // Real blur on the 3D canvas while previewing a costume (tease the locked look).
+    useEffect(() => {
+        if (vrmReady) vrmRef.current?.setPreviewBlur(shouldBlurPreview);
+    }, [shouldBlurPreview, vrmReady]);
+
     // Find plans
     const yearlyPackage = packages.find(
         (p) =>
