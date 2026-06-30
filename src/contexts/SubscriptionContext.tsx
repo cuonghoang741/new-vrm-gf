@@ -32,6 +32,8 @@ interface SubscriptionContextData {
     purchasePackage: (pkg: PurchasesPackage) => Promise<{ success: boolean; error?: string }>;
     restorePurchases: () => Promise<{ isPro: boolean; error?: string }>;
     refreshStatus: () => Promise<void>;
+    /** Local test-only PRO unlock (hidden 7-tap on the paywall title). */
+    enableTestPro: () => void;
 }
 
 const SubscriptionContext = createContext<SubscriptionContextData>({
@@ -42,12 +44,14 @@ const SubscriptionContext = createContext<SubscriptionContextData>({
     purchasePackage: async () => ({ success: false }),
     restorePurchases: async () => ({ isPro: false }),
     refreshStatus: async () => { },
+    enableTestPro: () => { },
 });
 
 export const useSubscription = () => useContext(SubscriptionContext);
 
 export function SubscriptionProvider({ children, userId }: { children: ReactNode; userId?: string }) {
     const [isPro, setIsPro] = useState(false);
+    const [testPro, setTestPro] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [packages, setPackages] = useState<PurchasesPackage[]>([]);
     const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
@@ -171,7 +175,7 @@ export function SubscriptionProvider({ children, userId }: { children: ReactNode
 
     return (
         <SubscriptionContext.Provider
-            value={{ isPro, isLoading, packages, customerInfo, purchasePackage, restorePurchases, refreshStatus }}
+            value={{ isPro: isPro || testPro, isLoading, packages, customerInfo, purchasePackage, restorePurchases, refreshStatus, enableTestPro: () => setTestPro(true) }}
         >
             {children}
         </SubscriptionContext.Provider>

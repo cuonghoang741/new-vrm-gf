@@ -1118,11 +1118,6 @@ export default function PlayScreen() {
             </View>
 
             <View style={styles.leftFloatingContainer}>
-                {/* Ruby balance — sits right above the 2D/3D toggle. Tap to check in. */}
-                <Pressable onPress={() => setCheckinOpen(true)} hitSlop={8} style={styles.rubyPill}>
-                    <IconDiamondFilled size={15} color="#FF6FA5" />
-                    <Text style={styles.rubyPillText}>{ruby}</Text>
-                </Pressable>
                 <LiquidGlassView
                     style={[
                         styles.liquidToggleWrapper,
@@ -1170,6 +1165,11 @@ export default function PlayScreen() {
                         <Text style={styles.proBadgeLeftText}>PRO</Text>
                     </View>
                 )}
+                {/* Ruby balance — right below the 2D/3D toggle. Tap to check in. */}
+                <Pressable onPress={() => setCheckinOpen(true)} hitSlop={8} style={styles.rubyPill}>
+                    <IconDiamondFilled size={15} color="#FF6FA5" />
+                    <Text style={styles.rubyPillText}>{ruby}</Text>
+                </Pressable>
             </View>
 
             {/* ─── Top right bubble actions ─── */}
@@ -1518,7 +1518,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         height: 32,
         borderRadius: 16,
-        marginBottom: 8,
+        marginTop: 8,
         backgroundColor: "rgba(0,0,0,0.4)",
         borderWidth: 1,
         borderColor: "rgba(255,143,184,0.35)",

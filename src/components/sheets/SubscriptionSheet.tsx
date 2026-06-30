@@ -69,7 +69,23 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
         customerInfo,
         purchasePackage,
         restorePurchases,
+        enableTestPro,
     } = useSubscription();
+
+    // Hidden: tap the "TRUEFEEL PRO" badge 7x to unlock PRO for on-device testing.
+    const proTapRef = useRef(0);
+    const proTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const handleSecretProTap = useCallback(() => {
+        proTapRef.current += 1;
+        if (proTapTimer.current) clearTimeout(proTapTimer.current);
+        proTapTimer.current = setTimeout(() => { proTapRef.current = 0; }, 1500);
+        if (proTapRef.current >= 7) {
+            proTapRef.current = 0;
+            enableTestPro();
+            Alert.alert("🔓 Test PRO enabled", "PRO unlocked on this device for testing.");
+            onClose();
+        }
+    }, [enableTestPro, onClose]);
 
     const [selectedPackage, setSelectedPackage] = useState<PurchasesPackage | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -404,7 +420,9 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                                 end={{ x: 1, y: 0 }}
                                 style={styles.proBadge}
                             >
-                                <Text style={styles.proBadgeText}>TRUEFEEL PRO</Text>
+                                <Pressable onPress={handleSecretProTap} hitSlop={10}>
+                                    <Text style={styles.proBadgeText}>TRUEFEEL PRO</Text>
+                                </Pressable>
                             </LinearGradient>
 
                             <Text style={styles.heroTitle}>{"Unlock Your\nUltimate Experience"}</Text>
