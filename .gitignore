@@ -46,3 +46,7 @@ yarn-error.*
 build-*.ipa
 # EAS local credentials (secret)
 credentials.json
+
+# keystore backup (secret)
+*keystore-backup.zip
+*keystore-credentials.md
