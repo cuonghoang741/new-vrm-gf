@@ -20,6 +20,13 @@ import {
 } from "@tabler/icons-react-native";
 import Button from "./common/Button";
 
+// Shared accent palette (kept in sync with PlayScreen / girlfriend-3d-aiva)
+const ACCENT = "#FF3D7F";                     // rose accent
+const GOLD = "#F2C14E";                        // premium / PRO
+const GLASS_FILL = "rgba(32, 16, 54, 0.72)";   // legible dark-violet glass
+const TEXT_BRIGHT = "#F4ECFB";                 // lavender-white icons/text
+const DANGER = "#FF5C7A";                      // stop / end-call
+
 interface ActionsBubbleProps {
     conversationStatus: string;
     agentElevenlabsId: string | null;
@@ -64,7 +71,9 @@ export default function ActionsBubble({
     const isInCall = ["connected", "connecting"].includes(conversationStatus);
     const [showLabels, setShowLabels] = useState(false);
 
-    const iconColor = isBackgroundDark ? '#FFFFFF' : '#0F051E';
+    // Buttons now sit on a solid violet glass, so icons are always bright for
+    // legibility regardless of the scene behind them.
+    const iconColor = TEXT_BRIGHT;
 
     return (
         <View style={styles.actionsBubble}>
@@ -177,8 +186,8 @@ export default function ActionsBubble({
                             variant="liquid"
                             size="sm"
                             startIcon={isDancing ? IconX : IconMusic}
-                            startIconColor={isDancing ? "#EF4444" : iconColor}
-                            textColor={isDancing ? "#EF4444" : iconColor}
+                            startIconColor={isDancing ? DANGER : iconColor}
+                            textColor={isDancing ? DANGER : iconColor}
                             onPress={onToggleDance}
                             isIconOnly={!showLabels}
                         >
@@ -196,8 +205,8 @@ export default function ActionsBubble({
                     variant="liquid"
                     size="sm"
                     startIcon={IconVideo}
-                    startIconColor={isCameraMode ? "#EF4444" : iconColor}
-                    textColor={isCameraMode ? "#EF4444" : iconColor}
+                    startIconColor={isCameraMode ? DANGER : iconColor}
+                    textColor={isCameraMode ? DANGER : iconColor}
                     onPress={onToggleCamera}
                     isIconOnly={!showLabels}
                 >
@@ -213,8 +222,8 @@ export default function ActionsBubble({
                         colorScheme={isInCall ? "error" : undefined}
                         size="sm"
                         startIcon={isInCall ? IconPhoneOff : IconPhoneCall}
-                        startIconColor={isInCall ? "#EF4444" : iconColor}
-                        textColor={isInCall ? "#EF4444" : iconColor}
+                        startIconColor={isInCall ? DANGER : iconColor}
+                        textColor={isInCall ? DANGER : iconColor}
                         onPress={onToggleCall}
                         isIconOnly={!showLabels}
                     >
@@ -230,8 +239,8 @@ export default function ActionsBubble({
                     variant="liquid"
                     size="sm"
                     startIcon={IconCrown}
-                    startIconColor="#FBBF24"
-                    textColor="#FBBF24"
+                    startIconColor={GOLD}
+                    textColor={GOLD}
                     onPress={onOpenSubscription}
                     isIconOnly={!showLabels}
                 >
@@ -255,7 +264,7 @@ const styles = StyleSheet.create({
         position: 'absolute',
         top: -6,
         right: -6,
-        backgroundColor: '#F59E0B',
+        backgroundColor: GOLD,
         paddingHorizontal: 4,
         paddingVertical: 2,
         borderRadius: 4,
@@ -267,17 +276,17 @@ const styles = StyleSheet.create({
     },
     notificationDot: {
         position: 'absolute',
-        top: -2,
-        right: -2,
-        width: 12,
-        height: 12,
-        borderRadius: 6,
-        backgroundColor: '#EF4444',
+        top: -1,
+        right: -1,
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        backgroundColor: ACCENT,
         borderWidth: 1.5,
-        borderColor: '#FFFFFF',
-        shadowColor: '#EF4444',
+        borderColor: 'rgba(255,255,255,0.9)',
+        shadowColor: ACCENT,
         shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.7,
+        shadowOpacity: 0.8,
         shadowRadius: 4,
         elevation: 6,
         zIndex: 60,

@@ -75,6 +75,18 @@ const { width, height } = Dimensions.get("window");
 
 const CACHE_KEY = "play_last_character";
 
+// ─── Unified accent palette (synced with girlfriend-3d-aiva) ───
+// Solid, legible violet "glass" for overlay surfaces (NOT real-time blur, so
+// buttons stay readable on any background), a hot magenta-rose accent, and a
+// luxe gold for premium. This is the palette that reads well over the scene.
+const ACCENT = "#FF3D7F";       // primary rose accent
+const ACCENT_SOFT = "#FF7AA8";  // peach (gradient companion)
+const ACCENT_GLOW = "rgba(255, 61, 127, 0.5)";
+const GOLD = "#F2C14E";         // premium / PRO accent
+const GLASS_FILL = "rgba(32, 16, 54, 0.72)";      // legible dark-violet glass
+const GLASS_BORDER = "rgba(201, 166, 255, 0.24)"; // soft lavender edge
+const TEXT_BRIGHT = "#F4ECFB";  // lavender-white, high-contrast on glass
+
 interface CachedCharacter {
     characterId: string;
     characterName: string;
@@ -997,7 +1009,7 @@ export default function PlayScreen() {
                                 { marginBottom: 0 }
                             ]}
                             effect="regular"
-                            tintColor={isUser ? 'rgba(255, 143, 184, 0.5)' : 'rgba(15, 5, 30, 0.4)'}
+                            tintColor={isUser ? 'rgba(255, 107, 157, 0.55)' : 'rgba(18, 10, 30, 0.5)'}
                         >
                             {isAI && <Text style={styles.aiName}>{characterName}</Text>}
                             <Text style={[styles.messageText, isUser ? styles.userText : styles.aiText]}>{item.text}</Text>
@@ -1085,7 +1097,7 @@ export default function PlayScreen() {
 
                     {/* End Call Button */}
                     <Pressable
-                        style={{ width: 70, height: 70, borderRadius: 35, backgroundColor: '#EF4444', justifyContent: 'center', alignItems: 'center', position: 'absolute', bottom: 100, elevation: 5, shadowColor: '#EF4444', shadowOpacity: 0.5, shadowRadius: 10, shadowOffset: { width: 0, height: 5 } }}
+                        style={{ width: 70, height: 70, borderRadius: 35, backgroundColor: '#FF5C7A', justifyContent: 'center', alignItems: 'center', position: 'absolute', bottom: 100, elevation: 5, shadowColor: '#FF5C7A', shadowOpacity: 0.5, shadowRadius: 10, shadowOffset: { width: 0, height: 5 } }}
                         onPress={endCall}
                     >
                         <IconPhone size={32} color="#FFF" style={{ transform: [{ rotate: '135deg' }] }} />
@@ -1098,7 +1110,7 @@ export default function PlayScreen() {
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                     {!isPro && (
                         <Pressable onPress={() => setSubscriptionOpen(true)} hitSlop={8} style={styles.upgradeProInner}>
-                            <IconDiamondFilled size={26} color="#FF6FA5" />
+                            <IconDiamondFilled size={20} color="#FFFFFF" />
                         </Pressable>
                     )}
                     <View>
@@ -1106,7 +1118,7 @@ export default function PlayScreen() {
                             <Text style={styles.charNameTop}>{characterName}</Text>
                             {isPro && (
                                 <Pressable onPress={() => setSubscriptionOpen(true)} hitSlop={8}>
-                                    <IconCrown size={18} color="#F59E0B" fill="#F59E0B" />
+                                    <IconCrown size={18} color={GOLD} fill={GOLD} />
                                 </Pressable>
                             )}
                         </View>
@@ -1119,12 +1131,9 @@ export default function PlayScreen() {
 
             <View style={styles.leftFloatingContainer}>
                 <LiquidGlassView
-                    style={[
-                        styles.liquidToggleWrapper,
-                        !isBackgroundDark && { backgroundColor: 'rgba(0,0,0,0.05)' }
-                    ]}
+                    style={styles.liquidToggleWrapper}
                     effect="regular"
-                    tintColor={isBackgroundDark ? "rgba(255, 255, 255, 0.1)" : "rgba(15, 5, 30, 0.08)"}
+                    tintColor={GLASS_FILL}
                 >
                     <View style={styles.toggleRow}>
                         <TouchableOpacity
@@ -1137,7 +1146,7 @@ export default function PlayScreen() {
                         >
                             <Text style={[
                                 styles.toggleLabel,
-                                !is3DMode ? styles.toggleLabelActive : { color: isBackgroundDark ? 'rgba(255,255,255,0.4)' : 'rgba(15,5,30,0.8)' }
+                                !is3DMode ? styles.toggleLabelActive : styles.toggleLabelInactive
                             ]}>2D</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
@@ -1155,7 +1164,7 @@ export default function PlayScreen() {
                         >
                             <Text style={[
                                 styles.toggleLabel,
-                                is3DMode ? styles.toggleLabelActive : { color: isBackgroundDark ? 'rgba(255,255,255,0.4)' : 'rgba(15,5,30,0.8)' }
+                                is3DMode ? styles.toggleLabelActive : styles.toggleLabelInactive
                             ]}>3D</Text>
                         </TouchableOpacity>
                     </View>
@@ -1167,7 +1176,7 @@ export default function PlayScreen() {
                 )}
                 {/* Ruby balance — right below the 2D/3D toggle. Tap to check in. */}
                 <Pressable onPress={() => setCheckinOpen(true)} hitSlop={8} style={styles.rubyPill}>
-                    <IconDiamondFilled size={15} color="#FF6FA5" />
+                    <IconDiamondFilled size={15} color={ACCENT} />
                     <Text style={styles.rubyPillText}>{ruby}</Text>
                 </Pressable>
             </View>
@@ -1268,7 +1277,7 @@ export default function PlayScreen() {
                                             <Text style={styles.aiName}>{characterName}</Text>
                                             <View style={{ flexDirection: 'row', alignItems: 'center', height: 20, paddingTop: 4 }}>
                                                 {[dot1Anim, dot2Anim, dot3Anim].map((anim, i) => (
-                                                    <Animated.View key={i} style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: 'rgba(255,143,184,0.95)', marginHorizontal: 2, transform: [{ translateY: anim }] }} />
+                                                    <Animated.View key={i} style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: 'rgba(255,107,157,0.95)', marginHorizontal: 2, transform: [{ translateY: anim }] }} />
                                                 ))}
                                             </View>
                                         </LiquidGlassView>
@@ -1277,7 +1286,7 @@ export default function PlayScreen() {
                                             <Text style={styles.aiName}>{characterName}</Text>
                                             <View style={{ flexDirection: 'row', alignItems: 'center', height: 20, paddingTop: 4 }}>
                                                 {[dot1Anim, dot2Anim, dot3Anim].map((anim, i) => (
-                                                    <Animated.View key={i} style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: 'rgba(255,143,184,0.95)', marginHorizontal: 2, transform: [{ translateY: anim }] }} />
+                                                    <Animated.View key={i} style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: 'rgba(255,107,157,0.95)', marginHorizontal: 2, transform: [{ translateY: anim }] }} />
                                                 ))}
                                             </View>
                                         </View>
@@ -1331,7 +1340,7 @@ export default function PlayScreen() {
                             startIcon={IconSend}
                             startIconSize={20}
                             startIconColor={isBackgroundDark ? "#FFFFFF" : "#0F051E"}
-                            tintColor={isBackgroundDark ? "rgba(255, 143, 184, 0.8)" : "rgba(255, 111, 165, 0.9)"}
+                            tintColor={isBackgroundDark ? "rgba(255, 107, 157, 0.85)" : "rgba(255, 107, 157, 0.95)"}
                             onPress={handleSend}
                             disabled={!inputText.trim() || isSending}
                             style={styles.sendBtnLiquid}
@@ -1427,8 +1436,8 @@ export default function PlayScreen() {
             {isNudeBlurred && (
                 <BlurView intensity={65} tint="dark" style={[StyleSheet.absoluteFill, { zIndex: 500 }]}>
                     <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 40 }}>
-                        <View style={{ backgroundColor: 'rgba(255, 111, 165, 0.2)', padding: 20, borderRadius: 100, marginBottom: 20 }}>
-                            <IconLock size={40} color="#FF6FA5" />
+                        <View style={{ backgroundColor: 'rgba(255, 107, 157, 0.18)', padding: 20, borderRadius: 100, marginBottom: 20 }}>
+                            <IconLock size={40} color={ACCENT} />
                         </View>
                         <Text style={{ color: "#fff", fontSize: 24, fontWeight: "800", textAlign: "center", marginBottom: 12 }}>
                             Sensitive Activity
@@ -1437,7 +1446,7 @@ export default function PlayScreen() {
                             You reached a special interaction! Become a PRO user to unlock exclusive 3D content and see this character's true self.
                         </Text>
                         <Pressable
-                            style={{ backgroundColor: "#FF6FA5", paddingHorizontal: 30, paddingVertical: 14, borderRadius: 30 }}
+                            style={{ backgroundColor: ACCENT, paddingHorizontal: 30, paddingVertical: 14, borderRadius: 30, shadowColor: ACCENT, shadowOpacity: 0.5, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 6 }}
                             onPress={() => setSubscriptionOpen(true)}
                         >
                             <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>Unlock with PRO</Text>
@@ -1502,13 +1511,17 @@ const styles = StyleSheet.create({
     upgradeProInner: {
         width: 38,
         height: 38,
+        borderRadius: 19,
         justifyContent: "center",
         alignItems: "center",
-        shadowColor: "#FF6FA5",
-        shadowOpacity: 0.6,
-        shadowRadius: 6,
-        shadowOffset: { width: 0, height: 0 },
-        elevation: 4,
+        backgroundColor: ACCENT,
+        borderWidth: 1.5,
+        borderColor: "rgba(255,255,255,0.85)",
+        shadowColor: ACCENT,
+        shadowOpacity: 0.75,
+        shadowRadius: 9,
+        shadowOffset: { width: 0, height: 2 },
+        elevation: 6,
     },
     rubyPill: {
         flexDirection: "row",
@@ -1519,9 +1532,9 @@ const styles = StyleSheet.create({
         height: 32,
         borderRadius: 16,
         marginTop: 8,
-        backgroundColor: "rgba(0,0,0,0.4)",
+        backgroundColor: GLASS_FILL,
         borderWidth: 1,
-        borderColor: "rgba(255,143,184,0.35)",
+        borderColor: GLASS_BORDER,
     },
     rubyPillText: {
         color: "#FFFFFF",
@@ -1563,7 +1576,14 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
         width: 110,
         height: 42,
-        backgroundColor: Platform.OS === 'android' ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
+        borderWidth: 1,
+        borderColor: GLASS_BORDER,
+        backgroundColor: Platform.OS === 'android' ? GLASS_FILL : 'transparent',
+        shadowColor: '#1A0A2E',
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 3 },
+        elevation: 4,
     },
     toggleRow: {
         flexDirection: 'row',
@@ -1578,12 +1598,19 @@ const styles = StyleSheet.create({
         borderRadius: 20,
     },
     toggleOptionActive: {
-        backgroundColor: '#FF6FA5',
+        backgroundColor: ACCENT,
+        shadowColor: ACCENT,
+        shadowOpacity: 0.55,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 2 },
+        elevation: 4,
     },
     toggleLabel: {
         fontSize: 12,
         fontWeight: '800',
-        color: 'rgba(255,255,255,0.4)',
+    },
+    toggleLabelInactive: {
+        color: 'rgba(201,166,255,0.75)',
     },
     toggleLabelActive: {
         color: '#FFFFFF',
@@ -1593,7 +1620,7 @@ const styles = StyleSheet.create({
         position: 'absolute',
         top: -6,
         right: -6,
-        backgroundColor: "#F59E0B",
+        backgroundColor: GOLD,
         borderRadius: 8,
         paddingHorizontal: 6,
         paddingVertical: 2,
@@ -1609,7 +1636,7 @@ const styles = StyleSheet.create({
     // 3D toggle PRO badge (legacy)
     proBadgeMini: {
         position: "absolute", top: -4, right: -4,
-        backgroundColor: "#F59E0B", borderRadius: 6,
+        backgroundColor: GOLD, borderRadius: 6,
         paddingHorizontal: 4, paddingVertical: 1,
     },
     proBadgeMiniText: {
@@ -1648,19 +1675,28 @@ const styles = StyleSheet.create({
     messageListContent: { padding: 16, paddingBottom: 8 },
     messageListContentEmpty: { flexGrow: 1, justifyContent: "center", alignItems: "center" },
     messageBubble: { maxWidth: "80%", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 18, marginBottom: 8 },
-    userBubble: { alignSelf: "flex-end", backgroundColor: "#FF6FA5", borderBottomRightRadius: 6 },
-    aiBubble: { alignSelf: "flex-start", backgroundColor: "rgba(15, 5, 30, 0.75)", borderWidth: 1, borderColor: "rgba(255, 143, 184, 0.2)", borderBottomLeftRadius: 6 },
+    userBubble: {
+        alignSelf: "flex-end",
+        backgroundColor: ACCENT,
+        borderBottomRightRadius: 6,
+        shadowColor: ACCENT_GLOW,
+        shadowOpacity: 1,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 3 },
+        elevation: 4,
+    },
+    aiBubble: { alignSelf: "flex-start", backgroundColor: GLASS_FILL, borderWidth: 1, borderColor: GLASS_BORDER, borderBottomLeftRadius: 6 },
     userBubbleLiquid: {
         alignSelf: "flex-end",
         borderBottomRightRadius: 6,
-        backgroundColor: Platform.OS === 'android' ? 'rgba(255, 143, 184, 0.2)' : 'transparent',
+        backgroundColor: Platform.OS === 'android' ? 'rgba(255, 107, 157, 0.22)' : 'transparent',
     },
     aiBubbleLiquid: {
         alignSelf: "flex-start",
         borderBottomLeftRadius: 6,
         backgroundColor: Platform.OS === 'android' ? 'rgba(15, 5, 30, 0.3)' : 'transparent',
     },
-    aiName: { fontSize: 11, fontWeight: "600", color: "rgba(255, 143, 184, 0.8)", marginBottom: 3 },
+    aiName: { fontSize: 11, fontWeight: "700", color: "rgba(255, 150, 190, 0.95)", marginBottom: 3, letterSpacing: 0.2 },
     messageText: {
         fontSize: 14, lineHeight: 20,
     },
@@ -1677,7 +1713,7 @@ const styles = StyleSheet.create({
     },
     lockBadge: {
         width: 48, height: 48, borderRadius: 24,
-        backgroundColor: "rgba(255, 111, 165, 0.6)",
+        backgroundColor: "rgba(255, 107, 157, 0.6)",
         alignItems: "center", justifyContent: "center",
         marginBottom: 8,
     },
@@ -1706,7 +1742,7 @@ const styles = StyleSheet.create({
         flexDirection: "row", alignItems: "flex-end",
         paddingHorizontal: 16, paddingVertical: 10,
         paddingBottom: Platform.OS === "ios" ? 30 : 10,
-        borderTopWidth: 1, borderTopColor: "rgba(255, 143, 184, 0.08)", gap: 10,
+        borderTopWidth: 1, borderTopColor: "rgba(255, 255, 255, 0.06)", gap: 10,
     },
     textInput: {
         flex: 1, backgroundColor: "rgba(255, 143, 184, 0.08)",
@@ -1720,7 +1756,9 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
         minHeight: 44,
         maxHeight: 120,
-        backgroundColor: Platform.OS === 'android' ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
+        borderWidth: Platform.OS === 'android' ? 1 : 0,
+        borderColor: GLASS_BORDER,
+        backgroundColor: Platform.OS === 'android' ? GLASS_FILL : 'transparent',
         justifyContent: 'center',
     },
     inputBlurWrapper: {
@@ -1730,9 +1768,9 @@ const styles = StyleSheet.create({
         minHeight: 44,
         maxHeight: 120,
         justifyContent: 'center',
-        backgroundColor: 'rgba(18,10,28,0.55)',
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: 'rgba(255,255,255,0.18)',
+        backgroundColor: GLASS_FILL,
+        borderWidth: 1,
+        borderColor: GLASS_BORDER,
     },
     textInputLiquid: {
         flex: 1,
@@ -1744,5 +1782,5 @@ const styles = StyleSheet.create({
     },
     sendBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: "#9B59FF", justifyContent: "center", alignItems: "center" },
     sendBtnLiquid: { width: 44, height: 44, borderRadius: 22 },
-    sendBtnDisabled: { backgroundColor: "rgba(255, 143, 184, 0.3)" },
+    sendBtnDisabled: { backgroundColor: "rgba(255, 107, 157, 0.3)" },
 });

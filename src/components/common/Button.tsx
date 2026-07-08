@@ -9,6 +9,11 @@ import Icon from '../Icon/Icon';
 import Typography from '../Typography/Typography';
 import { HapticPressable } from '../haptic-pressable';
 
+// Default glass for `liquid` buttons when no tintColor is supplied: a solid,
+// legible dark-violet fill (not real-time blur) so icons read on any scene.
+const LIQUID_DEFAULT_TINT = 'rgba(32, 16, 54, 0.72)';
+const LIQUID_GLASS_BORDER = 'rgba(201, 166, 255, 0.24)';
+
 export interface ButtonProps {
   children?: React.ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
@@ -152,11 +157,11 @@ const Button: React.FC<ButtonProps> = ({
             }).button,
             {
               backgroundColor:
-                Platform.OS === 'android' ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
-            }, // Android needs slight white bg
+                Platform.OS === 'android' ? LIQUID_DEFAULT_TINT : 'transparent',
+            }, // Android needs a solid fill behind the glass
             style,
           ]}
-          tintColor={tintColor}
+          tintColor={tintColor ?? LIQUID_DEFAULT_TINT}
         >
           {buttonContent}
         </LiquidGlassView>
@@ -184,9 +189,9 @@ const Button: React.FC<ButtonProps> = ({
         style={({ pressed }) => [
           liquidBtnStyle,
           {
-            backgroundColor: tintColor || 'rgba(18,10,28,0.55)',
-            borderWidth: StyleSheet.hairlineWidth,
-            borderColor: 'rgba(255,255,255,0.18)',
+            backgroundColor: tintColor || LIQUID_DEFAULT_TINT,
+            borderWidth: 1,
+            borderColor: LIQUID_GLASS_BORDER,
           },
           pressed && { opacity: 0.85 },
           style,
