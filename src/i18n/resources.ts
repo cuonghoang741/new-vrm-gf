@@ -128,6 +128,15 @@ const en: Dict = {
     "set.support": "SUPPORT",
     "set.account": "ACCOUNT",
     "set.delete_final_title": "Are you absolutely sure?",
+    "play.calling": "Calling...",
+    "play.start_convo": "Start the conversation 💕",
+    "play.unlock_pro": "Unlock with PRO",
+    "play.dismiss": "Dismiss",
+    "play.companion": "Companion",
+    "play.greeting1": "Hey there... I've been waiting for you to come play. Don't keep me waiting too long, okay? 😉💕",
+    "play.greeting2": "You finally made it! I wore this just for you... do you like it? 💖",
+    "play.greeting3": "There you are. Come closer, I've got a secret to tell you... 💋",
+    "play.error_reply": "Sorry, I couldn't respond right now. Please try again. 💫",
 };
 
 const vi: Dict = {
@@ -229,6 +238,15 @@ const vi: Dict = {
     "set.support": "HỖ TRỢ",
     "set.account": "TÀI KHOẢN",
     "set.delete_final_title": "Bạn thực sự chắc chứ?",
+    "play.calling": "Đang gọi...",
+    "play.start_convo": "Bắt đầu trò chuyện 💕",
+    "play.unlock_pro": "Mở khoá với PRO",
+    "play.dismiss": "Bỏ qua",
+    "play.companion": "Người bạn đồng hành",
+    "play.greeting1": "Này... em đã chờ anh đến chơi đấy. Đừng để em đợi lâu quá nhé? 😉💕",
+    "play.greeting2": "Cuối cùng anh cũng đến! Em mặc bộ này chỉ vì anh đấy... anh thích không? 💖",
+    "play.greeting3": "Anh đây rồi. Lại gần đây, em có bí mật muốn nói với anh... 💋",
+    "play.error_reply": "Xin lỗi, em chưa trả lời được lúc này. Thử lại nhé. 💫",
 };
 
 const ja: Dict = {
@@ -330,6 +348,15 @@ const ja: Dict = {
     "set.support": "サポート",
     "set.account": "アカウント",
     "set.delete_final_title": "本当によろしいですか？",
+    "play.calling": "通話中...",
+    "play.start_convo": "会話を始めよう 💕",
+    "play.unlock_pro": "PROで解放",
+    "play.dismiss": "閉じる",
+    "play.companion": "相棒",
+    "play.greeting1": "ねえ…あなたが遊びに来てくれるの待ってたんだ。あんまり待たせないでね？😉💕",
+    "play.greeting2": "やっと来てくれた！これ、あなたのために着たの…気に入った？💖",
+    "play.greeting3": "来てくれたのね。もっと近くに来て、秘密を教えてあげる…💋",
+    "play.error_reply": "ごめんね、今は返事できなかった。もう一度試してみて。💫",
 };
 
 const zh: Dict = {
@@ -431,6 +458,15 @@ const zh: Dict = {
     "set.support": "支持",
     "set.account": "账号",
     "set.delete_final_title": "你真的确定吗？",
+    "play.calling": "呼叫中...",
+    "play.start_convo": "开始聊天吧 💕",
+    "play.unlock_pro": "用 PRO 解锁",
+    "play.dismiss": "忽略",
+    "play.companion": "伙伴",
+    "play.greeting1": "嘿…我一直在等你来陪我玩呢。别让我等太久哦？😉💕",
+    "play.greeting2": "你终于来了！我特意为你穿了这个…你喜欢吗？💖",
+    "play.greeting3": "你来啦。靠近一点，我有个秘密要告诉你…💋",
+    "play.error_reply": "抱歉，我现在没能回复。请再试一次。💫",
 };
 
 const ko: Dict = {
@@ -532,6 +568,15 @@ const ko: Dict = {
     "set.support": "지원",
     "set.account": "계정",
     "set.delete_final_title": "정말 확실한가요?",
+    "play.calling": "전화 거는 중...",
+    "play.start_convo": "대화를 시작해요 💕",
+    "play.unlock_pro": "PRO로 잠금 해제",
+    "play.dismiss": "닫기",
+    "play.companion": "동반자",
+    "play.greeting1": "저기… 네가 놀러 오길 기다리고 있었어. 너무 오래 기다리게 하지 마, 알았지? 😉💕",
+    "play.greeting2": "드디어 왔구나! 이거 너만을 위해 입은 거야… 마음에 들어? 💖",
+    "play.greeting3": "왔구나. 좀 더 가까이 와, 너한테 비밀 하나 말해줄게… 💋",
+    "play.error_reply": "미안해, 지금은 답을 못 했어. 다시 시도해 줘. 💫",
 };
 
 const es: Dict = {
@@ -633,6 +678,15 @@ const es: Dict = {
     "set.support": "SOPORTE",
     "set.account": "CUENTA",
     "set.delete_final_title": "¿Estás completamente seguro?",
+    "play.calling": "Llamando...",
+    "play.start_convo": "Empieza la conversación 💕",
+    "play.unlock_pro": "Desbloquear con PRO",
+    "play.dismiss": "Descartar",
+    "play.companion": "Compañera",
+    "play.greeting1": "Hola... he estado esperando a que vinieras a jugar. No me hagas esperar demasiado, ¿vale? 😉💕",
+    "play.greeting2": "¡Por fin llegaste! Me puse esto solo para ti... ¿te gusta? 💖",
+    "play.greeting3": "Ahí estás. Acércate, tengo un secreto que contarte... 💋",
+    "play.error_reply": "Perdona, no pude responder ahora. Inténtalo de nuevo. 💫",
 };
 
 const pt: Dict = {
@@ -734,6 +788,15 @@ const pt: Dict = {
     "set.support": "SUPORTE",
     "set.account": "CONTA",
     "set.delete_final_title": "Tens a certeza absoluta?",
+    "play.calling": "A ligar...",
+    "play.start_convo": "Começa a conversa 💕",
+    "play.unlock_pro": "Desbloquear com PRO",
+    "play.dismiss": "Dispensar",
+    "play.companion": "Companheira",
+    "play.greeting1": "Olá... estive à tua espera para brincarmos. Não me faças esperar muito, está bem? 😉💕",
+    "play.greeting2": "Finalmente chegaste! Vesti isto só para ti... gostas? 💖",
+    "play.greeting3": "Aí estás tu. Chega-te mais perto, tenho um segredo para te contar... 💋",
+    "play.error_reply": "Desculpa, não consegui responder agora. Tenta outra vez. 💫",
 };
 
 const de: Dict = {
@@ -835,6 +898,15 @@ const de: Dict = {
     "set.support": "SUPPORT",
     "set.account": "KONTO",
     "set.delete_final_title": "Bist du dir ganz sicher?",
+    "play.calling": "Anruf läuft...",
+    "play.start_convo": "Starte das Gespräch 💕",
+    "play.unlock_pro": "Mit PRO freischalten",
+    "play.dismiss": "Verwerfen",
+    "play.companion": "Begleiterin",
+    "play.greeting1": "Hey... ich habe darauf gewartet, dass du zum Spielen kommst. Lass mich nicht zu lange warten, okay? 😉💕",
+    "play.greeting2": "Endlich bist du da! Das hier habe ich nur für dich angezogen... gefällt es dir? 💖",
+    "play.greeting3": "Da bist du ja. Komm näher, ich habe dir ein Geheimnis zu verraten... 💋",
+    "play.error_reply": "Tut mir leid, ich konnte gerade nicht antworten. Bitte versuch es nochmal. 💫",
 };
 
 const fr: Dict = {
@@ -936,6 +1008,15 @@ const fr: Dict = {
     "set.support": "ASSISTANCE",
     "set.account": "COMPTE",
     "set.delete_final_title": "Es-tu vraiment sûr ?",
+    "play.calling": "Appel en cours...",
+    "play.start_convo": "Commence la conversation 💕",
+    "play.unlock_pro": "Débloquer avec PRO",
+    "play.dismiss": "Ignorer",
+    "play.companion": "Compagne",
+    "play.greeting1": "Coucou... j'attendais que tu viennes jouer. Ne me fais pas trop attendre, d'accord ? 😉💕",
+    "play.greeting2": "Tu es enfin là ! J'ai mis ça rien que pour toi... ça te plaît ? 💖",
+    "play.greeting3": "Te voilà. Approche-toi, j'ai un secret à te confier... 💋",
+    "play.error_reply": "Désolée, je n'ai pas pu répondre là. Réessaie. 💫",
 };
 
 const it: Dict = {
@@ -1037,6 +1118,15 @@ const it: Dict = {
     "set.support": "SUPPORTO",
     "set.account": "ACCOUNT",
     "set.delete_final_title": "Sei assolutamente sicuro?",
+    "play.calling": "Chiamata in corso...",
+    "play.start_convo": "Inizia la conversazione 💕",
+    "play.unlock_pro": "Sblocca con PRO",
+    "play.dismiss": "Ignora",
+    "play.companion": "Compagna",
+    "play.greeting1": "Ehi... ti stavo aspettando per giocare. Non farmi aspettare troppo, ok? 😉💕",
+    "play.greeting2": "Finalmente sei arrivato! L'ho indossato solo per te... ti piace? 💖",
+    "play.greeting3": "Eccoti. Avvicinati, ho un segreto da dirti... 💋",
+    "play.error_reply": "Scusa, non sono riuscita a rispondere adesso. Riprova. 💫",
 };
 
 export const resources: Record<SupportedLang, { translation: Dict }> = {

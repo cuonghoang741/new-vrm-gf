@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import React, {
     useRef,
     useState,
@@ -102,6 +103,7 @@ interface CachedCharacter {
 }
 
 export default function PlayScreen() {
+    const { t } = useTranslation();
     const { user, setIsOnboarded } = useAuth();
     const vrmRef = useRef<VRMViewerHandle>(null);
     const flatListRef = useRef<FlatList>(null);
@@ -123,7 +125,7 @@ export default function PlayScreen() {
 
     // Character state
     const [characterId, setCharacterId] = useState<string | null>(null);
-    const [characterName, setCharacterName] = useState("Companion");
+    const [characterName, setCharacterName] = useState(t("play.companion"));
     const [characterModelUrl, setCharacterModelUrl] = useState<string | null>(null);
     const [baseModelUrl, setBaseModelUrl] = useState<string | null>(null);
     const [characterThumbnail, setCharacterThumbnail] = useState<string | null>(null);
@@ -524,10 +526,10 @@ export default function PlayScreen() {
             if (history.length === 0) {
                 // If chat is entirely empty, inject a random flirty default message
                 const flirtyGreetings = [
-                    "Hey there... I've been waiting for you to come play. Don't keep me waiting too long, okay? 😉💕",
+                    t("play.greeting1"),
                     "I was just thinking about you... and hoping you'd show up. Ready to have some fun? ✨",
-                    "You finally made it! I wore this just for you... do you like it? 💖",
-                    "There you are. Come closer, I've got a secret to tell you... 💋",
+                    t("play.greeting2"),
+                    t("play.greeting3"),
                     "I've been so bored without you. Thrilled you're finally here to entertain me. 😘"
                 ];
                 const defaultMsgText = flirtyGreetings[Math.floor(Math.random() * flirtyGreetings.length)];
@@ -777,7 +779,7 @@ export default function PlayScreen() {
             setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
         } catch (error) {
             console.error("[PlayScreen] Chat error:", error);
-            const errMsg: ChatMessage = { id: `err-${Date.now()}`, role: "model", text: "Sorry, I couldn't respond right now. Please try again. 💫", createdAt: new Date() };
+            const errMsg: ChatMessage = { id: `err-${Date.now()}`, role: "model", text: t("play.error_reply"), createdAt: new Date() };
             setMessages((prev) => [...prev, errMsg]);
             setIsSending(false);
         }
@@ -1093,7 +1095,7 @@ export default function PlayScreen() {
                     </View>
 
                     <Text style={{ fontSize: 32, fontWeight: 'bold', color: '#fff', marginTop: 30 }}>{characterName}</Text>
-                    <Animated.Text style={{ fontSize: 18, color: 'rgba(255,255,255,0.7)', opacity: pulseAnim, marginTop: 10 }}>Calling...</Animated.Text>
+                    <Animated.Text style={{ fontSize: 18, color: 'rgba(255,255,255,0.7)', opacity: pulseAnim, marginTop: 10 }}>{t("play.calling")}</Animated.Text>
 
                     {/* End Call Button */}
                     <Pressable
@@ -1262,7 +1264,7 @@ export default function PlayScreen() {
                                     >
                                         <Text style={styles.emptyChatEmoji}>👋</Text>
                                         <Text style={styles.emptyChatTitle}>Say hello to {characterName}</Text>
-                                        <Text style={styles.emptyChatSub}>Start the conversation 💕</Text>
+                                        <Text style={styles.emptyChatSub}>{t("play.start_convo")}</Text>
                                     </BlurView>
                                 </View>
                             }
@@ -1449,7 +1451,7 @@ export default function PlayScreen() {
                             style={{ backgroundColor: ACCENT, paddingHorizontal: 30, paddingVertical: 14, borderRadius: 30, shadowColor: ACCENT, shadowOpacity: 0.5, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 6 }}
                             onPress={() => setSubscriptionOpen(true)}
                         >
-                            <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>Unlock with PRO</Text>
+                            <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>{t("play.unlock_pro")}</Text>
                         </Pressable>
                         <Pressable
                             style={{ marginTop: 20, padding: 10 }}
@@ -1463,7 +1465,7 @@ export default function PlayScreen() {
                                 }
                             }}
                         >
-                            <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 14 }}>Dismiss</Text>
+                            <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 14 }}>{t("play.dismiss")}</Text>
                         </Pressable>
                     </View>
                 </BlurView>
