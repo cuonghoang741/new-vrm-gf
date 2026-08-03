@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import {
     View,
     Text,
@@ -65,6 +66,7 @@ interface OnboardingScreenProps {
 export default function OnboardingScreen({
     onComplete,
 }: OnboardingScreenProps) {
+    const { t } = useTranslation();
     const { user } = useAuth();
     const [step, setStep] = useState(0); // 0: age, 1: personality, 2: interests, 3: matching/result
     const [selectedAge, setSelectedAge] = useState<string | null>(null);
@@ -144,7 +146,7 @@ export default function OnboardingScreen({
             const chars = await getCharacters();
 
             if (!chars || chars.length === 0) {
-                Alert.alert("Error", "Could not find characters.");
+                Alert.alert(t("onb.err_title"), t("onb.err_no_characters"));
                 setIsMatching(false);
                 return;
             }
@@ -175,7 +177,7 @@ export default function OnboardingScreen({
             }, remainingDelay);
         } catch (e) {
             console.error("[Onboarding] Match error:", e);
-            Alert.alert("Error", "Something went wrong. Please try again.");
+            Alert.alert(t("onb.err_title"), t("onb.err_generic"));
             setIsMatching(false);
         }
     }, [animateTransition, scaleAnim]);
@@ -241,7 +243,7 @@ export default function OnboardingScreen({
 
             await saveWithRetry();
 
-            // Add a small 800ms artificial delay for the UX "Setting up..." animation
+            // Add a small 800ms artificial delay for the UX "{t("onb.setting_up")}" animation
             await new Promise(resolve => setTimeout(resolve, 800));
         } catch (e) {
             console.error("[Onboarding] Save error:", e);
@@ -269,15 +271,15 @@ export default function OnboardingScreen({
     };
 
     const stepTitles = [
-        "How old are you?",
-        "What's your vibe?",
-        "What do you enjoy?",
+        t("onb.step1_title"),
+        t("onb.step2_title"),
+        t("onb.step3_title"),
     ];
 
     const stepSubtitles = [
-        "We'll personalize your experience",
-        "Choose traits that describe you",
-        "Pick your favorite activities",
+        t("onb.step1_sub"),
+        t("onb.step2_sub"),
+        t("onb.step3_sub"),
     ];
 
     return (
@@ -365,7 +367,7 @@ export default function OnboardingScreen({
                                                     isSelected && chipStyles.chipLabelActive,
                                                 ]}
                                             >
-                                                {p.label}
+                                                {t(`trait.${p.key}`)}
                                             </Text>
                                             {isSelected && (
                                                 <IconCheck
@@ -409,7 +411,7 @@ export default function OnboardingScreen({
                                                     isSelected && chipStyles.chipLabelActive,
                                                 ]}
                                             >
-                                                {i.label}
+                                                {t(`activity.${i.key}`)}
                                             </Text>
                                             {isSelected && (
                                                 <IconCheck
@@ -432,7 +434,7 @@ export default function OnboardingScreen({
                                 <View style={styles.matchingAnimation}>
                                     <IconSparkles size={48} color="#E85C93" />
                                     <Text style={styles.matchingText}>
-                                        Finding your perfect companion...
+                                        {t("onb.finding")}
                                     </Text>
                                     <View style={styles.matchingDots}>
                                         {[0, 1, 2].map((i) => (
@@ -526,7 +528,7 @@ export default function OnboardingScreen({
                         activeOpacity={0.8}
                     >
                         <Text style={styles.nextButtonText}>
-                            {step === 2 ? "Find my companion" : "Continue"}
+                            {step === 2 ? t("onb.find_companion") : t("common.continue")}
                         </Text>
                         <IconArrowRight size={20} color="#FFFFFF" />
                     </TouchableOpacity>
