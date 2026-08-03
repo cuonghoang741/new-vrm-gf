@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import React, { useEffect, useState, useCallback, useRef, forwardRef, useImperativeHandle } from "react";
 import {
     View,
@@ -48,6 +49,7 @@ type TabKey = "image" | "video";
 
 const MediaSheet = forwardRef<MediaSheetRef, MediaSheetProps>(
     ({ isOpened, onIsOpenedChange, characterId, onOpenSubscription }, ref) => {
+        const { t } = useTranslation();
         const sheetRef = useRef<BottomSheetRef>(null);
         const { isPro } = useSubscription();
 
@@ -182,9 +184,9 @@ const MediaSheet = forwardRef<MediaSheetRef, MediaSheetProps>(
             if (errorMessage) {
                 return (
                     <View style={styles.centerContainer}>
-                        <Text style={styles.errorText}>Failed to load</Text>
+                        <Text style={styles.errorText}>{t("common.failed_load")}</Text>
                         <Pressable onPress={load}>
-                            <Text style={styles.retryText}>Retry</Text>
+                            <Text style={styles.retryText}>{t("common.retry")}</Text>
                         </Pressable>
                     </View>
                 );
@@ -219,7 +221,7 @@ const MediaSheet = forwardRef<MediaSheetRef, MediaSheetProps>(
                 isOpened={isOpened}
                 onIsOpenedChange={onIsOpenedChange}
                 backgroundBlur="system-thick-material-dark"
-                title="Gallery"
+                title={t("media.title")}
                 isDarkBackground
                 detents={[0.7, 0.95]}
             >

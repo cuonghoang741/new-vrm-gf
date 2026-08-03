@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import React, { useState, useCallback, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 import {
     View,
@@ -35,7 +36,8 @@ const EditProfileSheet = forwardRef<EditProfileSheetRef, EditProfileSheetProps>(
     currentAvatar,
     onProfileUpdated,
 }, ref) => {
-    const sheetRef = useRef<BottomSheetRef>(null);
+    const { t } = useTranslation();
+        const sheetRef = useRef<BottomSheetRef>(null);
     const [name, setName] = useState("");
     const [bio, setBio] = useState("");
     const [saving, setSaving] = useState(false);
@@ -63,7 +65,7 @@ const EditProfileSheet = forwardRef<EditProfileSheetRef, EditProfileSheetProps>(
 
     const handleSave = useCallback(async () => {
         if (!userId || !name.trim()) {
-            Alert.alert("Error", "Display name cannot be empty");
+            Alert.alert(t("common.error"), t("edit.name_empty"));
             return;
         }
 
@@ -85,7 +87,7 @@ const EditProfileSheet = forwardRef<EditProfileSheetRef, EditProfileSheetProps>(
             onIsOpenedChange(false);
             sheetRef.current?.dismiss();
         } catch (e: any) {
-            Alert.alert("Error", e.message || "Failed to save profile");
+            Alert.alert(t("common.error"), e.message || t("edit.save_failed"));
         } finally {
             setSaving(false);
         }
@@ -98,7 +100,7 @@ const EditProfileSheet = forwardRef<EditProfileSheetRef, EditProfileSheetProps>(
             ref={sheetRef}
             isOpened={isOpened}
             onIsOpenedChange={onIsOpenedChange}
-            title="Edit Profile"
+            title={t("edit.title")}
             isDarkBackground
             detents={[0.6, 0.85]}
             backgroundBlur="system-thick-material-dark"
@@ -127,7 +129,7 @@ const EditProfileSheet = forwardRef<EditProfileSheetRef, EditProfileSheetProps>(
                                     <IconCamera size={16} color="#FFFFFF" />
                                 </View>
                             </TouchableOpacity>
-                            <Text style={styles.changePhotoText}>Tap to change photo</Text>
+                            <Text style={styles.changePhotoText}>{t("edit.tap_photo")}</Text>
                         </View>
 
                         {/* Name */}
@@ -138,7 +140,7 @@ const EditProfileSheet = forwardRef<EditProfileSheetRef, EditProfileSheetProps>(
                                     style={styles.input}
                                     value={name}
                                     onChangeText={setName}
-                                    placeholder="Enter your name"
+                                    placeholder={t("edit.name_ph")}
                                     placeholderTextColor="rgba(255,255,255,0.25)"
                                     maxLength={30}
                                     returnKeyType="next"
@@ -154,7 +156,7 @@ const EditProfileSheet = forwardRef<EditProfileSheetRef, EditProfileSheetProps>(
                                     style={[styles.input, styles.bioInput]}
                                     value={bio}
                                     onChangeText={setBio}
-                                    placeholder="Tell us about yourself..."
+                                    placeholder={t("edit.about_ph")}
                                     placeholderTextColor="rgba(255,255,255,0.25)"
                                     multiline
                                     maxLength={160}
@@ -173,7 +175,7 @@ const EditProfileSheet = forwardRef<EditProfileSheetRef, EditProfileSheetProps>(
                         >
                             <IconCheck size={20} color="#FFFFFF" />
                             <Text style={styles.saveButtonText}>
-                                {saving ? "Saving..." : "Save Changes"}
+                                {saving ? t("common.saving") : t("edit.save")}
                             </Text>
                         </TouchableOpacity>
                     </ScrollView>

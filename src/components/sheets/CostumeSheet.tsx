@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import React, { useEffect, useState, useCallback, useRef, forwardRef, useImperativeHandle } from "react";
 import {
     View,
@@ -55,7 +56,8 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
     onOpenSubscription,
     userId,
 }, ref) => {
-    const sheetRef = useRef<BottomSheetRef>(null);
+    const { t } = useTranslation();
+        const sheetRef = useRef<BottomSheetRef>(null);
     const [costumes, setCostumes] = useState<Costume[]>([]);
     const [ownedIds, setOwnedIds] = useState<Set<string>>(new Set());
     const [tempUnlocked, setTempUnlocked] = useState<Set<string>>(new Set());
@@ -94,7 +96,7 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
             }
         } catch (e: any) {
             console.error("[CostumeSheet] Failed to load:", e);
-            setErrorMessage(e.message || "Failed to load");
+            setErrorMessage(e.message || t("common.failed_load"));
         } finally {
             setLoading(false);
         }
@@ -170,12 +172,12 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
                 applySelection(costume);
             } else if (res.error === "insufficient") {
                 Alert.alert(
-                    "Not enough ruby 💎",
+                    t("common.not_enough_ruby"),
                     `You need ${res.need} ruby but have ${res.have}. Check in daily to earn more!`,
-                    [{ text: "OK" }, { text: "Upgrade PRO", onPress: goPro }]
+                    [{ text: "OK" }, { text: t("common.upgrade_pro"), onPress: goPro }]
                 );
             } else {
-                Alert.alert("Purchase failed", res.error || "Please try again.");
+                Alert.alert(t("common.purchase_failed"), res.error || t("common.try_again"));
             }
         },
         [userId, applySelection, goPro]
@@ -188,16 +190,16 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
             if (isProItem && !isPro && !isOwned) {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
                 const price = costume.price_ruby ?? 0;
-                const buttons: any[] = [{ text: "Cancel", style: "cancel" }];
-                buttons.push({ text: "Upgrade PRO", onPress: goPro });
+                const buttons: any[] = [{ text: t("common.cancel"), style: "cancel" }];
+                buttons.push({ text: t("common.upgrade_pro"), onPress: goPro });
                 if (price > 0 && userId) {
                     buttons.push({ text: `Buy • ${price} 💎`, onPress: () => doBuy(costume, price) });
                 }
                 Alert.alert(
-                    "Locked costume",
+                    t("cos.locked"),
                     price > 0
                         ? `Unlock with ${price} 💎 ruby, or upgrade PRO to unlock everything.`
-                        : "Upgrade to PRO to unlock this costume.",
+                        : t("cos.locked_body"),
                     buttons
                 );
                 return;
@@ -275,9 +277,9 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
         if (errorMessage) {
             return (
                 <View style={styles.centerContainer}>
-                    <Text style={styles.errorText}>Failed to load</Text>
+                    <Text style={styles.errorText}>{t("common.failed_load")}</Text>
                     <Pressable onPress={load}>
-                        <Text style={styles.retryText}>Retry</Text>
+                        <Text style={styles.retryText}>{t("common.retry")}</Text>
                     </Pressable>
                 </View>
             );
@@ -285,7 +287,7 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
         if (costumes.length === 0) {
             return (
                 <View style={styles.centerContainer}>
-                    <Text style={{ color: "rgba(255,255,255,0.5)" }}>No costumes available</Text>
+                    <Text style={{ color: "rgba(255,255,255,0.5)" }}>{t("cos.none")}</Text>
                 </View>
             );
         }
@@ -320,7 +322,7 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
             isOpened={isOpened}
             onIsOpenedChange={onIsOpenedChange}
             backgroundBlur="system-thick-material-dark"
-            title="Costumes"
+            title={t("cos.title")}
             isDarkBackground
             detents={[0.7, 0.95]}
         >
