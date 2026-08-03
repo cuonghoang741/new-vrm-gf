@@ -73,6 +73,18 @@ const en: Dict = {
     "activity.fitness": "Fitness",
     "activity.nature": "Nature",
     "activity.fashion": "Fashion",
+    "common.error": "Error",
+    "signin.apple": "Continue with Apple",
+    "signin.google": "Continue with Google",
+    "signin.terms_prefix": "By continuing, you agree to our",
+    "signin.tos": "Terms of Service",
+    "signin.privacy": "Privacy Policy",
+    "signin.eula": "EULA",
+    "signin.terms_and": "and",
+    "signin.apple_ios_title": "Not Available",
+    "signin.apple_ios_body": "Apple Sign-In is only available on iOS.",
+    "signin.err_apple": "Failed to sign in with Apple. Please try again.",
+    "signin.err_google": "Failed to sign in with Google. Please try again.",
 };
 
 const vi: Dict = {
@@ -119,6 +131,18 @@ const vi: Dict = {
     "activity.fitness": "Thể hình",
     "activity.nature": "Thiên nhiên",
     "activity.fashion": "Thời trang",
+    "common.error": "Lỗi",
+    "signin.apple": "Tiếp tục với Apple",
+    "signin.google": "Tiếp tục với Google",
+    "signin.terms_prefix": "Khi tiếp tục, bạn đồng ý với",
+    "signin.tos": "Điều khoản dịch vụ",
+    "signin.privacy": "Chính sách bảo mật",
+    "signin.eula": "EULA",
+    "signin.terms_and": "và",
+    "signin.apple_ios_title": "Không khả dụng",
+    "signin.apple_ios_body": "Đăng nhập Apple chỉ khả dụng trên iOS.",
+    "signin.err_apple": "Đăng nhập Apple thất bại. Vui lòng thử lại.",
+    "signin.err_google": "Đăng nhập Google thất bại. Vui lòng thử lại.",
 };
 
 const ja: Dict = {
@@ -165,6 +189,18 @@ const ja: Dict = {
     "activity.fitness": "フィットネス",
     "activity.nature": "自然",
     "activity.fashion": "ファッション",
+    "common.error": "エラー",
+    "signin.apple": "Appleで続ける",
+    "signin.google": "Googleで続ける",
+    "signin.terms_prefix": "続行すると、以下に同意したものとみなされます：",
+    "signin.tos": "利用規約",
+    "signin.privacy": "プライバシーポリシー",
+    "signin.eula": "EULA",
+    "signin.terms_and": "および",
+    "signin.apple_ios_title": "利用不可",
+    "signin.apple_ios_body": "AppleサインインはiOSでのみ利用できます。",
+    "signin.err_apple": "Appleでのサインインに失敗しました。もう一度お試しください。",
+    "signin.err_google": "Googleでのサインインに失敗しました。もう一度お試しください。",
 };
 
 const zh: Dict = {
@@ -211,6 +247,18 @@ const zh: Dict = {
     "activity.fitness": "健身",
     "activity.nature": "自然",
     "activity.fashion": "时尚",
+    "common.error": "错误",
+    "signin.apple": "使用 Apple 继续",
+    "signin.google": "使用 Google 继续",
+    "signin.terms_prefix": "继续即表示你同意我们的",
+    "signin.tos": "服务条款",
+    "signin.privacy": "隐私政策",
+    "signin.eula": "EULA",
+    "signin.terms_and": "和",
+    "signin.apple_ios_title": "不可用",
+    "signin.apple_ios_body": "Apple 登录仅在 iOS 上可用。",
+    "signin.err_apple": "Apple 登录失败，请重试。",
+    "signin.err_google": "Google 登录失败，请重试。",
 };
 
 const ko: Dict = {
@@ -257,6 +305,18 @@ const ko: Dict = {
     "activity.fitness": "피트니스",
     "activity.nature": "자연",
     "activity.fashion": "패션",
+    "common.error": "오류",
+    "signin.apple": "Apple로 계속하기",
+    "signin.google": "Google로 계속하기",
+    "signin.terms_prefix": "계속하면 다음에 동의하게 됩니다:",
+    "signin.tos": "서비스 약관",
+    "signin.privacy": "개인정보 처리방침",
+    "signin.eula": "EULA",
+    "signin.terms_and": "및",
+    "signin.apple_ios_title": "사용 불가",
+    "signin.apple_ios_body": "Apple 로그인은 iOS에서만 사용할 수 있어요.",
+    "signin.err_apple": "Apple 로그인에 실패했어요. 다시 시도해 주세요.",
+    "signin.err_google": "Google 로그인에 실패했어요. 다시 시도해 주세요.",
 };
 
 const es: Dict = {
@@ -303,6 +363,18 @@ const es: Dict = {
     "activity.fitness": "Fitness",
     "activity.nature": "Naturaleza",
     "activity.fashion": "Moda",
+    "common.error": "Error",
+    "signin.apple": "Continuar con Apple",
+    "signin.google": "Continuar con Google",
+    "signin.terms_prefix": "Al continuar, aceptas nuestros",
+    "signin.tos": "Términos del servicio",
+    "signin.privacy": "Política de privacidad",
+    "signin.eula": "EULA",
+    "signin.terms_and": "y",
+    "signin.apple_ios_title": "No disponible",
+    "signin.apple_ios_body": "El inicio con Apple solo está disponible en iOS.",
+    "signin.err_apple": "No se pudo iniciar sesión con Apple. Inténtalo de nuevo.",
+    "signin.err_google": "No se pudo iniciar sesión con Google. Inténtalo de nuevo.",
 };
 
 const pt: Dict = {
@@ -349,6 +421,18 @@ const pt: Dict = {
     "activity.fitness": "Fitness",
     "activity.nature": "Natureza",
     "activity.fashion": "Moda",
+    "common.error": "Erro",
+    "signin.apple": "Continuar com a Apple",
+    "signin.google": "Continuar com o Google",
+    "signin.terms_prefix": "Ao continuar, aceitas os nossos",
+    "signin.tos": "Termos de Serviço",
+    "signin.privacy": "Política de Privacidade",
+    "signin.eula": "EULA",
+    "signin.terms_and": "e",
+    "signin.apple_ios_title": "Indisponível",
+    "signin.apple_ios_body": "O início de sessão com Apple só está disponível no iOS.",
+    "signin.err_apple": "Falha ao iniciar sessão com a Apple. Tenta novamente.",
+    "signin.err_google": "Falha ao iniciar sessão com o Google. Tenta novamente.",
 };
 
 const de: Dict = {
@@ -395,6 +479,18 @@ const de: Dict = {
     "activity.fitness": "Fitness",
     "activity.nature": "Natur",
     "activity.fashion": "Mode",
+    "common.error": "Fehler",
+    "signin.apple": "Mit Apple fortfahren",
+    "signin.google": "Mit Google fortfahren",
+    "signin.terms_prefix": "Wenn du fortfährst, stimmst du unseren",
+    "signin.tos": "Nutzungsbedingungen",
+    "signin.privacy": "Datenschutzrichtlinie",
+    "signin.eula": "EULA",
+    "signin.terms_and": "und",
+    "signin.apple_ios_title": "Nicht verfügbar",
+    "signin.apple_ios_body": "Apple-Anmeldung ist nur unter iOS verfügbar.",
+    "signin.err_apple": "Anmeldung mit Apple fehlgeschlagen. Bitte versuche es erneut.",
+    "signin.err_google": "Anmeldung mit Google fehlgeschlagen. Bitte versuche es erneut.",
 };
 
 const fr: Dict = {
@@ -441,6 +537,18 @@ const fr: Dict = {
     "activity.fitness": "Fitness",
     "activity.nature": "Nature",
     "activity.fashion": "Mode",
+    "common.error": "Erreur",
+    "signin.apple": "Continuer avec Apple",
+    "signin.google": "Continuer avec Google",
+    "signin.terms_prefix": "En continuant, tu acceptes nos",
+    "signin.tos": "Conditions d'utilisation",
+    "signin.privacy": "Politique de confidentialité",
+    "signin.eula": "EULA",
+    "signin.terms_and": "et",
+    "signin.apple_ios_title": "Non disponible",
+    "signin.apple_ios_body": "La connexion Apple n'est disponible que sur iOS.",
+    "signin.err_apple": "Échec de la connexion avec Apple. Réessaie.",
+    "signin.err_google": "Échec de la connexion avec Google. Réessaie.",
 };
 
 const it: Dict = {
@@ -487,6 +595,18 @@ const it: Dict = {
     "activity.fitness": "Fitness",
     "activity.nature": "Natura",
     "activity.fashion": "Moda",
+    "common.error": "Errore",
+    "signin.apple": "Continua con Apple",
+    "signin.google": "Continua con Google",
+    "signin.terms_prefix": "Continuando, accetti i nostri",
+    "signin.tos": "Termini di servizio",
+    "signin.privacy": "Informativa sulla privacy",
+    "signin.eula": "EULA",
+    "signin.terms_and": "e",
+    "signin.apple_ios_title": "Non disponibile",
+    "signin.apple_ios_body": "L'accesso con Apple è disponibile solo su iOS.",
+    "signin.err_apple": "Accesso con Apple non riuscito. Riprova.",
+    "signin.err_google": "Accesso con Google non riuscito. Riprova.",
 };
 
 export const resources: Record<SupportedLang, { translation: Dict }> = {

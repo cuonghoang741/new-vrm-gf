@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import {
     View,
     Text,
@@ -56,6 +57,7 @@ function extractParamsFromUrl(url: string) {
 }
 
 export default function SignInScreen() {
+    const { t } = useTranslation();
     const [isAppleLoading, setIsAppleLoading] = useState(false);
     const [isGoogleLoading, setIsGoogleLoading] = useState(false);
     const [characters, setCharacters] = useState<CharacterPreview[]>([]);
@@ -96,7 +98,7 @@ export default function SignInScreen() {
 
     const handleAppleSignIn = useCallback(async () => {
         if (Platform.OS !== "ios") {
-            Alert.alert("Not Available", "Apple Sign-In is only available on iOS.");
+            Alert.alert(t("signin.apple_ios_title"), t("signin.apple_ios_body"));
             return;
         }
         setIsAppleLoading(true);
@@ -114,7 +116,7 @@ export default function SignInScreen() {
         } catch (error: any) {
             if (error.code !== "ERR_REQUEST_CANCELED") {
                 console.error("Apple Sign-In error:", error);
-                Alert.alert("Error", "Failed to sign in with Apple. Please try again.");
+                Alert.alert(t("common.error"), t("signin.err_apple"));
             }
         } finally {
             setIsAppleLoading(false);
@@ -144,7 +146,7 @@ export default function SignInScreen() {
             }
         } catch (error: any) {
             console.error("Google Sign-In error:", error);
-            Alert.alert("Error", "Failed to sign in with Google. Please try again.");
+            Alert.alert(t("common.error"), t("signin.err_google"));
         } finally {
             setIsGoogleLoading(false);
         }
@@ -300,7 +302,7 @@ export default function SignInScreen() {
                                         size={20}
                                         color="#FFFFFF"
                                     />
-                                    <Text style={styles.buttonText}>Continue with Apple</Text>
+                                    <Text style={styles.buttonText}>{t("signin.apple")}</Text>
                                 </>
                             )}
                         </TouchableOpacity>
@@ -320,17 +322,17 @@ export default function SignInScreen() {
                                     size={20}
                                 />
                                 <Text style={[styles.buttonText, styles.googleButtonText]}>
-                                    Continue with Google
+                                    {t("signin.google")}
                                 </Text>
                             </>
                         )}
                     </TouchableOpacity>
 
                     <Text style={styles.termsText}>
-                        By continuing, you agree to our{" "}
-                        <Text style={styles.termsLink} onPress={() => openBrowserSafe("https://personal-muse-3d.lovable.app/terms")}>Terms of Service</Text>,{" "}
-                        <Text style={styles.termsLink} onPress={() => openBrowserSafe("https://personal-muse-3d.lovable.app/privacy")}>Privacy Policy</Text> and{" "}
-                        <Text style={styles.termsLink} onPress={() => openBrowserSafe("https://personal-muse-3d.lovable.app/eula")}>EULA</Text>
+                        {t("signin.terms_prefix")}{" "}
+                        <Text style={styles.termsLink} onPress={() => openBrowserSafe("https://personal-muse-3d.lovable.app/terms")}>{t("signin.tos")}</Text>,{" "}
+                        <Text style={styles.termsLink} onPress={() => openBrowserSafe("https://personal-muse-3d.lovable.app/privacy")}>{t("signin.privacy")}</Text> {t("signin.terms_and")}{" "}
+                        <Text style={styles.termsLink} onPress={() => openBrowserSafe("https://personal-muse-3d.lovable.app/eula")}>{t("signin.eula")}</Text>
                     </Text>
                 </View>
             </View>
