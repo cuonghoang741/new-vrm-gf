@@ -15,6 +15,7 @@ import {
     setAppLanguage,
     currentLang,
 } from "../i18n";
+import { NativeAdCard } from "../components/ads/NativeAdCard";
 
 /**
  * Màn chọn ngôn ngữ — hiện ở lần mở app đầu tiên (trước SignIn), gated bằng
@@ -61,6 +62,11 @@ export default function LanguageScreen({ onDone }: { onDone: () => void }) {
                 }}
             />
 
+            {/* native_language — small native ad above the CTA (collapses for PRO / no-fill) */}
+            <View style={styles.adSlot}>
+                <NativeAdCard />
+            </View>
+
             <Pressable style={styles.cta} onPress={onDone}>
                 <Text style={styles.ctaText}>{t("common.continue")}</Text>
             </Pressable>
@@ -72,6 +78,7 @@ const PINK = "#FF6FA5";
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#0a0a1a" },
+    adSlot: { paddingHorizontal: 16 },
     header: { paddingHorizontal: 24, paddingTop: 24, paddingBottom: 8 },
     title: { color: "#fff", fontSize: 26, fontWeight: "800" },
     subtitle: { color: "rgba(255,255,255,0.6)", fontSize: 14, marginTop: 8 },
