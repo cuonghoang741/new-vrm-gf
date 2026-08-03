@@ -26,6 +26,7 @@ import { supabase } from "../config/supabase";
 import { useAuth } from "../hooks/useAuth";
 import { Characters } from "../types/database";
 import { getCharacters } from "../cache/charactersCache";
+import { NativeAdCard } from "../components/ads/NativeAdCard";
 import * as SecureStore from "expo-secure-store";
 
 const { width, height } = Dimensions.get("window");
@@ -518,6 +519,15 @@ export default function OnboardingScreen({
                         </View>
                     )}
                 </Animated.View>
+
+                {/* native_onboarding — only on the personality/interests steps
+                    (users dwell here), never on the age or the emotional match
+                    result. Collapses for PRO / no-fill. */}
+                {(step === 1 || step === 2) && (
+                    <View style={{ paddingHorizontal: 20, marginBottom: 10 }}>
+                        <NativeAdCard />
+                    </View>
+                )}
 
                 {/* Next button */}
                 {step < 3 && (

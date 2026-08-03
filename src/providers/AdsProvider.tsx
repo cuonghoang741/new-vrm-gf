@@ -23,7 +23,12 @@ export function AdsProvider({ children }: { children: ReactNode }) {
 
     const adRef = useRef<AppOpenAd | null>(null);
     const loadedRef = useRef(false);
+    const loadedAtRef = useRef(0);
     const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+
+    // Google App Open ads expire ~4h after load; a stale one fails to present,
+    // so we discard and reload it instead of showing (matches Yuuki's 4h expiry).
+    const APP_OPEN_EXPIRY_MS = 4 * 60 * 60 * 1000;
 
     useEffect(() => {
         let mounted = true;
@@ -37,6 +42,7 @@ export function AdsProvider({ children }: { children: ReactNode }) {
 
             const unsubLoaded = ad.addAdEventListener(AdEventType.LOADED, () => {
                 loadedRef.current = true;
+                loadedAtRef.current = Date.now();
             });
             const unsubError = ad.addAdEventListener(AdEventType.ERROR, () => {
                 loadedRef.current = false;
@@ -58,6 +64,11 @@ export function AdsProvider({ children }: { children: ReactNode }) {
             const ad = adRef.current;
             if (!ad || !loadedRef.current) {
                 load(); // not ready — preload for next time
+                return;
+            }
+            // Expired (loaded > 4h ago) → discard and reload, don't show a stale ad.
+            if (Date.now() - loadedAtRef.current > APP_OPEN_EXPIRY_MS) {
+                load();
                 return;
             }
 
