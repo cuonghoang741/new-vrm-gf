@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import React, { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import {
     View,
@@ -43,11 +44,11 @@ import { getCharacters } from "../../cache/charactersCache";
 import { supabase } from "../../config/supabase";
 
 const FEATURES = [
-    { icon: IconAdOff, text: "No ads — enjoy uninterrupted", color: "#FF6FA5" },
-    { icon: IconMessageHeart, text: "Unlimited messages, no limits", color: "#FF8FB8" },
-    { icon: IconCube3dSphere, text: "Full 3D VRM interaction experience", color: "#C8A8F0" },
-    { icon: IconUsers, text: "Access every character instantly", color: "#4CAF50" },
-    { icon: IconSparkles, text: "Premium costumes & animations", color: "#2196F3" },
+    { icon: IconAdOff, text: "sub.b1", color: "#FF6FA5" },
+    { icon: IconMessageHeart, text: "sub.b2", color: "#FF8FB8" },
+    { icon: IconCube3dSphere, text: "sub.b3", color: "#C8A8F0" },
+    { icon: IconUsers, text: "sub.b4", color: "#4CAF50" },
+    { icon: IconSparkles, text: "sub.b5", color: "#2196F3" },
 ];
 
 interface Props {
@@ -60,6 +61,7 @@ interface Props {
 }
 
 export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess, currentModelUrl, currentBackgroundUrl, currentCharacterId }: Props) {
+    const { t } = useTranslation();
     const insets = useSafeAreaInsets();
     const lastAnimRef = useRef<string>("");
     const {
@@ -82,7 +84,7 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
         if (proTapRef.current >= 7) {
             proTapRef.current = 0;
             enableTestPro();
-            Alert.alert("🔓 Test PRO enabled", "PRO unlocked on this device for testing.");
+            Alert.alert("🔓 Test PRO enabled", t("sub.testing_unlocked"));
             onClose();
         }
     }, [enableTestPro, onClose]);
@@ -324,7 +326,7 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
 
     const handleSubscribe = async () => {
         if (!selectedPackage) {
-            Alert.alert("Error", "No plan selected.");
+            Alert.alert(t("common.error"), t("sub.no_plan"));
             return;
         }
         setIsProcessing(true);
@@ -335,7 +337,7 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
             onPurchaseSuccess?.();
             onClose();
         } else if (result.error && result.error !== "cancelled") {
-            Alert.alert("Purchase Failed", result.error);
+            Alert.alert(t("sub.purchase_failed_title"), result.error);
         }
     };
 
@@ -346,11 +348,11 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
 
         if (result.isPro) {
             onPurchaseSuccess?.();
-            Alert.alert("Success", "Purchases restored!", [{ text: "OK", onPress: onClose }]);
+            Alert.alert(t("sub.success"), t("sub.restored"), [{ text: "OK", onPress: onClose }]);
         } else if (result.error) {
-            Alert.alert("Restore Failed", result.error);
+            Alert.alert(t("sub.restore_failed"), result.error);
         } else {
-            Alert.alert("Restore", "No active Pro subscription found.");
+            Alert.alert(t("sub.restore"), "No active Pro subscription found.");
         }
     };
 
@@ -530,7 +532,7 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                                     <View style={[styles.featureIcon, { backgroundColor: f.color + "20" }]}>
                                         <f.icon size={20} color={f.color} />
                                     </View>
-                                    <Text style={styles.featureText}>{f.text}</Text>
+                                    <Text style={styles.featureText}>{t(f.text)}</Text>
                                 </View>
                             ))}
                         </View>
@@ -571,7 +573,7 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                                                 isPro && activeProductId === monthlyPackage.product.identifier && styles.textActive,
                                             ]}
                                         >
-                                            MONTHLY
+                                            {t("sub.monthly")}
                                         </Text>
                                         <Text style={styles.planPrice}>{monthlyPackage.product.priceString}</Text>
                                     </View>
@@ -616,7 +618,7 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                                                 isPro && activeProductId === yearlyPackage.product.identifier && styles.textActive,
                                             ]}
                                         >
-                                            YEARLY
+                                            {t("sub.annual")}
                                         </Text>
                                         <Text style={styles.planPrice}>{yearlyPackage.product.priceString}</Text>
                                         <Text style={styles.perMonth}>
@@ -673,7 +675,7 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                         {/* Footer */}
                         <View style={styles.footerLinks}>
                             <Pressable onPress={handleRestore}>
-                                <Text style={styles.footerLink}>Restore</Text>
+                                <Text style={styles.footerLink}>{t("sub.restore")}</Text>
                             </Pressable>
                             <Text style={styles.footerDot}>•</Text>
                             <Pressable onPress={() => openBrowserSafe("https://personal-muse-3d.lovable.app/terms")}>
