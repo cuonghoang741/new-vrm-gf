@@ -6,13 +6,15 @@ import SignInScreen from "../screens/SignInScreen";
 import OnboardingScreen from "../screens/OnboardingScreen";
 import PlayScreen from "../screens/PlayScreen";
 import LanguageScreen from "../screens/LanguageScreen";
+import WelcomeBackScreen from "../screens/WelcomeBackScreen";
 import { View, StyleSheet, Image } from "react-native";
 import { initI18n, hasChosenLanguage, setAppLanguage, currentLang } from "../i18n";
-import { markAppOpened } from "../services/session";
+import { markAppOpened, isReturningSession } from "../services/session";
 
 export type RootStackParamList = {
     Splash: undefined;
     Language: undefined;
+    WelcomeBack: undefined;
     SignIn: undefined;
     Onboarding: undefined;
     Play: undefined;
@@ -40,6 +42,7 @@ export default function AppNavigator() {
     // language gate. Nothing with text renders until i18n is ready.
     const [booted, setBooted] = useState(false);
     const [needsLanguage, setNeedsLanguage] = useState(false);
+    const [welcomeBackDone, setWelcomeBackDone] = useState(false);
 
     useEffect(() => {
         (async () => {
@@ -87,6 +90,14 @@ export default function AppNavigator() {
                     <Stack.Screen name="Onboarding">
                         {() => (
                             <OnboardingScreen onComplete={handleOnboardingComplete} />
+                        )}
+                    </Stack.Screen>
+                ) : isReturningSession() && !welcomeBackDone ? (
+                    <Stack.Screen name="WelcomeBack">
+                        {() => (
+                            <WelcomeBackScreen
+                                onContinue={() => setWelcomeBackDone(true)}
+                            />
                         )}
                     </Stack.Screen>
                 ) : (

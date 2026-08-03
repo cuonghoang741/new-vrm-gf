@@ -178,6 +178,8 @@ const en: Dict = {
     "edit.name_ph": "Enter your name",
     "edit.about_ph": "Tell us about yourself...",
     "edit.save": "Save Changes",
+    "welcome.title": "Welcome back 💗",
+    "welcome.subtitle": "Your companions missed you",
 };
 
 const vi: Dict = {
@@ -329,6 +331,8 @@ const vi: Dict = {
     "edit.name_ph": "Nhập tên của bạn",
     "edit.about_ph": "Giới thiệu về bạn...",
     "edit.save": "Lưu thay đổi",
+    "welcome.title": "Chào mừng quay lại 💗",
+    "welcome.subtitle": "Người bạn đồng hành đã nhớ bạn",
 };
 
 const ja: Dict = {
@@ -480,6 +484,8 @@ const ja: Dict = {
     "edit.name_ph": "名前を入力",
     "edit.about_ph": "自己紹介を書いてね...",
     "edit.save": "変更を保存",
+    "welcome.title": "おかえりなさい 💗",
+    "welcome.subtitle": "あなたの相棒が待っていました",
 };
 
 const zh: Dict = {
@@ -631,6 +637,8 @@ const zh: Dict = {
     "edit.name_ph": "输入你的名字",
     "edit.about_ph": "介绍一下你自己...",
     "edit.save": "保存更改",
+    "welcome.title": "欢迎回来 💗",
+    "welcome.subtitle": "你的伙伴很想你",
 };
 
 const ko: Dict = {
@@ -782,6 +790,8 @@ const ko: Dict = {
     "edit.name_ph": "이름을 입력하세요",
     "edit.about_ph": "자신에 대해 알려주세요...",
     "edit.save": "변경 사항 저장",
+    "welcome.title": "다시 오신 걸 환영해요 💗",
+    "welcome.subtitle": "동반자가 당신을 그리워했어요",
 };
 
 const es: Dict = {
@@ -933,6 +943,8 @@ const es: Dict = {
     "edit.name_ph": "Introduce tu nombre",
     "edit.about_ph": "Cuéntanos sobre ti...",
     "edit.save": "Guardar cambios",
+    "welcome.title": "¡Bienvenido de nuevo! 💗",
+    "welcome.subtitle": "Tus compañeras te echaron de menos",
 };
 
 const pt: Dict = {
@@ -1084,6 +1096,8 @@ const pt: Dict = {
     "edit.name_ph": "Introduz o teu nome",
     "edit.about_ph": "Fala-nos sobre ti...",
     "edit.save": "Guardar alterações",
+    "welcome.title": "Bem-vindo de volta 💗",
+    "welcome.subtitle": "As tuas companheiras sentiram a tua falta",
 };
 
 const de: Dict = {
@@ -1235,6 +1249,8 @@ const de: Dict = {
     "edit.name_ph": "Gib deinen Namen ein",
     "edit.about_ph": "Erzähl uns von dir...",
     "edit.save": "Änderungen speichern",
+    "welcome.title": "Willkommen zurück 💗",
+    "welcome.subtitle": "Deine Begleiterinnen haben dich vermisst",
 };
 
 const fr: Dict = {
@@ -1386,6 +1402,8 @@ const fr: Dict = {
     "edit.name_ph": "Saisis ton nom",
     "edit.about_ph": "Parle-nous de toi...",
     "edit.save": "Enregistrer les modifications",
+    "welcome.title": "Bon retour 💗",
+    "welcome.subtitle": "Tes compagnes se sont langui de toi",
 };
 
 const it: Dict = {
@@ -1537,6 +1555,8 @@ const it: Dict = {
     "edit.name_ph": "Inserisci il tuo nome",
     "edit.about_ph": "Raccontaci di te...",
     "edit.save": "Salva modifiche",
+    "welcome.title": "Bentornato 💗",
+    "welcome.subtitle": "Le tue compagne ti hanno pensato",
 };
 
 export const resources: Record<SupportedLang, { translation: Dict }> = {

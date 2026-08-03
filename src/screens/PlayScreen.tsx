@@ -65,7 +65,6 @@ import ActionsBubble from "../components/ActionsBubble";
 import { useSubscription } from "../contexts/SubscriptionContext";
 import { analyticsService } from "../services/AnalyticsService";
 import { useInterstitialAd } from "../hooks/useInterstitialAd";
-import { isReturningSession } from "../services/session";
 import { useRewardedAd } from "../hooks/useRewardedAd";
 import { AdUnits } from "../config/ads";
 import { FREE_MESSAGE_LIMIT, REWARD_MESSAGE_BONUS } from "../config/limits";
@@ -123,16 +122,6 @@ export default function PlayScreen() {
     const { isPro, refreshStatus } = useSubscription();
     const { showInterstitial } = useInterstitialAd();
     const { show: showRewardedForMessages } = useRewardedAd(AdUnits.rewarded);
-
-    // Yuuki-style "inter_splash": on a returning session (2nd cold start onward),
-    // show an interstitial shortly after the main screen opens. First install
-    // (right after onboarding) is skipped. PRO / caps / not-loaded are handled by
-    // the hook, so it silently no-ops when it shouldn't show.
-    useEffect(() => {
-        if (!isReturningSession()) return;
-        const timer = setTimeout(() => showInterstitial(), 1800);
-        return () => clearTimeout(timer);
-    }, []);
 
     // Character state
     const [characterId, setCharacterId] = useState<string | null>(null);
