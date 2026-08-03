@@ -6,6 +6,24 @@ import {
     getTrackingPermissionsAsync,
     requestTrackingPermissionsAsync,
 } from "expo-tracking-transparency";
+import * as SecureStore from "expo-secure-store";
+
+/** Frequency caps / timeouts — mirror Yuuki's AdCaps. */
+const COLD_START_GRACE_MS = 20_000; // no interstitial in the first 20s after launch
+const MIN_FULLSCREEN_GAP_MS = 30_000; // min gap between ANY two full-screen ads
+const MAX_INTERSTITIALS_PER_SESSION = 6;
+const MAX_INTERSTITIALS_PER_DAY = 30;
+/** Load-failure backoff: attempt N waits retryBaseDelay * N (matches Yuuki). */
+export const AD_RETRY_BASE_DELAY_MS = 5_000;
+export const AD_MAX_LOAD_RETRIES = 3;
+
+const K_DAY_COUNT = "ads_day_interstitials";
+const K_DAY_STAMP = "ads_day_stamp";
+
+function todayStamp(): string {
+    const d = new Date();
+    return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+}
 
 /**
  * Central coordinator for all AdMob ads. Implements the policy-required
@@ -40,6 +58,13 @@ class AdsManagerClass {
     /** Resume/App-open ad is suppressed until this timestamp (ms). */
     private suppressResumeUntil = 0;
 
+    // ----- Frequency caps (interstitial) -----------------------------------
+    private startedAt = Date.now();
+    private lastFullscreenAt = 0;
+    private sessionInterstitials = 0;
+    private dayInterstitials = 0;
+    private dayStamp = todayStamp();
+
     private overlay: OverlayState = { loading: false, opaque: false };
     private listeners = new Set<Listener>();
 
@@ -63,6 +88,8 @@ class AdsManagerClass {
                 });
 
                 await mobileAds().initialize();
+                await this.loadDayCount();
+                this.startedAt = Date.now();
                 this.initialized = true;
             } catch (e) {
                 console.warn("[AdsManager] init error:", e);
@@ -82,6 +109,58 @@ class AdsManagerClass {
 
     setFullscreenAdShowing(value: boolean) {
         this.fullscreenAdShowing = value;
+    }
+
+    // ----- Frequency caps ---------------------------------------------------
+    private async loadDayCount() {
+        try {
+            const stamp = await SecureStore.getItemAsync(K_DAY_STAMP);
+            const today = todayStamp();
+            if (stamp === today) {
+                const n = Number(await SecureStore.getItemAsync(K_DAY_COUNT));
+                this.dayInterstitials = Number.isFinite(n) ? n : 0;
+                this.dayStamp = today;
+            } else {
+                this.dayInterstitials = 0;
+                this.dayStamp = today;
+                await SecureStore.setItemAsync(K_DAY_STAMP, today);
+                await SecureStore.setItemAsync(K_DAY_COUNT, "0");
+            }
+        } catch {
+            this.dayInterstitials = 0;
+        }
+    }
+
+    /** All the guards for an auto (non-user-initiated) interstitial. */
+    canShowInterstitial(): boolean {
+        if (this.fullscreenAdShowing) return false;
+        // Cold-start grace: nothing in the first 20s after launch.
+        if (Date.now() - this.startedAt < COLD_START_GRACE_MS) return false;
+        // Min gap after ANY full-screen ad (interstitial / rewarded / app-open).
+        if (Date.now() - this.lastFullscreenAt < MIN_FULLSCREEN_GAP_MS) return false;
+        if (this.sessionInterstitials >= MAX_INTERSTITIALS_PER_SESSION) return false;
+        if (this.dayInterstitials >= MAX_INTERSTITIALS_PER_DAY) return false;
+        return true;
+    }
+
+    /** Call when an interstitial actually showed. */
+    registerInterstitialShown() {
+        this.sessionInterstitials++;
+        this.lastFullscreenAt = Date.now();
+        // Roll the day if needed, then bump + persist.
+        const today = todayStamp();
+        if (today !== this.dayStamp) {
+            this.dayStamp = today;
+            this.dayInterstitials = 0;
+        }
+        this.dayInterstitials++;
+        SecureStore.setItemAsync(K_DAY_STAMP, this.dayStamp).catch(() => {});
+        SecureStore.setItemAsync(K_DAY_COUNT, String(this.dayInterstitials)).catch(() => {});
+    }
+
+    /** Call when a rewarded / app-open ad showed, so the full-screen gap applies. */
+    registerFullScreenShown() {
+        this.lastFullscreenAt = Date.now();
     }
 
     // ----- App Open / resume suppression ------------------------------------

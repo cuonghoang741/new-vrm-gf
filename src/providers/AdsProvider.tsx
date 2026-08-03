@@ -86,6 +86,7 @@ export function AdsProvider({ children }: { children: ReactNode }) {
             const unsubError = ad.addAdEventListener(AdEventType.ERROR, finish);
 
             AdsManager.setFullscreenAdShowing(true);
+            AdsManager.registerFullScreenShown(); // full-screen gap applies cross-type
             AdsManager.showOpaqueOverlay();
             try {
                 ad.show();

@@ -85,6 +85,7 @@ export function useRewardedAd(adUnitId: string = AdUnits.rewarded) {
             );
 
             AdsManager.setFullscreenAdShowing(true);
+            AdsManager.registerFullScreenShown(); // full-screen gap applies cross-type
             AdsManager.hideLoadingOverlay();
             try {
                 ad.show();
