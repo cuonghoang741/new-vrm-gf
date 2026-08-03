@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import React, { useCallback, useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react";
 import { View, Text, StyleSheet, Pressable, Alert, ActivityIndicator } from "react-native";
 import { IconGift, IconDiamondFilled, IconCircleCheckFilled } from "@tabler/icons-react-native";
@@ -24,6 +25,7 @@ export type CheckinSheetRef = BottomSheetRef;
 
 const CheckinSheet = forwardRef<CheckinSheetRef, Props>(
     ({ isOpened, onIsOpenedChange, userId, onClaimed }, ref) => {
+        const { t } = useTranslation();
         const sheetRef = useRef<BottomSheetRef>(null);
         const [schedule, setSchedule] = useState<DayReward[]>([]);
         const [currentDay, setCurrentDay] = useState(0);
@@ -77,14 +79,14 @@ const CheckinSheet = forwardRef<CheckinSheetRef, Props>(
                         Alert.alert(
                             "🎁 Checked in!",
                             res.ruby > 0
-                                ? `Day ${res.day}: +${res.ruby} 💎 ruby! Come back tomorrow 🩷`
+                                ? `Day ${res.day}: +${res.ruby} 💎 ruby! {t("checkin.come_back")} 🩷`
                                 : `Day ${res.day} done! Keep your streak — bigger ruby rewards ahead 💎`
                         );
                     } else if (res.already) {
                         setClaimedToday(true);
-                        Alert.alert("Already checked in", "Come back tomorrow for more ruby 💎");
+                        Alert.alert(t("checkin.already_title"), t("checkin.already_body"));
                     } else {
-                        Alert.alert("Oops", res.error || "Could not check in. Try again.");
+                        Alert.alert(t("checkin.fail_title"), res.error || t("checkin.fail_body"));
                     }
                 } finally {
                     setBusy(false);
@@ -97,7 +99,7 @@ const CheckinSheet = forwardRef<CheckinSheetRef, Props>(
                 ref={sheetRef}
                 isOpened={isOpened}
                 onIsOpenedChange={onIsOpenedChange}
-                title="Daily Check-in"
+                title={t("checkin.title")}
                 detents={[0.8, 0.92]}
             >
                 <View style={styles.container}>
@@ -156,7 +158,7 @@ const CheckinSheet = forwardRef<CheckinSheetRef, Props>(
                             <>
                                 <IconGift size={18} color="#fff" />
                                 <Text style={styles.ctaText}>
-                                    {claimedToday ? "Come back tomorrow" : "Check in today"}
+                                    {claimedToday ? t("checkin.come_back") : t("checkin.check_today")}
                                 </Text>
                             </>
                         )}

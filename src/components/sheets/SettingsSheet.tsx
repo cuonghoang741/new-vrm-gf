@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import React, { useCallback, useEffect, useState, useRef, forwardRef, useImperativeHandle } from "react";
 import {
     View,
@@ -75,7 +76,8 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
     onResetOnboarding,
     onOpenSubscription,
 }, ref) => {
-    const sheetRef = useRef<BottomSheetRef>(null);
+    const { t } = useTranslation();
+        const sheetRef = useRef<BottomSheetRef>(null);
     const { isPro } = useSubscription();
     const [displayName, setDisplayName] = useState<string | null>(null);
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -108,10 +110,10 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
     }, [userId, isOpened]);
 
     const handleSignOut = useCallback(() => {
-        Alert.alert("Sign Out", "Are you sure you want to sign out?", [
-            { text: "Cancel", style: "cancel" },
+        Alert.alert(t("set.sign_out"), t("set.signout_confirm"), [
+            { text: t("common.cancel"), style: "cancel" },
             {
-                text: "Sign Out",
+                text: t("set.sign_out"),
                 style: "destructive",
                 onPress: async () => {
                     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -126,18 +128,18 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
 
     const handleDeleteAccount = useCallback(() => {
         Alert.alert(
-            "Delete Account",
-            "This action is permanent and cannot be undone. All your data will be deleted.",
+            t("set.delete_account"),
+            t("set.delete_confirm_body"),
             [
-                { text: "Cancel", style: "cancel" },
+                { text: t("common.cancel"), style: "cancel" },
                 {
-                    text: "Delete",
+                    text: t("common.delete"),
                     style: "destructive",
                     onPress: () => {
-                        Alert.alert("Are you absolutely sure?", "This cannot be reversed.", [
-                            { text: "Cancel", style: "cancel" },
+                        Alert.alert(t("set.delete_final_title"), t("set.delete_final_body"), [
+                            { text: t("common.cancel"), style: "cancel" },
                             {
-                                text: "Confirm Delete",
+                                text: t("set.confirm_delete"),
                                 style: "destructive",
                                 onPress: async () => {
                                     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -150,7 +152,7 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                                         });
                                     } catch (e: any) {
                                         console.error("Delete account error:", e);
-                                        Alert.alert("Error", `Failed to delete account. Details: ${e.message}`);
+                                        Alert.alert(t("common.error"), `Failed to delete account. Details: ${e.message}`);
                                     } finally {
                                         setIsDeletingAccount(false);
                                     }
@@ -164,10 +166,10 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
     }, [onIsOpenedChange]);
 
     const handleResetOnboarding = useCallback(() => {
-        Alert.alert("Reset Onboarding", "This will restart the character matching process. Continue?", [
-            { text: "Cancel", style: "cancel" },
+        Alert.alert(t("set.reset_onboarding"), t("set.reset_confirm"), [
+            { text: t("common.cancel"), style: "cancel" },
             {
-                text: "Reset",
+                text: t("set.reset"),
                 style: "destructive",
                 onPress: () => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -182,15 +184,15 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
     const handleReportBug = useCallback(() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         Alert.prompt(
-            "Report a Bug 🐛",
-            "Please describe the issue you encountered:",
+            t("set.report_bug_title"),
+            t("set.report_prompt"),
             [
-                { text: "Cancel", style: "cancel" },
+                { text: t("common.cancel"), style: "cancel" },
                 {
-                    text: "Submit",
+                    text: t("common.submit"),
                     onPress: async (description?: string) => {
                         if (!description?.trim()) {
-                            Alert.alert("Oops", "Please enter a description.");
+                            Alert.alert(t("set.oops"), t("set.report_empty"));
                             return;
                         }
                         try {
@@ -205,9 +207,9 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                             if (error) throw error;
                             analyticsService.logError('bug_report', description.trim());
                             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                            Alert.alert("Thank you! 💜", "Your report has been submitted. We'll look into it.");
+                            Alert.alert(t("set.report_thanks_title"), t("set.report_thanks_body"));
                         } catch {
-                            Alert.alert("Error", "Failed to submit report. Please try again.");
+                            Alert.alert(t("common.error"), t("set.report_fail"));
                         }
                     },
                 },
@@ -236,7 +238,7 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                 ref={sheetRef}
                 isOpened={isOpened}
                 onIsOpenedChange={onIsOpenedChange}
-                title="Settings"
+                title={t("set.title")}
                 isDarkBackground
                 detents={[0.85, 0.95]}
                 backgroundBlur="system-thick-material-dark"
@@ -264,7 +266,7 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                                 <View style={styles.profileInfo}>
                                     <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                                         <Text style={styles.profileName} numberOfLines={1}>
-                                            {displayName ?? "Set your name"}
+                                            {displayName ?? t("set.set_name")}
                                         </Text>
                                         {isPro && (
                                             <View style={styles.proBadgeInline}>
@@ -274,7 +276,7 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                                         )}
                                     </View>
                                     <Text style={styles.profileEmail} numberOfLines={1}>
-                                        {userEmail ?? "Unknown"}
+                                        {userEmail ?? t("set.unknown")}
                                     </Text>
                                 </View>
                             </View>
@@ -283,12 +285,12 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
 
                         {/* ─── General ─── */}
                         <View style={styles.section}>
-                            <Text style={styles.sectionTitle}>GENERAL</Text>
+                            <Text style={styles.sectionTitle}>{t("set.general")}</Text>
                             <View style={styles.sectionCard}>
                                 <SettingItem
                                     icon={isPro ? <IconCrown size={20} color="#F59E0B" fill="#F59E0B" /> : <IconStar size={20} color="#F59E0B" />}
-                                    label={isPro ? "Pro Active ✓" : "Upgrade to PRO"}
-                                    subtitle={isPro ? "You have full access to all features" : "Unlock all characters & costumes"}
+                                    label={isPro ? t("set.pro_active") : t("set.upgrade_pro")}
+                                    subtitle={isPro ? t("set.pro_desc_active") : t("set.pro_desc")}
                                     onPress={() => {
                                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                         onOpenSubscription?.();
@@ -297,8 +299,8 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                                 <View style={styles.separator} />
                                 {/* <SettingItem
                                     icon={<IconRefresh size={20} color="#60A5FA" />}
-                                    label="Reset Onboarding"
-                                    subtitle="Re-match with a new character"
+                                    label={t("set.reset_onboarding")}
+                                    subtitle={t("set.reset_onboarding_desc")}
                                     onPress={handleResetOnboarding}
                                 /> */}
                             </View>
@@ -306,18 +308,18 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
 
                         {/* ─── Support ─── */}
                         <View style={styles.section}>
-                            <Text style={styles.sectionTitle}>SUPPORT</Text>
+                            <Text style={styles.sectionTitle}>{t("set.support")}</Text>
                             <View style={styles.sectionCard}>
                                 <SettingItem
                                     icon={<IconBug size={20} color="#F472B6" />}
-                                    label="Report a Bug"
-                                    subtitle="Help us improve the app"
+                                    label={t("set.report_bug")}
+                                    subtitle={t("set.report_bug_desc")}
                                     onPress={handleReportBug}
                                 />
                                 <View style={styles.separator} />
                                 <SettingItem
                                     icon={<IconShieldLock size={20} color="#34D399" />}
-                                    label="Privacy Policy"
+                                    label={t("signin.privacy")}
                                     onPress={() => {
                                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                         analyticsService.logEvent('open_privacy_policy');
@@ -327,7 +329,7 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                                 <View style={styles.separator} />
                                 <SettingItem
                                     icon={<IconInfoCircle size={20} color="#93C5FD" />}
-                                    label="Terms of Service"
+                                    label={t("signin.tos")}
                                     onPress={() => {
                                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                         openBrowserSafe("https://personal-muse-3d.lovable.app/terms");
@@ -336,7 +338,7 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                                 <View style={styles.separator} />
                                 <SettingItem
                                     icon={<IconInfoCircle size={20} color="#93C5FD" />}
-                                    label="EULA"
+                                    label={t("signin.eula")}
                                     onPress={() => {
                                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                         openBrowserSafe("https://personal-muse-3d.lovable.app/eula");
@@ -345,7 +347,7 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                                 <View style={styles.separator} />
                                 <SettingItem
                                     icon={<IconInfoCircle size={20} color="#93C5FD" />}
-                                    label="App Version"
+                                    label={t("set.app_version")}
                                     subtitle="1.0.0"
                                     onPress={() => { }}
                                     showChevron={false}
@@ -355,19 +357,19 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
 
                         {/* ─── Account ─── */}
                         <View style={styles.section}>
-                            <Text style={styles.sectionTitle}>ACCOUNT</Text>
+                            <Text style={styles.sectionTitle}>{t("set.account")}</Text>
                             <View style={styles.sectionCard}>
                                 <SettingItem
                                     icon={<IconLogout size={20} color="#F59E0B" />}
-                                    label="Sign Out"
+                                    label={t("set.sign_out")}
                                     onPress={handleSignOut}
                                     showChevron={false}
                                 />
                                 <View style={styles.separator} />
                                 <SettingItem
                                     icon={isDeletingAccount ? <ActivityIndicator size="small" color="#EF4444" /> : <IconTrash size={20} color="#EF4444" />}
-                                    label={isDeletingAccount ? "Deleting Account..." : "Delete Account"}
-                                    subtitle="Permanently delete all data"
+                                    label={isDeletingAccount ? t("set.deleting") : t("set.delete_account")}
+                                    subtitle={t("set.delete_account_desc")}
                                     onPress={isDeletingAccount ? () => { } : handleDeleteAccount}
                                     danger
                                     showChevron={!isDeletingAccount}
