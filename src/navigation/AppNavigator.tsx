@@ -1,14 +1,18 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useAuth } from "../hooks/useAuth";
 import SignInScreen from "../screens/SignInScreen";
 import OnboardingScreen from "../screens/OnboardingScreen";
 import PlayScreen from "../screens/PlayScreen";
+import LanguageScreen from "../screens/LanguageScreen";
 import { View, StyleSheet, Image } from "react-native";
+import { initI18n, hasChosenLanguage, setAppLanguage, currentLang } from "../i18n";
+import { markAppOpened } from "../services/session";
 
 export type RootStackParamList = {
     Splash: undefined;
+    Language: undefined;
     SignIn: undefined;
     Onboarding: undefined;
     Play: undefined;
@@ -32,9 +36,35 @@ function SplashScreen() {
 export default function AppNavigator() {
     const { isLoggedIn, isLoading, isOnboarded, setIsOnboarded } = useAuth();
 
+    // Boot: session tracking + i18n init (device-locale / saved) + first-launch
+    // language gate. Nothing with text renders until i18n is ready.
+    const [booted, setBooted] = useState(false);
+    const [needsLanguage, setNeedsLanguage] = useState(false);
+
+    useEffect(() => {
+        (async () => {
+            try {
+                await markAppOpened();
+                await initI18n();
+                setNeedsLanguage(!(await hasChosenLanguage()));
+            } catch {
+                /* i18n fail-safe → default 'en', skip language gate */
+            } finally {
+                setBooted(true);
+            }
+        })();
+    }, []);
+
     const handleOnboardingComplete = useCallback(() => {
         setIsOnboarded(true);
     }, [setIsOnboarded]);
+
+    const handleLanguageDone = useCallback(async () => {
+        // Persist the current selection (device default or picked) so the
+        // language screen never shows again.
+        await setAppLanguage(currentLang());
+        setNeedsLanguage(false);
+    }, []);
 
     return (
         <NavigationContainer>
@@ -45,8 +75,12 @@ export default function AppNavigator() {
                     contentStyle: { backgroundColor: "#0a0a1a" },
                 }}
             >
-                {isLoading ? (
+                {!booted || isLoading ? (
                     <Stack.Screen name="Splash" component={SplashScreen} />
+                ) : needsLanguage ? (
+                    <Stack.Screen name="Language">
+                        {() => <LanguageScreen onDone={handleLanguageDone} />}
+                    </Stack.Screen>
                 ) : !isLoggedIn ? (
                     <Stack.Screen name="SignIn" component={SignInScreen} />
                 ) : !isOnboarded ? (
