@@ -6,6 +6,7 @@ import {
 } from "react-native-google-mobile-ads";
 import { AdUnits } from "../config/ads";
 import { AdsManager } from "../services/AdsManager";
+import { analyticsService } from "../services/AnalyticsService";
 
 /** Max time to wait for a rewarded ad to load after the user opts in. */
 const LOAD_TIMEOUT_MS = 8000;
@@ -18,7 +19,11 @@ const LOAD_TIMEOUT_MS = 8000;
  * Always preloads; if not ready when the user taps, a short loading screen is
  * shown while it loads (the user chose to wait), capped by LOAD_TIMEOUT_MS.
  */
-export function useRewardedAd(adUnitId: string = AdUnits.rewarded) {
+export function useRewardedAd(
+    adUnitId: string = AdUnits.rewarded,
+    /** Where in the app the user opted in — shows up on every ad event. */
+    placement: string = "unknown"
+) {
     const adRef = useRef<RewardedAd | null>(null);
     const loadedRef = useRef(false);
 
@@ -33,10 +38,16 @@ export function useRewardedAd(adUnitId: string = AdUnits.rewarded) {
             RewardedAdEventType.LOADED,
             () => {
                 loadedRef.current = true;
+                analyticsService.logAdLoaded("rewarded", placement);
             }
         );
-        const unsubError = ad.addAdEventListener(AdEventType.ERROR, () => {
+        const unsubError = ad.addAdEventListener(AdEventType.ERROR, (error: any) => {
             loadedRef.current = false;
+            analyticsService.logAdLoadFailed(
+                "rewarded",
+                placement,
+                error?.code ?? error?.message
+            );
         });
         ad.load();
 
@@ -44,7 +55,7 @@ export function useRewardedAd(adUnitId: string = AdUnits.rewarded) {
             unsubLoaded();
             unsubError();
         };
-    }, [adUnitId]);
+    }, [adUnitId, placement]);
 
     useEffect(() => {
         const cleanup = buildAndLoad();
@@ -73,13 +84,19 @@ export function useRewardedAd(adUnitId: string = AdUnits.rewarded) {
 
             const unsubEarned = ad.addAdEventListener(
                 RewardedAdEventType.EARNED_REWARD,
-                () => {
+                (reward: any) => {
                     earned = true;
+                    analyticsService.logAdRewardEarned(
+                        placement,
+                        reward?.type,
+                        reward?.amount
+                    );
                 }
             );
-            const unsubClosed = ad.addAdEventListener(AdEventType.CLOSED, () =>
-                settle(earned)
-            );
+            const unsubClosed = ad.addAdEventListener(AdEventType.CLOSED, () => {
+                analyticsService.logAdDismissed("rewarded", placement);
+                settle(earned);
+            });
             const unsubError = ad.addAdEventListener(AdEventType.ERROR, () =>
                 settle(false)
             );
@@ -87,20 +104,24 @@ export function useRewardedAd(adUnitId: string = AdUnits.rewarded) {
             AdsManager.setFullscreenAdShowing(true);
             AdsManager.registerFullScreenShown(); // full-screen gap applies cross-type
             AdsManager.hideLoadingOverlay();
+            analyticsService.logAdImpression("rewarded", placement);
             try {
                 ad.show();
             } catch {
                 settle(false);
             }
         },
-        [buildAndLoad]
+        [buildAndLoad, placement]
     );
 
     /** Show the rewarded ad. Resolves true only if the reward was earned. */
     const show = useCallback((): Promise<boolean> => {
         return new Promise((resolve) => {
             // Never stack two fullscreen ads.
-            if (AdsManager.isFullscreenAdShowing) return resolve(false);
+            if (AdsManager.isFullscreenAdShowing) {
+                analyticsService.logAdSkipped("rewarded", placement, "overlap");
+                return resolve(false);
+            }
 
             const ad = adRef.current;
             if (ad && loadedRef.current) {
@@ -114,7 +135,10 @@ export function useRewardedAd(adUnitId: string = AdUnits.rewarded) {
                 buildAndLoad();
             }
             const waitAd = adRef.current;
-            if (!waitAd) return resolve(false);
+            if (!waitAd) {
+                analyticsService.logAdSkipped("rewarded", placement, "not_loaded");
+                return resolve(false);
+            }
 
             AdsManager.showLoadingOverlay();
             let done = false;
@@ -134,6 +158,7 @@ export function useRewardedAd(adUnitId: string = AdUnits.rewarded) {
             const unsubE = waitAd.addAdEventListener(AdEventType.ERROR, () =>
                 finish(() => {
                     AdsManager.hideLoadingOverlay();
+                    analyticsService.logAdSkipped("rewarded", placement, "load_error");
                     resolve(false);
                 })
             );
@@ -141,12 +166,13 @@ export function useRewardedAd(adUnitId: string = AdUnits.rewarded) {
                 () =>
                     finish(() => {
                         AdsManager.hideLoadingOverlay();
+                        analyticsService.logAdSkipped("rewarded", placement, "load_timeout");
                         resolve(false);
                     }),
                 LOAD_TIMEOUT_MS
             );
         });
-    }, [present, buildAndLoad]);
+    }, [present, buildAndLoad, placement]);
 
     return { show };
 }

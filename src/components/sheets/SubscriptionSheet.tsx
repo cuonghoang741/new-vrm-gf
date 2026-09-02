@@ -20,6 +20,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PurchasesPackage } from "react-native-purchases";
+import { analyticsService } from "../../services/AnalyticsService";
 import * as WebBrowser from "expo-web-browser";
 import { openBrowserSafe } from "../../utils/openBrowserSafe";
 import { AdsManager } from "../../services/AdsManager";
@@ -90,6 +91,19 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
     }, [enableTestPro, onClose]);
 
     const [selectedPackage, setSelectedPackage] = useState<PurchasesPackage | null>(null);
+
+    /** Plan tap — separates "saw the paywall" from "picked a plan". */
+    const handleSelectPlan = useCallback(
+        (pkg: PurchasesPackage | null | undefined, planName: string) => {
+            if (!pkg) return;
+            setSelectedPackage(pkg);
+            analyticsService.logSubscriptionSelectPlan(
+                pkg.product.identifier,
+                planName
+            );
+        },
+        []
+    );
     const [isProcessing, setIsProcessing] = useState(false);
     const [activeProductId, setActiveProductId] = useState<string | null>(null);
     const vrmRef = useRef<VRMViewerHandle>(null);
@@ -101,6 +115,12 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
             duration: 300,
             useNativeDriver: true,
         }).start();
+    }, [isOpened]);
+
+    // Paywall impression — the denominator for every subscription conversion
+    // rate. Only counts a real open, not the initial mount while closed.
+    useEffect(() => {
+        if (isOpened) analyticsService.logSubscriptionView();
     }, [isOpened]);
 
     useEffect(() => {
@@ -558,7 +578,7 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                                         !isPro && selectedPackage?.identifier === monthlyPackage.identifier && styles.planCardSelected,
                                         isPro && activeProductId === monthlyPackage.product.identifier && styles.planCardActive,
                                     ]}
-                                    onPress={() => !isPro && setSelectedPackage(monthlyPackage)}
+                                    onPress={() => !isPro && handleSelectPlan(monthlyPackage, "monthly")}
                                 >
                                     {isPro && activeProductId === monthlyPackage.product.identifier && (
                                         <View style={styles.activeBadge}>
@@ -597,7 +617,7 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                                         !isPro && selectedPackage?.identifier === yearlyPackage.identifier && styles.planCardSelected,
                                         isPro && activeProductId === yearlyPackage.product.identifier && styles.planCardActive,
                                     ]}
-                                    onPress={() => !isPro && setSelectedPackage(yearlyPackage)}
+                                    onPress={() => !isPro && handleSelectPlan(yearlyPackage, "yearly")}
                                 >
                                     {isPro && activeProductId === yearlyPackage.product.identifier ? (
                                         <View style={styles.activeBadge}>

@@ -1,20 +1,21 @@
 {
   "project_info": {
-    "project_number": "123456789",
-    "project_id": "dummy-id",
-    "storage_bucket": "dummy.appspot.com"
+    "project_number": "649975946758",
+    "project_id": "truemate-e3401",
+    "storage_bucket": "truemate-e3401.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:123456789:android:123456789",
+        "mobilesdk_app_id": "1:649975946758:android:e6eb5f9b37ad859befad87",
         "android_client_info": {
           "package_name": "com.truemate.girlfriend"
         }
       },
+      "oauth_client": [],
       "api_key": [
         {
-          "current_key": "dummy-key"
+          "current_key": "AIzaSyBFqnlbn6UYQFn0SrtVNnVqvQW_KnPHPLM"
         }
       ],
       "services": {

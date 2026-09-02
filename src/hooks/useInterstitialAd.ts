@@ -10,6 +10,7 @@ import {
     AD_MAX_LOAD_RETRIES,
 } from "../services/AdsManager";
 import { useSubscription } from "../contexts/SubscriptionContext";
+import { analyticsService } from "../services/AnalyticsService";
 
 /** Minimum gap between two interstitials (anti-spam, policy rule 7/8). */
 const MIN_INTERVAL_MS = 4 * 60 * 1000;
@@ -18,6 +19,9 @@ const LOADING_SCREEN_MS = 700;
 
 // Shared across all hook instances so the frequency cap is global.
 let lastShownAt = 0;
+
+/** Only one interstitial spot today (after a call ends); named for analytics. */
+const PLACEMENT = "after_call";
 
 /**
  * Interstitial shown only on a user-action screen transition (here: after a
@@ -42,9 +46,15 @@ export function useInterstitialAd() {
         const unsubLoaded = ad.addAdEventListener(AdEventType.LOADED, () => {
             loadedRef.current = true;
             retriesRef.current = 0;
+            analyticsService.logAdLoaded("interstitial", PLACEMENT);
         });
-        const unsubError = ad.addAdEventListener(AdEventType.ERROR, () => {
+        const unsubError = ad.addAdEventListener(AdEventType.ERROR, (error: any) => {
             loadedRef.current = false;
+            analyticsService.logAdLoadFailed(
+                "interstitial",
+                PLACEMENT,
+                error?.code ?? error?.message
+            );
             // Backoff retry: attempt N waits base*N (matches Yuuki).
             if (retriesRef.current < AD_MAX_LOAD_RETRIES) {
                 retriesRef.current += 1;
@@ -75,15 +85,20 @@ export function useInterstitialAd() {
         async (onDone?: () => void) => {
             const done = () => onDone?.();
 
-            if (isPro) return done();
-            if (Date.now() - lastShownAt < MIN_INTERVAL_MS) return done();
+            const skip = (reason: string) => {
+                analyticsService.logAdSkipped("interstitial", PLACEMENT, reason);
+                return done();
+            };
+
+            if (isPro) return skip("pro");
+            if (Date.now() - lastShownAt < MIN_INTERVAL_MS) return skip("too_soon");
             // Cold-start grace + full-screen gap + session/day caps + no-overlap.
-            if (!AdsManager.canShowInterstitial()) return done();
+            if (!AdsManager.canShowInterstitial()) return skip("capped");
 
             const ad = adRef.current;
             if (!ad || !loadedRef.current) {
                 // Not ready — don't block the user.
-                done();
+                skip("not_loaded");
                 return;
             }
 
@@ -100,11 +115,13 @@ export function useInterstitialAd() {
 
             const unsubOpened = ad.addAdEventListener(AdEventType.OPENED, () => {
                 AdsManager.hideLoadingOverlay();
+                analyticsService.logAdImpression("interstitial", PLACEMENT);
             });
             const unsubClosed = ad.addAdEventListener(AdEventType.CLOSED, () => {
                 unsubOpened();
                 unsubClosed();
                 unsubError();
+                analyticsService.logAdDismissed("interstitial", PLACEMENT);
                 finish();
             });
             const unsubError = ad.addAdEventListener(AdEventType.ERROR, () => {

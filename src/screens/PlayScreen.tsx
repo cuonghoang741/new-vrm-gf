@@ -121,7 +121,7 @@ export default function PlayScreen() {
 
     const { isPro, refreshStatus } = useSubscription();
     const { showInterstitial } = useInterstitialAd();
-    const { show: showRewardedForMessages } = useRewardedAd(AdUnits.rewarded);
+    const { show: showRewardedForMessages } = useRewardedAd(AdUnits.rewarded, "unlock_messages");
 
     // Character state
     const [characterId, setCharacterId] = useState<string | null>(null);
@@ -876,6 +876,10 @@ export default function PlayScreen() {
     }, [user?.id, backgroundUrl, backgroundId, saveCache, is3DMode, agentElevenlabsId, isBackgroundDark]);
 
     const handleCostumeSelect = useCallback((costume: any) => {
+        analyticsService.logCostumeChange(
+            costume.id ?? costume.costume_name ?? "unknown",
+            characterId ?? undefined
+        );
         setBackgroundId(costume.background_id || backgroundId);
         setCostumeName(costume.costume_name || null);
         if (costume.model_url) {
@@ -932,6 +936,7 @@ export default function PlayScreen() {
     }, [user?.id, characterId, characterName, characterModelUrl, characterThumbnail, backgroundUrl, backgroundId, agentElevenlabsId, saveCache]);
 
     const handleBackgroundSelect = useCallback((bg: any) => {
+        analyticsService.logBackgroundChange(bg.id);
         setBackgroundId(bg.id);
         setBackgroundName(bg.name || null);
         setIsBackgroundDark(bg.is_dark ?? true);

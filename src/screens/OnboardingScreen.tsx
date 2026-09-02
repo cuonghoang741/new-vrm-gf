@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
+import { analyticsService } from "../services/AnalyticsService";
 import { useTranslation } from "react-i18next";
 import {
     View,
@@ -107,8 +108,21 @@ export default function OnboardingScreen({
         notify();
     }, [user]);
 
+    // Step 3 is the result screen, so only 0-2 are answerable questions.
+    const STEP_NAMES = ["age", "personality", "interests", "result"];
+
+    // Funnel entry. Fires once per onboarding attempt.
+    useEffect(() => {
+        analyticsService.logOnboardingStart();
+        analyticsService.logOnboardingStep(STEP_NAMES[0], 0);
+    }, []);
+
     const animateTransition = useCallback(
         (nextStep: number) => {
+            analyticsService.logOnboardingStep(
+                STEP_NAMES[nextStep] ?? String(nextStep),
+                nextStep
+            );
             Animated.timing(fadeAnim, {
                 toValue: 0,
                 duration: 200,
@@ -185,6 +199,7 @@ export default function OnboardingScreen({
 
     const handleClaim = useCallback(async () => {
         if (!matchedCharacter || !user?.id) {
+            analyticsService.logOnboardingComplete("none");
             onComplete();
             return;
         }
@@ -251,6 +266,7 @@ export default function OnboardingScreen({
         }
 
         setIsClaiming(false);
+        analyticsService.logOnboardingComplete(matchedCharacter.id);
         onComplete();
     }, [
         matchedCharacter,

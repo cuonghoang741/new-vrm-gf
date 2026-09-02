@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import React, { useCallback, useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react";
 import { View, Text, StyleSheet, Pressable, Alert, ActivityIndicator } from "react-native";
+import { analyticsService } from "../../services/AnalyticsService";
 import { IconGift, IconDiamondFilled, IconCircleCheckFilled } from "@tabler/icons-react-native";
 import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
 import { useInterstitialAd } from "../../hooks/useInterstitialAd";
@@ -59,7 +60,10 @@ const CheckinSheet = forwardRef<CheckinSheetRef, Props>(
         }, [userId]);
 
         useEffect(() => {
-            if (isOpened) refresh();
+            if (isOpened) {
+                refresh();
+                analyticsService.logCheckinOpen(currentDay);
+            }
         }, [isOpened, refresh]);
 
         const nextDay = (currentDay % CHECKIN_CYCLE) + 1;
@@ -76,14 +80,16 @@ const CheckinSheet = forwardRef<CheckinSheetRef, Props>(
                         setRuby(bal);
                         onClaimed?.(bal);
                         await refresh();
+                        analyticsService.logCheckinClaim(res.day, res.ruby, "ruby");
                         Alert.alert(
                             "🎁 Checked in!",
                             res.ruby > 0
-                                ? `Day ${res.day}: +${res.ruby} 💎 ruby! {t("checkin.come_back")} 🩷`
+                                ? `Day ${res.day}: +${res.ruby} 💎 ruby! ${t("checkin.come_back")} 🩷`
                                 : `Day ${res.day} done! Keep your streak — bigger ruby rewards ahead 💎`
                         );
                     } else if (res.already) {
                         setClaimedToday(true);
+                        analyticsService.logCheckinAlreadyClaimed(currentDay);
                         Alert.alert(t("checkin.already_title"), t("checkin.already_body"));
                     } else {
                         Alert.alert(t("checkin.fail_title"), res.error || t("checkin.fail_body"));

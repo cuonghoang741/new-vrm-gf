@@ -109,12 +109,42 @@ export const AnalyticsEvents = {
   APP_BACKGROUND: 'app_background',
   APP_FOREGROUND: 'app_foreground',
 
+  // Language / i18n Events
+  LANGUAGE_SCREEN_VIEW: 'language_screen_view',
+  LANGUAGE_SELECT: 'language_select',
+
+  // Welcome-back Events
+  WELCOME_BACK_VIEW: 'welcome_back_view',
+  WELCOME_BACK_CONTINUE: 'welcome_back_continue',
+
+  // Daily check-in Events
+  CHECKIN_OPEN: 'checkin_open',
+  CHECKIN_CLAIM: 'checkin_claim',
+  CHECKIN_ALREADY_CLAIMED: 'checkin_already_claimed',
+
+  // Ad Events
+  AD_LOADED: 'ad_loaded',
+  AD_LOAD_FAILED: 'ad_load_failed',
+  AD_IMPRESSION: 'ad_impression',
+  AD_DISMISSED: 'ad_dismissed',
+  AD_SKIPPED: 'ad_skipped',
+  AD_REWARD_EARNED: 'ad_reward_earned',
+
   // Error Events
   ERROR_OCCURRED: 'error_occurred',
   API_ERROR: 'api_error',
 } as const;
 
 type EventParams = Record<string, string | number | boolean | undefined>;
+
+/** Ad formats we serve — mirrors the unit list in src/config/ads.ts. */
+export type AdFormat =
+  | 'banner'
+  | 'interstitial'
+  | 'rewarded'
+  | 'rewarded_interstitial'
+  | 'native'
+  | 'app_open';
 
 /**
  * Analytics Service
@@ -589,6 +619,89 @@ class AnalyticsService {
 
   async logAppForeground(): Promise<void> {
     await this.logEvent(AnalyticsEvents.APP_FOREGROUND);
+  }
+
+  // ============ Language / i18n Events ============
+
+  async logLanguageScreenView(deviceLang: string): Promise<void> {
+    await this.logEvent(AnalyticsEvents.LANGUAGE_SCREEN_VIEW, { device_lang: deviceLang });
+  }
+
+  /** `source`: 'onboarding' on the first-launch gate, 'settings' when changed later. */
+  async logLanguageSelect(lang: string, source: 'onboarding' | 'settings'): Promise<void> {
+    await this.logEvent(AnalyticsEvents.LANGUAGE_SELECT, { language: lang, source });
+  }
+
+  // ============ Welcome-back Events ============
+
+  async logWelcomeBackView(): Promise<void> {
+    await this.logEvent(AnalyticsEvents.WELCOME_BACK_VIEW);
+  }
+
+  async logWelcomeBackContinue(): Promise<void> {
+    await this.logEvent(AnalyticsEvents.WELCOME_BACK_CONTINUE);
+  }
+
+  // ============ Daily check-in Events ============
+
+  async logCheckinOpen(currentStreak: number): Promise<void> {
+    await this.logEvent(AnalyticsEvents.CHECKIN_OPEN, { current_streak: currentStreak });
+  }
+
+  async logCheckinClaim(day: number, rewardAmount: number, rewardType: string): Promise<void> {
+    await this.logEvent(AnalyticsEvents.CHECKIN_CLAIM, {
+      day,
+      reward_amount: rewardAmount,
+      reward_type: rewardType,
+    });
+  }
+
+  async logCheckinAlreadyClaimed(day: number): Promise<void> {
+    await this.logEvent(AnalyticsEvents.CHECKIN_ALREADY_CLAIMED, { day });
+  }
+
+  // ============ Ad Events ============
+
+  async logAdLoaded(format: AdFormat, placement: string): Promise<void> {
+    await this.logEvent(AnalyticsEvents.AD_LOADED, { ad_format: format, placement });
+  }
+
+  async logAdLoadFailed(format: AdFormat, placement: string, errorCode?: string): Promise<void> {
+    await this.logEvent(AnalyticsEvents.AD_LOAD_FAILED, {
+      ad_format: format,
+      placement,
+      error_code: errorCode,
+    });
+  }
+
+  /** The ad actually appeared on screen. */
+  async logAdImpression(format: AdFormat, placement: string): Promise<void> {
+    await this.logEvent(AnalyticsEvents.AD_IMPRESSION, { ad_format: format, placement });
+  }
+
+  async logAdDismissed(format: AdFormat, placement: string): Promise<void> {
+    await this.logEvent(AnalyticsEvents.AD_DISMISSED, { ad_format: format, placement });
+  }
+
+  /**
+   * We wanted to show an ad but did not. `reason` is the guard that blocked it
+   * (pro / capped / not_loaded / too_soon / overlap) — this is what explains a
+   * low impression-per-session number.
+   */
+  async logAdSkipped(format: AdFormat, placement: string, reason: string): Promise<void> {
+    await this.logEvent(AnalyticsEvents.AD_SKIPPED, {
+      ad_format: format,
+      placement,
+      reason,
+    });
+  }
+
+  async logAdRewardEarned(placement: string, rewardType?: string, rewardAmount?: number): Promise<void> {
+    await this.logEvent(AnalyticsEvents.AD_REWARD_EARNED, {
+      placement,
+      reward_type: rewardType,
+      reward_amount: rewardAmount,
+    });
   }
 
   // ============ Error Events ============

@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { View, Text, StyleSheet, Pressable, SafeAreaView } from "react-native";
 import { useTranslation } from "react-i18next";
+import { analyticsService } from "../services/AnalyticsService";
 import { NativeAdCard } from "../components/ads/NativeAdCard";
 
 /**
@@ -10,6 +11,15 @@ import { NativeAdCard } from "../components/ads/NativeAdCard";
  */
 export default function WelcomeBackScreen({ onContinue }: { onContinue: () => void }) {
     const { t } = useTranslation();
+
+    useEffect(() => {
+        analyticsService.logWelcomeBackView();
+    }, []);
+
+    const handleContinue = () => {
+        analyticsService.logWelcomeBackContinue();
+        onContinue();
+    };
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.hero}>
@@ -25,7 +35,7 @@ export default function WelcomeBackScreen({ onContinue }: { onContinue: () => vo
                 <NativeAdCard />
             </View>
 
-            <Pressable style={styles.cta} onPress={onContinue}>
+            <Pressable style={styles.cta} onPress={handleContinue}>
                 <Text style={styles.ctaText}>{t("common.continue")}</Text>
             </Pressable>
         </SafeAreaView>

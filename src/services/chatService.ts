@@ -125,6 +125,8 @@ export const chatService = {
 
         // Log internal analytics
         analyticsService.logSendMessage(characterId, message.length);
+        // Reply landed — the pair of these two gives the send→reply drop-off.
+        analyticsService.logReceiveMessage(characterId);
 
         // Edge function returns: { response, messages, unseen_count, character_id }
         return {

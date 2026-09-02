@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
     View,
     Text,
@@ -8,6 +8,7 @@ import {
     SafeAreaView,
 } from "react-native";
 import { useTranslation } from "react-i18next";
+import { analyticsService } from "../services/AnalyticsService";
 import {
     LANGUAGE_META,
     SUPPORTED,
@@ -27,6 +28,12 @@ import { NativeAdCard } from "../components/ads/NativeAdCard";
 export default function LanguageScreen({ onDone }: { onDone: () => void }) {
     const { t } = useTranslation();
     const [sel, setSel] = useState<SupportedLang>(currentLang());
+
+    // Which language the device suggested before the user touched anything —
+    // tells us how often our auto-detection already had it right.
+    useEffect(() => {
+        analyticsService.logLanguageScreenView(currentLang());
+    }, []);
 
     const pick = async (l: SupportedLang) => {
         setSel(l);

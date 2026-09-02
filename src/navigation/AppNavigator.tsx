@@ -1,5 +1,8 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { NavigationContainer } from "@react-navigation/native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import {
+    NavigationContainer,
+    type NavigationContainerRef,
+} from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useAuth } from "../hooks/useAuth";
 import SignInScreen from "../screens/SignInScreen";
@@ -10,6 +13,7 @@ import WelcomeBackScreen from "../screens/WelcomeBackScreen";
 import { View, StyleSheet, Image } from "react-native";
 import { initI18n, hasChosenLanguage, setAppLanguage, currentLang } from "../i18n";
 import { markAppOpened, isReturningSession } from "../services/session";
+import { analyticsService } from "../services/AnalyticsService";
 
 export type RootStackParamList = {
     Splash: undefined;
@@ -65,12 +69,37 @@ export default function AppNavigator() {
     const handleLanguageDone = useCallback(async () => {
         // Persist the current selection (device default or picked) so the
         // language screen never shows again.
-        await setAppLanguage(currentLang());
+        const chosen = currentLang();
+        await setAppLanguage(chosen);
+        analyticsService.logLanguageSelect(chosen, "onboarding");
         setNeedsLanguage(false);
     }, []);
 
+    // Screen tracking: one place that covers every screen in the stack, so a
+    // new screen is tracked the moment it is added to the navigator.
+    const navRef = useRef<NavigationContainerRef<RootStackParamList>>(null);
+    const routeNameRef = useRef<string | undefined>(undefined);
+
+    const handleNavReady = useCallback(() => {
+        const name = navRef.current?.getCurrentRoute()?.name;
+        routeNameRef.current = name;
+        if (name) analyticsService.logScreenView(name);
+    }, []);
+
+    const handleNavStateChange = useCallback(() => {
+        const current = navRef.current?.getCurrentRoute()?.name;
+        if (current && current !== routeNameRef.current) {
+            routeNameRef.current = current;
+            analyticsService.logScreenView(current);
+        }
+    }, []);
+
     return (
-        <NavigationContainer>
+        <NavigationContainer
+            ref={navRef}
+            onReady={handleNavReady}
+            onStateChange={handleNavStateChange}
+        >
             <Stack.Navigator
                 screenOptions={{
                     headerShown: false,
