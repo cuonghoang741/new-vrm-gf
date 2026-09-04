@@ -19,6 +19,7 @@ import {
     IconGift,
 } from "@tabler/icons-react-native";
 import Button from "./common/Button";
+import { surfaceOn } from "../theme/surface";
 
 // Shared accent palette (kept in sync with PlayScreen / girlfriend-3d-aiva)
 const ACCENT = "#FF3D7F";                     // rose accent
@@ -71,9 +72,12 @@ export default function ActionsBubble({
     const isInCall = ["connected", "connecting"].includes(conversationStatus);
     const [showLabels, setShowLabels] = useState(false);
 
-    // Buttons now sit on a solid violet glass, so icons are always bright for
-    // legibility regardless of the scene behind them.
-    const iconColor = TEXT_BRIGHT;
+    // Contrast against whatever scene is behind: dark glass + light icons over
+    // a dark background, light glass + dark icons over a light one. Most of the
+    // background library is light, so the old always-dark glass was fighting
+    // the scene more often than not.
+    const surface = surfaceOn(isBackgroundDark);
+    const iconColor = surface.icon;
 
     return (
         <View style={styles.actionsBubble}>
@@ -81,6 +85,8 @@ export default function ActionsBubble({
             <Button
                 variant="liquid"
                 size="sm"
+                tintColor={surface.glass}
+                borderColor={surface.border}
                 isIconOnly
                 startIcon={showLabels ? IconChevronUp : IconChevronDown}
                 startIconColor={iconColor}
@@ -95,6 +101,8 @@ export default function ActionsBubble({
                         <Button
                             variant="liquid"
                             size="sm"
+                            tintColor={surface.glass}
+                            borderColor={surface.border}
                             startIcon={IconGift}
                             startIconColor={iconColor}
                             textColor={iconColor}
@@ -103,11 +111,13 @@ export default function ActionsBubble({
                         >
                             Daily
                         </Button>
-                        <View style={styles.notificationDot} />
+                        <View style={[styles.notificationDot, { backgroundColor: surface.accent, borderColor: surface.glass, shadowColor: surface.accent }]} />
                     </View>
                     <Button
                         variant="liquid"
                         size="sm"
+                        tintColor={surface.glass}
+                        borderColor={surface.border}
                         startIcon={IconSettings}
                         startIconColor={iconColor}
                         textColor={iconColor}
@@ -120,6 +130,8 @@ export default function ActionsBubble({
                         <Button
                             variant="liquid"
                             size="sm"
+                            tintColor={surface.glass}
+                            borderColor={surface.border}
                             startIcon={IconUser}
                             startIconColor={iconColor}
                             textColor={iconColor}
@@ -128,13 +140,15 @@ export default function ActionsBubble({
                         >
                             Character
                         </Button>
-                        <View style={styles.notificationDot} />
+                        <View style={[styles.notificationDot, { backgroundColor: surface.accent, borderColor: surface.glass, shadowColor: surface.accent }]} />
                     </View>
 
                     <View>
                         <Button
                             variant="liquid"
                             size="sm"
+                            tintColor={surface.glass}
+                            borderColor={surface.border}
                             startIcon={IconWoman}
                             startIconColor={iconColor}
                             textColor={iconColor}
@@ -143,11 +157,13 @@ export default function ActionsBubble({
                         >
                             Costume
                         </Button>
-                        <View style={styles.notificationDot} />
+                        <View style={[styles.notificationDot, { backgroundColor: surface.accent, borderColor: surface.glass, shadowColor: surface.accent }]} />
                     </View>
                     {/* <Button
                         variant="liquid"
                         size="sm"
+                        tintColor={surface.glass}
+                        borderColor={surface.border}
                         startIcon={is3DMode ? IconCube : IconBadge3d}
                         startIconColor={iconColor}
                         textColor={iconColor}
@@ -159,6 +175,8 @@ export default function ActionsBubble({
                     <Button
                         variant="liquid"
                         size="sm"
+                        tintColor={surface.glass}
+                        borderColor={surface.border}
                         startIcon={IconMap2}
                         startIconColor={iconColor}
                         textColor={iconColor}
@@ -171,6 +189,8 @@ export default function ActionsBubble({
                         <Button
                             variant="liquid"
                             size="sm"
+                            tintColor={surface.glass}
+                            borderColor={surface.border}
                             startIcon={IconPhoto}
                             startIconColor={iconColor}
                             textColor={iconColor}
@@ -179,21 +199,23 @@ export default function ActionsBubble({
                         >
                             Gallery
                         </Button>
-                        <View style={styles.notificationDot} />
+                        <View style={[styles.notificationDot, { backgroundColor: surface.accent, borderColor: surface.glass, shadowColor: surface.accent }]} />
                     </View>
                     <View>
                         <Button
                             variant="liquid"
                             size="sm"
+                            tintColor={surface.glass}
+                            borderColor={surface.border}
                             startIcon={isDancing ? IconX : IconMusic}
-                            startIconColor={isDancing ? DANGER : iconColor}
-                            textColor={isDancing ? DANGER : iconColor}
+                            startIconColor={isDancing ? surface.danger : iconColor}
+                            textColor={isDancing ? surface.danger : iconColor}
                             onPress={onToggleDance}
                             isIconOnly={!showLabels}
                         >
                             {isDancing ? "Stop" : "Dance"}
                         </Button>
-                        {!isPro && <View style={styles.proBadgeMini}><Text style={styles.proBadgeMiniText}>PRO</Text></View>}
+                        {!isPro && <View style={[styles.proBadgeMini, { backgroundColor: surface.gold }]}><Text style={styles.proBadgeMiniText}>PRO</Text></View>}
                     </View>
 
                 </>
@@ -204,9 +226,11 @@ export default function ActionsBubble({
                 <Button
                     variant="liquid"
                     size="sm"
+                    tintColor={surface.glass}
+                    borderColor={surface.border}
                     startIcon={IconVideo}
-                    startIconColor={isCameraMode ? DANGER : iconColor}
-                    textColor={isCameraMode ? DANGER : iconColor}
+                    startIconColor={isCameraMode ? surface.danger : iconColor}
+                    textColor={isCameraMode ? surface.danger : iconColor}
                     onPress={onToggleCamera}
                     isIconOnly={!showLabels}
                 >
@@ -222,14 +246,14 @@ export default function ActionsBubble({
                         colorScheme={isInCall ? "error" : undefined}
                         size="sm"
                         startIcon={isInCall ? IconPhoneOff : IconPhoneCall}
-                        startIconColor={isInCall ? DANGER : iconColor}
-                        textColor={isInCall ? DANGER : iconColor}
+                        startIconColor={isInCall ? surface.danger : iconColor}
+                        textColor={isInCall ? surface.danger : iconColor}
                         onPress={onToggleCall}
                         isIconOnly={!showLabels}
                     >
                         {isInCall ? "End Call" : "Call"}
                     </Button>
-                    {/* {!isPro && !isInCall && <View style={styles.proBadgeMini}><Text style={styles.proBadgeMiniText}>PRO</Text></View>} */}
+                    {/* {!isPro && !isInCall && <View style={[styles.proBadgeMini, { backgroundColor: surface.gold }]}><Text style={styles.proBadgeMiniText}>PRO</Text></View>} */}
                 </View>
             )}
 
@@ -238,9 +262,11 @@ export default function ActionsBubble({
                 <Button
                     variant="liquid"
                     size="sm"
+                    tintColor={surface.glass}
+                    borderColor={surface.border}
                     startIcon={IconCrown}
-                    startIconColor={GOLD}
-                    textColor={GOLD}
+                    startIconColor={surface.gold}
+                    textColor={surface.gold}
                     onPress={onOpenSubscription}
                     isIconOnly={!showLabels}
                 >

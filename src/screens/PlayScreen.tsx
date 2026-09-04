@@ -65,6 +65,7 @@ import ActionsBubble from "../components/ActionsBubble";
 import { useSubscription } from "../contexts/SubscriptionContext";
 import { analyticsService } from "../services/AnalyticsService";
 import { useAndroidBack } from "../hooks/useAndroidBack";
+import { surfaceOn } from "../theme/surface";
 import { useInterstitialAd } from "../hooks/useInterstitialAd";
 import { useRewardedAd } from "../hooks/useRewardedAd";
 import { AdUnits } from "../config/ads";
@@ -343,6 +344,20 @@ export default function PlayScreen() {
                     if (cached.thumbnailUrl) setCharacterThumbnail(cached.thumbnailUrl);
                     if (cached.isBackgroundDark !== undefined) {
                         setIsBackgroundDark(cached.isBackgroundDark);
+                    } else if (cached.backgroundId) {
+                        // Cache written before this field existed. The restore
+                        // path below skips the DB lookup whenever a cached
+                        // background is present, so without this the flag would
+                        // stay on its "dark" default forever — and most of the
+                        // background library is light.
+                        supabase
+                            .from("backgrounds")
+                            .select("is_dark")
+                            .eq("id", cached.backgroundId)
+                            .single()
+                            .then(({ data }) => {
+                                if (data) setIsBackgroundDark(data.is_dark ?? true);
+                            });
                     }
                     if (cached.avatarUrl) setCharacterAvatar(cached.avatarUrl);
                     if (cached.agentElevenlabsId) setAgentElevenlabsId(cached.agentElevenlabsId);
@@ -881,6 +896,9 @@ export default function PlayScreen() {
      * open we ask for a second press: this is the root screen, so the default
      * action really is "quit", and users kept losing the app to a stray swipe.
      */
+    /** Palette for everything floating over the scene — see theme/surface. */
+    const surface = surfaceOn(isBackgroundDark);
+
     const lastBackAt = useRef(0);
     useAndroidBack(
         useCallback(() => {
@@ -1340,12 +1358,12 @@ export default function PlayScreen() {
                                 ]}
                                 effect="regular"
                                 interactive
-                                tintColor={isBackgroundDark ? "rgba(255, 255, 255, 0.1)" : "rgba(15, 5, 30, 0.08)"}
+                                tintColor={surface.veil}
                             >
                                 <TextInput
-                                    style={[styles.textInputLiquid, { color: isBackgroundDark ? '#FFFFFF' : '#0F051E' }]}
+                                    style={[styles.textInputLiquid, { color: surface.icon }]}
                                     placeholder={`Message ${characterName}...`}
-                                    placeholderTextColor={isBackgroundDark ? "rgba(255,255,255,0.3)" : "rgba(15, 5, 30, 0.4)"}
+                                    placeholderTextColor={surface.muted}
                                     value={inputText}
                                     onChangeText={setInputText}
                                     multiline
@@ -1374,7 +1392,7 @@ export default function PlayScreen() {
                             isIconOnly
                             startIcon={IconSend}
                             startIconSize={20}
-                            startIconColor={isBackgroundDark ? "#FFFFFF" : "#0F051E"}
+                            startIconColor={surface.icon}
                             tintColor={isBackgroundDark ? "rgba(255, 107, 157, 0.85)" : "rgba(255, 107, 157, 0.95)"}
                             onPress={handleSend}
                             disabled={!inputText.trim() || isSending}

@@ -25,6 +25,8 @@ export interface ButtonProps {
   // Liquid glass specific props
   liquidEffect?: 'clear' | 'regular';
   tintColor?: string;
+  /** Hairline around a liquid button. Light glass needs a dark one. */
+  borderColor?: string;
 
   disabled?: boolean;
   loading?: boolean;
@@ -69,6 +71,7 @@ const Button: React.FC<ButtonProps> = ({
   // Liquid glass props
   liquidEffect = 'clear',
   tintColor,
+  borderColor,
 }) => {
   const theme = useTheme();
 
@@ -191,7 +194,7 @@ const Button: React.FC<ButtonProps> = ({
           {
             backgroundColor: tintColor || LIQUID_DEFAULT_TINT,
             borderWidth: 1,
-            borderColor: LIQUID_GLASS_BORDER,
+            borderColor: borderColor ?? LIQUID_GLASS_BORDER,
           },
           pressed && { opacity: 0.85 },
           style,
