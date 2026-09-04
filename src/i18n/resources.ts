@@ -30,6 +30,7 @@ export const LANGUAGE_META: Record<SupportedLang, { name: string; flag: string }
 type Dict = Record<string, string>;
 
 const en: Dict = {
+    "play.back_again": "Press back again to exit",
     "ads.gate_title": "Watch a short ad?",
     "ads.gate_body_char": "Watch a short ad to switch to {{name}}.",
     "ads.gate_body_cos": "Watch a short ad to put on this outfit.",
@@ -187,6 +188,7 @@ const en: Dict = {
 };
 
 const vi: Dict = {
+    "play.back_again": "Nhấn back lần nữa để thoát",
     "ads.gate_title": "Xem một quảng cáo ngắn?",
     "ads.gate_body_char": "Xem một quảng cáo ngắn để đổi sang {{name}}.",
     "ads.gate_body_cos": "Xem một quảng cáo ngắn để mặc bộ đồ này.",
@@ -344,6 +346,7 @@ const vi: Dict = {
 };
 
 const ja: Dict = {
+    "play.back_again": "もう一度戻るを押すと終了します",
     "ads.gate_title": "短い広告を見ますか？",
     "ads.gate_body_char": "短い広告を見ると{{name}}に変更できます。",
     "ads.gate_body_cos": "短い広告を見るとこの衣装に着替えられます。",
@@ -501,6 +504,7 @@ const ja: Dict = {
 };
 
 const zh: Dict = {
+    "play.back_again": "再按一次返回退出",
     "ads.gate_title": "观看一段短广告？",
     "ads.gate_body_char": "观看一段短广告即可切换到{{name}}。",
     "ads.gate_body_cos": "观看一段短广告即可换上这套服装。",
@@ -658,6 +662,7 @@ const zh: Dict = {
 };
 
 const ko: Dict = {
+    "play.back_again": "뒤로를 한 번 더 누르면 종료됩니다",
     "ads.gate_title": "짧은 광고를 볼까요?",
     "ads.gate_body_char": "짧은 광고를 보면 {{name}}(으)로 바꿀 수 있어요.",
     "ads.gate_body_cos": "짧은 광고를 보면 이 의상을 입을 수 있어요.",
@@ -815,6 +820,7 @@ const ko: Dict = {
 };
 
 const es: Dict = {
+    "play.back_again": "Pulsa atrás otra vez para salir",
     "ads.gate_title": "¿Ver un anuncio corto?",
     "ads.gate_body_char": "Mira un anuncio corto para cambiar a {{name}}.",
     "ads.gate_body_cos": "Mira un anuncio corto para ponerte este atuendo.",
@@ -972,6 +978,7 @@ const es: Dict = {
 };
 
 const pt: Dict = {
+    "play.back_again": "Toque em voltar novamente para sair",
     "ads.gate_title": "Assistir a um anúncio curto?",
     "ads.gate_body_char": "Assista a um anúncio curto para mudar para {{name}}.",
     "ads.gate_body_cos": "Assista a um anúncio curto para vestir esta roupa.",
@@ -1129,6 +1136,7 @@ const pt: Dict = {
 };
 
 const de: Dict = {
+    "play.back_again": "Zum Beenden erneut zurück drücken",
     "ads.gate_title": "Kurze Werbung ansehen?",
     "ads.gate_body_char": "Sieh dir eine kurze Werbung an, um zu {{name}} zu wechseln.",
     "ads.gate_body_cos": "Sieh dir eine kurze Werbung an, um dieses Outfit anzuziehen.",
@@ -1286,6 +1294,7 @@ const de: Dict = {
 };
 
 const fr: Dict = {
+    "play.back_again": "Appuyez encore sur retour pour quitter",
     "ads.gate_title": "Regarder une courte pub ?",
     "ads.gate_body_char": "Regarde une courte pub pour passer à {{name}}.",
     "ads.gate_body_cos": "Regarde une courte pub pour enfiler cette tenue.",
@@ -1443,6 +1452,7 @@ const fr: Dict = {
 };
 
 const it: Dict = {
+    "play.back_again": "Premi di nuovo indietro per uscire",
     "ads.gate_title": "Guardare un breve annuncio?",
     "ads.gate_body_char": "Guarda un breve annuncio per passare a {{name}}.",
     "ads.gate_body_cos": "Guarda un breve annuncio per indossare questo completo.",

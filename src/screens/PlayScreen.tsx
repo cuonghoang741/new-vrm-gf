@@ -17,7 +17,7 @@ import {
     Dimensions,
     Animated,
     Keyboard,
-    Pressable,
+    Pressable, ToastAndroid,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Image } from "expo-image";
@@ -64,6 +64,7 @@ import { getRubyBalance } from "../services/checkinService";
 import ActionsBubble from "../components/ActionsBubble";
 import { useSubscription } from "../contexts/SubscriptionContext";
 import { analyticsService } from "../services/AnalyticsService";
+import { useAndroidBack } from "../hooks/useAndroidBack";
 import { useInterstitialAd } from "../hooks/useInterstitialAd";
 import { useRewardedAd } from "../hooks/useRewardedAd";
 import { AdUnits } from "../config/ads";
@@ -875,6 +876,33 @@ export default function PlayScreen() {
         }
     }, [user?.id, backgroundUrl, backgroundId, saveCache, is3DMode, agentElevenlabsId, isBackgroundDark]);
 
+    /**
+     * Back closes whatever is on top instead of leaving the app. With nothing
+     * open we ask for a second press: this is the root screen, so the default
+     * action really is "quit", and users kept losing the app to a stray swipe.
+     */
+    const lastBackAt = useRef(0);
+    useAndroidBack(
+        useCallback(() => {
+            if (subscriptionOpen) { setSubscriptionOpen(false); return true; }
+            if (checkinOpen) { setCheckinOpen(false); return true; }
+            if (mediaSheetOpen) { setMediaSheetOpen(false); return true; }
+            if (settingsSheetOpen) { setSettingsSheetOpen(false); return true; }
+            if (costumeSheetOpen) { setCostumeSheetOpen(false); return true; }
+            if (bgSheetOpen) { setBgSheetOpen(false); return true; }
+            if (charSheetOpen) { setCharSheetOpen(false); return true; }
+
+            const now = Date.now();
+            if (now - lastBackAt.current < 2000) return false; // second press → exit
+            lastBackAt.current = now;
+            ToastAndroid.show(t("play.back_again"), ToastAndroid.SHORT);
+            return true;
+        }, [
+            subscriptionOpen, checkinOpen, mediaSheetOpen, settingsSheetOpen,
+            costumeSheetOpen, bgSheetOpen, charSheetOpen, t,
+        ])
+    );
+
     const handleCostumeSelect = useCallback((costume: any) => {
         analyticsService.logCostumeChange(
             costume.id ?? costume.costume_name ?? "unknown",
@@ -1671,7 +1699,7 @@ const styles = StyleSheet.create({
         justifyContent: "flex-end", // Push everything to bottom
     },
     chatMessagesWrapper: {
-        width: "70%",
+        width: "86%",
         maxHeight: height * 0.3,
         alignSelf: "flex-start", // align left
     },

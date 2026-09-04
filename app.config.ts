@@ -111,6 +111,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         "./plugins/withFirebaseSetup",
         "./plugins/withAndroidBackupRulesFix",
         "./plugins/withCopyIndexHtml",
+        "./plugins/withAdMediation",
         [
             "react-native-google-mobile-ads",
             {

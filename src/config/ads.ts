@@ -16,11 +16,14 @@ import { Platform } from "react-native";
  */
 
 /**
- * TEMP: forced TRUE so the tester/review submission serves TEST ads only —
- * testers and Google reviewers can interact safely (no invalid-traffic risk).
- * ⚠️ Flip back to `__DEV__` for the real-ads release once the app is approved.
+ * Test ads in development, REAL ads in any release build.
+ *
+ * ⚠️ Never tap an ad on a release build of your own app — AdMob counts that as
+ * invalid traffic and bans accounts for it. To exercise ad placements by hand,
+ * run a debug build (this flag flips itself) or register the device as a test
+ * device in the AdMob console.
  */
-export const USE_TEST_ADS = true; // was: __DEV__
+export const USE_TEST_ADS = __DEV__;
 
 /** AdMob App ID (khai báo trong app.config.ts — đây chỉ để tham chiếu). */
 export const ADMOB_APP_ID = {

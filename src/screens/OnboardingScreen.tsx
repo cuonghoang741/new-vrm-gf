@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import { analyticsService } from "../services/AnalyticsService";
+import { useAndroidBack } from "../hooks/useAndroidBack";
 import { useTranslation } from "react-i18next";
 import {
     View,
@@ -196,6 +197,19 @@ export default function OnboardingScreen({
             setIsMatching(false);
         }
     }, [animateTransition, scaleAnim]);
+
+    // Back steps the questionnaire backwards instead of dumping the user out of
+    // the app and losing every answer. Step 3 is the result, which we do not
+    // rewind into (it would re-run matching); step 0 has nowhere to go.
+    useAndroidBack(
+        useCallback(() => {
+            if (step > 0 && step < 3) {
+                animateTransition(step - 1);
+                return true;
+            }
+            return false;
+        }, [step, animateTransition])
+    );
 
     const handleClaim = useCallback(async () => {
         if (!matchedCharacter || !user?.id) {
