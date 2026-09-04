@@ -2,7 +2,7 @@ import React, { ReactNode, useEffect, useRef } from "react";
 import { AppState, AppStateStatus } from "react-native";
 import { AppOpenAd, AdEventType } from "react-native-google-mobile-ads";
 import { AdUnits } from "../config/ads";
-import { AdsManager } from "../services/AdsManager";
+import { AdsManager, RESUME_THRESHOLD_MS } from "../services/AdsManager";
 import { useSubscription } from "../contexts/SubscriptionContext";
 
 /**
@@ -25,6 +25,8 @@ export function AdsProvider({ children }: { children: ReactNode }) {
     const loadedRef = useRef(false);
     const loadedAtRef = useRef(0);
     const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+    /** When the app last went to background — gates the resume ad. */
+    const backgroundedAtRef = useRef<number>(0);
 
     // Google App Open ads expire ~4h after load; a stale one fails to present,
     // so we discard and reload it instead of showing (matches Yuuki's 4h expiry).
@@ -106,9 +108,19 @@ export function AdsProvider({ children }: { children: ReactNode }) {
             const prev = appStateRef.current;
             appStateRef.current = next;
 
+            if (prev === "active" && next.match(/inactive|background/)) {
+                backgroundedAtRef.current = Date.now();
+                return;
+            }
+
             const cameToForeground =
                 prev.match(/inactive|background/) && next === "active";
             if (!cameToForeground) return;
+
+            // Only a real absence earns an ad. A two-second app switch, or
+            // returning from a permission / billing dialog, does not.
+            const away = Date.now() - backgroundedAtRef.current;
+            if (away < RESUME_THRESHOLD_MS) return;
 
             // Show on every genuine background -> foreground resume. (Cold start
             // does not emit this transition, and showIfPossible() no-ops until the

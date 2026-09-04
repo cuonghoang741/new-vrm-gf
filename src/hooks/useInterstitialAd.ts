@@ -13,7 +13,7 @@ import { useSubscription } from "../contexts/SubscriptionContext";
 import { analyticsService } from "../services/AnalyticsService";
 
 /** Minimum gap between two interstitials (anti-spam, policy rule 7/8). */
-const MIN_INTERVAL_MS = 4 * 60 * 1000;
+const MIN_INTERVAL_MS = 90 * 1000; // girlx AdCaps.interMinGap
 /** How long the "loading ad…" screen shows before the ad appears (rule 1/3). */
 const LOADING_SCREEN_MS = 700;
 

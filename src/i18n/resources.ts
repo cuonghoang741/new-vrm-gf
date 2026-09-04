@@ -30,6 +30,10 @@ export const LANGUAGE_META: Record<SupportedLang, { name: string; flag: string }
 type Dict = Record<string, string>;
 
 const en: Dict = {
+    "ads.gate_title": "Watch a short ad?",
+    "ads.gate_body_char": "Watch a short ad to switch to {{name}}.",
+    "ads.gate_body_cos": "Watch a short ad to put on this outfit.",
+    "ads.watch_ad": "▶ Watch ad",
     "lang.title": "Choose your language",
     "lang.subtitle": "You can change this anytime in Settings",
     "common.continue": "Continue",
@@ -183,6 +187,10 @@ const en: Dict = {
 };
 
 const vi: Dict = {
+    "ads.gate_title": "Xem một quảng cáo ngắn?",
+    "ads.gate_body_char": "Xem một quảng cáo ngắn để đổi sang {{name}}.",
+    "ads.gate_body_cos": "Xem một quảng cáo ngắn để mặc bộ đồ này.",
+    "ads.watch_ad": "▶ Xem quảng cáo",
     "lang.title": "Chọn ngôn ngữ",
     "lang.subtitle": "Bạn có thể đổi lại bất cứ lúc nào trong Cài đặt",
     "common.continue": "Tiếp tục",
@@ -336,6 +344,10 @@ const vi: Dict = {
 };
 
 const ja: Dict = {
+    "ads.gate_title": "短い広告を見ますか？",
+    "ads.gate_body_char": "短い広告を見ると{{name}}に変更できます。",
+    "ads.gate_body_cos": "短い広告を見るとこの衣装に着替えられます。",
+    "ads.watch_ad": "▶ 広告を見る",
     "lang.title": "言語を選択",
     "lang.subtitle": "設定でいつでも変更できます",
     "common.continue": "続ける",
@@ -489,6 +501,10 @@ const ja: Dict = {
 };
 
 const zh: Dict = {
+    "ads.gate_title": "观看一段短广告？",
+    "ads.gate_body_char": "观看一段短广告即可切换到{{name}}。",
+    "ads.gate_body_cos": "观看一段短广告即可换上这套服装。",
+    "ads.watch_ad": "▶ 观看广告",
     "lang.title": "选择语言",
     "lang.subtitle": "你可以随时在设置中更改",
     "common.continue": "继续",
@@ -642,6 +658,10 @@ const zh: Dict = {
 };
 
 const ko: Dict = {
+    "ads.gate_title": "짧은 광고를 볼까요?",
+    "ads.gate_body_char": "짧은 광고를 보면 {{name}}(으)로 바꿀 수 있어요.",
+    "ads.gate_body_cos": "짧은 광고를 보면 이 의상을 입을 수 있어요.",
+    "ads.watch_ad": "▶ 광고 보기",
     "lang.title": "언어 선택",
     "lang.subtitle": "설정에서 언제든지 변경할 수 있어요",
     "common.continue": "계속",
@@ -795,6 +815,10 @@ const ko: Dict = {
 };
 
 const es: Dict = {
+    "ads.gate_title": "¿Ver un anuncio corto?",
+    "ads.gate_body_char": "Mira un anuncio corto para cambiar a {{name}}.",
+    "ads.gate_body_cos": "Mira un anuncio corto para ponerte este atuendo.",
+    "ads.watch_ad": "▶ Ver anuncio",
     "lang.title": "Elige tu idioma",
     "lang.subtitle": "Puedes cambiarlo cuando quieras en Ajustes",
     "common.continue": "Continuar",
@@ -948,6 +972,10 @@ const es: Dict = {
 };
 
 const pt: Dict = {
+    "ads.gate_title": "Assistir a um anúncio curto?",
+    "ads.gate_body_char": "Assista a um anúncio curto para mudar para {{name}}.",
+    "ads.gate_body_cos": "Assista a um anúncio curto para vestir esta roupa.",
+    "ads.watch_ad": "▶ Ver anúncio",
     "lang.title": "Escolha o seu idioma",
     "lang.subtitle": "Pode alterar a qualquer momento nas Definições",
     "common.continue": "Continuar",
@@ -1101,6 +1129,10 @@ const pt: Dict = {
 };
 
 const de: Dict = {
+    "ads.gate_title": "Kurze Werbung ansehen?",
+    "ads.gate_body_char": "Sieh dir eine kurze Werbung an, um zu {{name}} zu wechseln.",
+    "ads.gate_body_cos": "Sieh dir eine kurze Werbung an, um dieses Outfit anzuziehen.",
+    "ads.watch_ad": "▶ Werbung ansehen",
     "lang.title": "Sprache wählen",
     "lang.subtitle": "Du kannst dies jederzeit in den Einstellungen ändern",
     "common.continue": "Weiter",
@@ -1254,6 +1286,10 @@ const de: Dict = {
 };
 
 const fr: Dict = {
+    "ads.gate_title": "Regarder une courte pub ?",
+    "ads.gate_body_char": "Regarde une courte pub pour passer à {{name}}.",
+    "ads.gate_body_cos": "Regarde une courte pub pour enfiler cette tenue.",
+    "ads.watch_ad": "▶ Voir la pub",
     "lang.title": "Choisissez votre langue",
     "lang.subtitle": "Vous pouvez changer à tout moment dans les Réglages",
     "common.continue": "Continuer",
@@ -1407,6 +1443,10 @@ const fr: Dict = {
 };
 
 const it: Dict = {
+    "ads.gate_title": "Guardare un breve annuncio?",
+    "ads.gate_body_char": "Guarda un breve annuncio per passare a {{name}}.",
+    "ads.gate_body_cos": "Guarda un breve annuncio per indossare questo completo.",
+    "ads.watch_ad": "▶ Guarda annuncio",
     "lang.title": "Scegli la lingua",
     "lang.subtitle": "Puoi cambiarla quando vuoi nelle Impostazioni",
     "common.continue": "Continua",

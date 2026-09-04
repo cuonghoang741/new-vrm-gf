@@ -8,11 +8,20 @@ import {
 } from "expo-tracking-transparency";
 import * as SecureStore from "expo-secure-store";
 
-/** Frequency caps / timeouts — mirror Yuuki's AdCaps. */
+/**
+ * Frequency caps / timeouts — same numbers as girlx's AdCaps defaults, so the
+ * two apps behave identically for a reviewer comparing them.
+ */
 const COLD_START_GRACE_MS = 20_000; // no interstitial in the first 20s after launch
 const MIN_FULLSCREEN_GAP_MS = 30_000; // min gap between ANY two full-screen ads
-const MAX_INTERSTITIALS_PER_SESSION = 6;
-const MAX_INTERSTITIALS_PER_DAY = 30;
+const MAX_INTERSTITIALS_PER_SESSION = 5;
+const MAX_INTERSTITIALS_PER_DAY = 15;
+/**
+ * The app must have been backgrounded at least this long before coming back
+ * counts as a "resume" worth an App Open ad. Without it, a two-second app
+ * switch — or returning from a permission dialog — earns a full-screen ad.
+ */
+export const RESUME_THRESHOLD_MS = 45_000;
 /** Load-failure backoff: attempt N waits retryBaseDelay * N (matches Yuuki). */
 export const AD_RETRY_BASE_DELAY_MS = 5_000;
 export const AD_MAX_LOAD_RETRIES = 3;

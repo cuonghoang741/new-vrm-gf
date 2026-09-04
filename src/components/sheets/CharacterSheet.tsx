@@ -18,6 +18,8 @@ import {
 import Ionicons from "@expo/vector-icons/Ionicons";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import * as Haptics from "expo-haptics";
+import { useRewardedAd } from "../../hooks/useRewardedAd";
+import { AdUnits } from "../../config/ads";
 import { supabase } from "../../config/supabase";
 import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
 import { LinearGradient } from 'expo-linear-gradient';
@@ -67,6 +69,7 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
     const [characters, setCharacters] = useState<Character[]>([]);
     const [ownedIds, setOwnedIds] = useState<Set<string>>(new Set());
     const [tempUnlocked, setTempUnlocked] = useState<Set<string>>(new Set());
+    const { showForGate } = useRewardedAd(AdUnits.rewarded, "change_character");
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const shimmerOpacity = useRef(new Animated.Value(0.3)).current;
@@ -165,6 +168,21 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
         [userId, applySelection, goPro]
     );
 
+    /**
+     * Switching to an already-owned/free character costs a rewarded ad. The
+     * user opts in explicitly; PRO skips it; and if no ad can be served we let
+     * the switch happen rather than blocking on our own no-fill.
+     */
+    const gateWithRewardedAd = useCallback(
+        async (char: Character) => {
+            if (isPro) return applySelection(char);
+            const outcome = await showForGate();
+            if (outcome === "dismissed") return;
+            applySelection(char);
+        },
+        [isPro, showForGate, applySelection]
+    );
+
     const handleSelect = useCallback(
         (char: Character) => {
             if (char.available === false) return;
@@ -187,9 +205,24 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
                 );
                 return;
             }
-            applySelection(char);
+
+            // Re-picking the current character is a no-op — never charge an ad.
+            if (char.id === currentCharacterId) return applySelection(char);
+
+            if (isPro) return applySelection(char);
+
+            Haptics.selectionAsync();
+            Alert.alert(
+                t("ads.gate_title"),
+                t("ads.gate_body_char", { name: char.name }),
+                [
+                    { text: t("common.cancel"), style: "cancel" },
+                    { text: t("common.upgrade_pro"), onPress: goPro },
+                    { text: t("ads.watch_ad"), onPress: () => gateWithRewardedAd(char) },
+                ]
+            );
         },
-        [isPro, ownedIds, tempUnlocked, currentCharacterId, userId, goPro, doBuy, applySelection]
+        [isPro, ownedIds, tempUnlocked, currentCharacterId, userId, goPro, doBuy, applySelection, gateWithRewardedAd, t]
     );
 
     const renderItem = useCallback(

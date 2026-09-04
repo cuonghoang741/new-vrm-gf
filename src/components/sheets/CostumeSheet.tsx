@@ -14,6 +14,8 @@ import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { IconDiamondFilled } from "@tabler/icons-react-native";
 import * as Haptics from "expo-haptics";
+import { useRewardedAd } from "../../hooks/useRewardedAd";
+import { AdUnits } from "../../config/ads";
 import { supabase } from "../../config/supabase";
 import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
 import { purchaseItem } from "../../services/checkinService";
@@ -61,6 +63,7 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
     const [costumes, setCostumes] = useState<Costume[]>([]);
     const [ownedIds, setOwnedIds] = useState<Set<string>>(new Set());
     const [tempUnlocked, setTempUnlocked] = useState<Set<string>>(new Set());
+    const { showForGate } = useRewardedAd(AdUnits.rewarded, "change_costume");
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const listRef = useRef<FlatList>(null);
@@ -183,6 +186,22 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
         [userId, applySelection, goPro]
     );
 
+    /**
+     * Free outfits are gated behind a user-initiated rewarded ad: the user is
+     * told what they are agreeing to and taps "Watch ad" themselves. PRO skips
+     * it. If we cannot actually serve an ad we let the change through — the
+     * feature must not break because AdMob had no fill.
+     */
+    const gateWithRewardedAd = useCallback(
+        async (costume: Costume) => {
+            if (isPro) return applySelection(costume);
+            const outcome = await showForGate();
+            if (outcome === "dismissed") return; // saw it, backed out
+            applySelection(costume);
+        },
+        [isPro, showForGate, applySelection]
+    );
+
     const handleSelect = useCallback(
         (costume: Costume) => {
             const isProItem = costume.tier === "pro";
@@ -204,9 +223,24 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
                 );
                 return;
             }
-            applySelection(costume);
+
+            // Already wearing it — no ad for a no-op.
+            if (costume.model_url === currentCostumeUrl) return applySelection(costume);
+
+            if (isPro) return applySelection(costume);
+
+            Haptics.selectionAsync();
+            Alert.alert(
+                t("ads.gate_title"),
+                t("ads.gate_body_cos"),
+                [
+                    { text: t("common.cancel"), style: "cancel" },
+                    { text: t("common.upgrade_pro"), onPress: goPro },
+                    { text: t("ads.watch_ad"), onPress: () => gateWithRewardedAd(costume) },
+                ]
+            );
         },
-        [isPro, ownedIds, tempUnlocked, userId, goPro, doBuy, applySelection]
+        [isPro, ownedIds, tempUnlocked, userId, goPro, doBuy, applySelection, currentCostumeUrl, gateWithRewardedAd, t]
     );
 
     const renderItem = useCallback(

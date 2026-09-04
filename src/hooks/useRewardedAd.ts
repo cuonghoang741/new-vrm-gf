@@ -8,6 +8,9 @@ import { AdUnits } from "../config/ads";
 import { AdsManager } from "../services/AdsManager";
 import { analyticsService } from "../services/AnalyticsService";
 
+/** Outcome of a gated rewarded show — see [useRewardedAd.showForGate]. */
+export type RewardedOutcome = "earned" | "dismissed" | "unavailable";
+
 /** Max time to wait for a rewarded ad to load after the user opts in. */
 const LOAD_TIMEOUT_MS = 8000;
 
@@ -114,6 +117,61 @@ export function useRewardedAd(
         [buildAndLoad, placement]
     );
 
+    /**
+     * Same as [show] but says *why* it failed, which a feature gate needs:
+     * "unavailable" means we could not put an ad in front of the user (no fill,
+     * SDK down, another full-screen ad up), so the gate should let them through
+     * rather than block a feature on our own inability to serve. "dismissed"
+     * means the user saw it and backed out — that one blocks.
+     */
+    const showForGate = useCallback((): Promise<RewardedOutcome> => {
+        return new Promise((resolve) => {
+            if (AdsManager.isFullscreenAdShowing) {
+                analyticsService.logAdSkipped("rewarded", placement, "overlap");
+                return resolve("unavailable");
+            }
+            if (!adRef.current) buildAndLoad();
+            const ad = adRef.current;
+            if (!ad) {
+                analyticsService.logAdSkipped("rewarded", placement, "not_loaded");
+                return resolve("unavailable");
+            }
+
+            const run = () => present(ad, (earned) => resolve(earned ? "earned" : "dismissed"));
+            if (loadedRef.current) return run();
+
+            AdsManager.showLoadingOverlay();
+            let done = false;
+            const finish = (cb: () => void) => {
+                if (done) return;
+                done = true;
+                unsubL();
+                unsubE();
+                clearTimeout(timer);
+                cb();
+            };
+            const unsubL = ad.addAdEventListener(RewardedAdEventType.LOADED, () =>
+                finish(run)
+            );
+            const unsubE = ad.addAdEventListener(AdEventType.ERROR, () =>
+                finish(() => {
+                    AdsManager.hideLoadingOverlay();
+                    analyticsService.logAdSkipped("rewarded", placement, "load_error");
+                    resolve("unavailable");
+                })
+            );
+            const timer = setTimeout(
+                () =>
+                    finish(() => {
+                        AdsManager.hideLoadingOverlay();
+                        analyticsService.logAdSkipped("rewarded", placement, "load_timeout");
+                        resolve("unavailable");
+                    }),
+                LOAD_TIMEOUT_MS
+            );
+        });
+    }, [present, buildAndLoad, placement]);
+
     /** Show the rewarded ad. Resolves true only if the reward was earned. */
     const show = useCallback((): Promise<boolean> => {
         return new Promise((resolve) => {
@@ -174,5 +232,5 @@ export function useRewardedAd(
         });
     }, [present, buildAndLoad, placement]);
 
-    return { show };
+    return { show, showForGate };
 }
