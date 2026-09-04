@@ -226,7 +226,10 @@ export const BottomSheet = forwardRef<BottomSheetRef, BottomSheetProps>(({
     };
 
     if (Platform.OS === 'android') {
-        const bgColor = isDarkBackground ? '#1e1e1e' : '#ffffff';
+        // Honour an explicit backgroundColor — the Android path used to ignore
+        // it and always paint #1e1e1e, which left a seam against sheets that
+        // set their own colour.
+        const bgColor = backgroundColor ?? (isDarkBackground ? '#1e1e1e' : '#ffffff');
         const grabberColor = isDarkBackground ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)';
         return (
             <Modal

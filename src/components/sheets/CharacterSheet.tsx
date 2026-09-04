@@ -10,11 +10,7 @@ import {
     Alert,
 } from "react-native";
 import { Image } from "expo-image";
-import {
-    IconChevronRight,
-    IconLock,
-    IconWoman,
-} from "@tabler/icons-react-native";
+import { IconLock, IconWoman } from "@tabler/icons-react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import * as Haptics from "expo-haptics";
@@ -24,6 +20,9 @@ import { supabase } from "../../config/supabase";
 import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
 import { LinearGradient } from 'expo-linear-gradient';
 import { purchaseItem } from "../../services/checkinService";
+
+const BG = "#0F0A1E";
+const ACCENT = "#FF4D8D";
 
 interface Character {
     id: string;
@@ -70,6 +69,8 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
     const [ownedIds, setOwnedIds] = useState<Set<string>>(new Set());
     const [tempUnlocked, setTempUnlocked] = useState<Set<string>>(new Set());
     const { showForGate } = useRewardedAd(AdUnits.rewarded, "change_character");
+    /** Tile being previewed in the hero — not yet the active character. */
+    const [focusedId, setFocusedId] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const shimmerOpacity = useRef(new Animated.Value(0.3)).current;
@@ -111,10 +112,13 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
     }, [loading, userId]);
 
     useEffect(() => {
+        // Reopening always starts on the active character, never on whatever
+        // tile happened to be previewed last time.
+        if (isOpened) setFocusedId(currentCharacterId);
         if (isOpened && characters.length === 0) {
             load();
         }
-    }, [isOpened]);
+    }, [isOpened, currentCharacterId]);
 
     // Shimmer animation
     useEffect(() => {
@@ -225,105 +229,79 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
         [isPro, ownedIds, tempUnlocked, currentCharacterId, userId, goPro, doBuy, applySelection, gateWithRewardedAd, t]
     );
 
-    const renderItem = useCallback(
+    // Tapping a tile only FOCUSES it — the hero previews her and nothing
+    // switches until the user presses the button. Keeps an accidental tap in a
+    // 3-wide grid from costing a rewarded ad or a model reload.
+    const focusedChar =
+        characters.find((c) => c.id === focusedId) ??
+        characters.find((c) => c.id === currentCharacterId) ??
+        characters[0];
+
+    const focus = useCallback((c: Character) => {
+        Haptics.selectionAsync();
+        setFocusedId(c.id);
+    }, []);
+
+    const isLockedFor = useCallback(
+        (c: Character) =>
+            !isPro &&
+            !(ownedIds.has(c.id) || tempUnlocked.has(c.id)) &&
+            c.id !== currentCharacterId,
+        [isPro, ownedIds, tempUnlocked, currentCharacterId]
+    );
+
+    const renderTile = useCallback(
         ({ item }: { item: Character }) => {
-            const isSelected = item.id === currentCharacterId;
-            const isOwned = ownedIds.has(item.id) || tempUnlocked.has(item.id);
+            const isFocused = item.id === focusedId;
+            const isCurrent = item.id === currentCharacterId;
             const isAvailable = item.available !== false;
-            const isLocked = !isPro && !isOwned && !isSelected;
+            const locked = isLockedFor(item);
 
             return (
                 <Pressable
-                    onPress={() => handleSelect(item)}
+                    onPress={() => focus(item)}
                     disabled={!isAvailable}
                     style={({ pressed }) => [
-                        styles.rowItem,
-                        isSelected && styles.rowItemSelected,
-                        pressed && styles.pressed,
-                        !isAvailable && { opacity: 0.5 },
+                        styles.tile,
+                        isFocused && styles.tileFocused,
+                        pressed && { opacity: 0.85 },
+                        !isAvailable && { opacity: 0.45 },
                     ]}
                 >
-                    {/* Avatar */}
-                    <View style={styles.rowAvatarContainer}>
-                        <Image
-                            source={{ uri: item.small_thumb_url ?? item.thumbnail_url ?? undefined }}
-                            style={styles.rowAvatar}
-                            contentFit="cover"
-                            transition={200}
-                        />
-                        <LinearGradient
-                            colors={['transparent', 'rgba(0,0,0,0.4)']}
-                            style={styles.avatarGradient}
-                        />
-                        {isSelected && (
-                            <View style={styles.selectedBadge}>
-                                <Ionicons name="checkmark" size={14} color="#fff" />
-                            </View>
-                        )}
-                    </View>
+                    <Image
+                        source={{ uri: item.small_thumb_url ?? item.thumbnail_url ?? undefined }}
+                        style={StyleSheet.absoluteFill}
+                        contentFit="cover"
+                        transition={200}
+                    />
+                    <LinearGradient
+                        colors={["transparent", "rgba(0,0,0,0.85)"]}
+                        style={styles.tileScrim}
+                    />
 
-                    {/* Content */}
-                    <View style={styles.rowContent}>
-                        <View style={styles.rowTitleContainer}>
-                            <Text style={styles.rowName} numberOfLines={1}>
-                                {item.name}
-                            </Text>
-                            {isLocked && isAvailable && (
-                                <LinearGradient
-                                    colors={['#FF6FA5', '#FF6FA5']}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 0 }}
-                                    style={styles.proPill}
-                                >
-                                    <Text style={styles.proPillText}>PRO</Text>
-                                </LinearGradient>
-                            )}
-                            {!isAvailable && (
-                                <View style={[styles.proPill, { backgroundColor: '#475569', borderColor: 'transparent' }]}>
-                                    <Text style={styles.proPillText}>COMING SOON</Text>
-                                </View>
-                            )}
+                    {locked && isAvailable && (
+                        <View style={styles.tileLock}>
+                            <IconLock size={16} color="#fff" />
                         </View>
-                        {item.description && (
-                            <Text style={styles.rowDescription} numberOfLines={1}>
-                                {item.description}
-                            </Text>
-                        )}
+                    )}
+                    {isCurrent && (
+                        <View style={styles.tileCurrent}>
+                            <Ionicons name="checkmark" size={12} color="#fff" />
+                        </View>
+                    )}
+                    {!isAvailable && (
+                        <View style={styles.tileSoon}>
+                            <Text style={styles.tileSoonText}>SOON</Text>
+                        </View>
+                    )}
 
-                        {/* Stats */}
-                        <View style={styles.rowStats}>
-                            {item.data?.height_cm && (
-                                <View style={styles.statChip}>
-                                    <MaterialCommunityIcons name="human-male-height" size={12} color="rgba(255,255,255,0.6)" />
-                                    <Text style={styles.statValue}>{item.data.height_cm}cm</Text>
-                                </View>
-                            )}
-                            {item.data?.rounds && (
-                                <View style={styles.statChip}>
-                                    <IconWoman size={12} color="rgba(255,255,255,0.6)" />
-                                    <Text style={styles.statValue}>
-                                        {item.data.rounds.r1}-{item.data.rounds.r2}-{item.data.rounds.r3}
-                                    </Text>
-                                </View>
-                            )}
-                            {item.data?.old && (
-                                <View style={styles.statChip}>
-                                    <Text style={styles.statValue}>{item.data.old} yr</Text>
-                                </View>
-                            )}
-                        </View>
-                    </View>
-
-                    {/* Right */}
-                    <View style={styles.rowRight}>
-                        <View style={styles.chevronCircle}>
-                            <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.4)" />
-                        </View>
-                    </View>
+                    <Text style={styles.tileName} numberOfLines={1}>
+                        {item.name}
+                    </Text>
                 </Pressable>
             );
         },
-        [currentCharacterId, handleSelect, isPro, ownedIds, tempUnlocked]
+        [focusedId, currentCharacterId, focus, isLockedFor]
     );
 
     const renderSkeleton = () => (
@@ -348,23 +326,145 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
                 </View>
             );
         }
-        if (characters.length === 0) {
+        if (characters.length === 0 || !focusedChar) {
             return (
                 <View style={styles.centerContainer}>
                     <Text style={{ color: "rgba(255,255,255,0.5)" }}>{t("char.none")}</Text>
                 </View>
             );
         }
+
+        const heroLocked = isLockedFor(focusedChar);
+        const heroImg =
+            focusedChar.avatar ?? focusedChar.thumbnail_url ?? undefined;
+        const ctaLabel = heroLocked
+            ? t("char.unlock_pro")
+            : focusedChar.id === currentCharacterId || isPro
+                ? t("char.start_chatting")
+                : t("char.watch_to_switch");
+
         return (
             <View style={{ flex: 1 }}>
+                {/* ─── Hero: portrait pinned right, info over the dark left ─── */}
+                <View style={styles.hero}>
+                    <View style={styles.heroPortrait}>
+                        <Image
+                            source={{ uri: heroImg }}
+                            style={StyleSheet.absoluteFill}
+                            contentFit="cover"
+                            contentPosition="top"
+                            transition={220}
+                            blurRadius={heroLocked ? 18 : 0}
+                        />
+                    </View>
+
+                    {/* Left-to-right scrim: near-solid on the left so the name
+                        stays legible, gone by ~60% so her face is untouched. */}
+                    <LinearGradient
+                        colors={["rgba(15,10,30,0.96)", "rgba(15,10,30,0.67)", "rgba(15,10,30,0)"]}
+                        locations={[0, 0.3, 0.6]}
+                        start={{ x: 0, y: 0.5 }}
+                        end={{ x: 1, y: 0.5 }}
+                        style={StyleSheet.absoluteFill}
+                        pointerEvents="none"
+                    />
+                    {/* Bottom fade so the hero dissolves into the grid. */}
+                    <LinearGradient
+                        colors={["transparent", "#0F0A1E"]}
+                        locations={[0.55, 1]}
+                        style={StyleSheet.absoluteFill}
+                        pointerEvents="none"
+                    />
+
+                    {heroLocked && (
+                        <View style={styles.heroLockBadge}>
+                            <IconLock size={26} color="#fff" />
+                        </View>
+                    )}
+
+                    <View style={styles.heroInfo}>
+                        <View style={styles.heroNameRow}>
+                            <Text style={styles.heroName} numberOfLines={1}>
+                                {focusedChar.name}
+                            </Text>
+                            {focusedChar.tier === "pro" && !isPro && (
+                                <View style={styles.proPill}>
+                                    <Text style={styles.proPillText}>PRO</Text>
+                                </View>
+                            )}
+                        </View>
+
+                        <View style={styles.heroChips}>
+                            {focusedChar.data?.old != null && (
+                                <View style={styles.statChip}>
+                                    <Text style={styles.statValue}>{focusedChar.data.old} yr</Text>
+                                </View>
+                            )}
+                            {focusedChar.data?.height_cm != null && (
+                                <View style={styles.statChip}>
+                                    <MaterialCommunityIcons name="human-male-height" size={12} color="rgba(255,255,255,0.7)" />
+                                    <Text style={styles.statValue}>{focusedChar.data.height_cm}cm</Text>
+                                </View>
+                            )}
+                            {focusedChar.data?.rounds && (
+                                <View style={styles.statChip}>
+                                    <IconWoman size={12} color="rgba(255,255,255,0.7)" />
+                                    <Text style={styles.statValue}>
+                                        {focusedChar.data.rounds.r1}-{focusedChar.data.rounds.r2}-{focusedChar.data.rounds.r3}
+                                    </Text>
+                                </View>
+                            )}
+                        </View>
+
+                        {!!focusedChar.description && (
+                            <Text style={styles.heroStory} numberOfLines={4}>
+                                {focusedChar.description}
+                            </Text>
+                        )}
+                    </View>
+                </View>
+
+                {/* ─── "Choose your partner" ─── */}
+                <View style={styles.pickerHeader}>
+                    <Ionicons name="sparkles" size={14} color={ACCENT} />
+                    <Text style={styles.pickerHeaderText} numberOfLines={1}>
+                        {t("char.choose_partner")}
+                    </Text>
+                    <Ionicons name="sparkles" size={14} color={ACCENT} />
+                </View>
+
+                {/* ─── Grid ─── */}
                 <FlatList
                     data={characters}
-                    renderItem={renderItem}
+                    renderItem={renderTile}
                     keyExtractor={(item) => item.id}
-                    contentContainerStyle={styles.listContent}
+                    numColumns={3}
+                    columnWrapperStyle={{ gap: 10 }}
+                    contentContainerStyle={styles.gridContent}
                     showsVerticalScrollIndicator={false}
-                    ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
                 />
+
+                {/* ─── Commit ─── */}
+                <View style={styles.bottomBar}>
+                    <Pressable
+                        onPress={() => handleSelect(focusedChar)}
+                        style={({ pressed }) => [pressed && { opacity: 0.9 }]}
+                    >
+                        <LinearGradient
+                            colors={heroLocked ? ["#3A2A4A", "#3A2A4A"] : ["#FF6FA3", "#FF2E74"]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.cta}
+                        >
+                            <Ionicons
+                                name={heroLocked ? "lock-closed" : focusedChar.id === currentCharacterId || isPro ? "chatbubble-ellipses" : "play"}
+                                size={18}
+                                color="#fff"
+                            />
+                            <Text style={styles.ctaText}>{ctaLabel}</Text>
+                        </LinearGradient>
+                    </Pressable>
+                </View>
             </View>
         );
     };
@@ -375,9 +475,9 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
             isOpened={isOpened}
             onIsOpenedChange={onIsOpenedChange}
             backgroundBlur="system-thick-material-dark"
-            title={t("char.title")}
             isDarkBackground
-            detents={[0.85, 0.95]}
+            backgroundColor="#0F0A1E"
+            detents={[0.95]}
         >
             {renderContent()}
         </BottomSheet>
@@ -387,6 +487,79 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
 export default CharacterSheet;
 
 const styles = StyleSheet.create({
+    // ─── Hero ───
+    hero: { height: 330, width: "100%", backgroundColor: BG, overflow: "hidden" },
+    heroPortrait: { position: "absolute", top: 0, bottom: 0, right: 0, width: "70%" },
+    heroLockBadge: {
+        position: "absolute", right: "28%", top: "42%",
+        width: 60, height: 60, borderRadius: 30,
+        alignItems: "center", justifyContent: "center",
+        backgroundColor: "rgba(0,0,0,0.35)",
+        borderWidth: 1.6, borderColor: "rgba(255,255,255,0.75)",
+    },
+    heroInfo: { position: "absolute", left: 20, top: 18, bottom: 22, width: "56%" },
+    heroNameRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+    heroName: {
+        color: "#fff", fontSize: 28, fontWeight: "900", letterSpacing: 0.3,
+        flexShrink: 1, textShadowColor: "rgba(0,0,0,0.7)", textShadowRadius: 8,
+    },
+    heroChips: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 12 },
+    heroStory: {
+        color: "rgba(255,255,255,0.92)", fontSize: 13.5, lineHeight: 19,
+        marginTop: 12, textShadowColor: "rgba(0,0,0,0.6)", textShadowRadius: 6,
+    },
+
+    // ─── "Choose your partner" ───
+    pickerHeader: {
+        flexDirection: "row", alignItems: "center", justifyContent: "center",
+        gap: 8, paddingHorizontal: 20, paddingVertical: 10,
+    },
+    pickerHeaderText: {
+        color: "#fff", fontSize: 15, fontWeight: "800", letterSpacing: 0.2, flexShrink: 1,
+    },
+
+    // ─── Grid ───
+    gridContent: { paddingHorizontal: 16, paddingBottom: 16, gap: 10 },
+    tile: {
+        flex: 1, aspectRatio: 0.74, borderRadius: 14, overflow: "hidden",
+        backgroundColor: "#1B1430", borderWidth: 2, borderColor: "transparent",
+    },
+    tileFocused: { borderColor: ACCENT },
+    tileScrim: { position: "absolute", left: 0, right: 0, bottom: 0, height: "55%" },
+    tileName: {
+        position: "absolute", left: 7, right: 7, bottom: 7,
+        color: "#fff", fontSize: 12, fontWeight: "700",
+    },
+    tileLock: {
+        position: "absolute", top: 6, right: 6,
+        width: 26, height: 26, borderRadius: 13,
+        alignItems: "center", justifyContent: "center",
+        backgroundColor: "rgba(0,0,0,0.5)",
+    },
+    tileCurrent: {
+        position: "absolute", top: 6, left: 6,
+        width: 22, height: 22, borderRadius: 11,
+        alignItems: "center", justifyContent: "center", backgroundColor: ACCENT,
+    },
+    tileSoon: {
+        position: "absolute", top: 6, left: 6,
+        paddingHorizontal: 6, paddingVertical: 2,
+        borderRadius: 6, backgroundColor: "#475569",
+    },
+    tileSoonText: { color: "#fff", fontSize: 8, fontWeight: "800" },
+
+    // ─── Commit ───
+    bottomBar: {
+        paddingHorizontal: 20, paddingTop: 12, paddingBottom: 18,
+        backgroundColor: BG,
+        borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.08)",
+    },
+    cta: {
+        height: 54, borderRadius: 16, flexDirection: "row",
+        alignItems: "center", justifyContent: "center", gap: 10,
+    },
+    ctaText: { color: "#fff", fontSize: 16, fontWeight: "800" },
+
     centerContainer: {
         flex: 1,
         alignItems: "center",
@@ -396,97 +569,14 @@ const styles = StyleSheet.create({
     },
     errorText: { fontSize: 16, color: "#fff", marginBottom: 8 },
     retryText: { fontSize: 16, fontWeight: "600", color: "#FF6FA5" },
-    listContent: {
-        paddingHorizontal: 20,
-        paddingBottom: 40,
-
-        paddingTop: 8,
-    },
 
     // Row
-    rowItem: {
-        flexDirection: "row",
-        alignItems: "center",
-        backgroundColor: "rgba(255,255,255,0.08)",
-        borderRadius: 20,
-        padding: 12,
-        borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.05)",
-    },
-    rowItemSelected: {
-        backgroundColor: "rgba(255, 111, 165, 0.15)",
-        borderColor: "#FF6FA5",
-    },
-    pressed: {
-        transform: [{ scale: 0.98 }],
-        backgroundColor: "rgba(255,255,255,0.12)",
-    },
 
     // Avatar
-    rowAvatarContainer: { 
-        position: "relative", 
-        marginRight: 16,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 5,
-    },
-    rowAvatar: {
-        width: 84,
-        height: 112,
-        borderRadius: 14,
-        backgroundColor: "rgba(255,255,255,0.05)",
-    },
-    avatarGradient: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        height: '40%',
-        borderRadius: 14,
-    },
-    selectedBadge: {
-        position: "absolute",
-        bottom: -4,
-        right: -4,
-        backgroundColor: "#FF6FA5",
-        width: 24,
-        height: 24,
-        borderRadius: 12,
-        alignItems: "center",
-        justifyContent: "center",
-        borderWidth: 2,
-        borderColor: "#1A1A1A",
-        elevation: 4,
-    },
 
     // Content
-    rowContent: { flex: 1, justifyContent: "center", paddingVertical: 2 },
-    rowTitleContainer: {
-        flexDirection: "row",
-        alignItems: "center",
-        marginBottom: 6,
-    },
-    rowName: { 
-        fontSize: 19, 
-        fontWeight: "900", 
-        color: "#FFFFFF",
-        letterSpacing: 0.3,
-    },
-    rowDescription: {
-        fontSize: 13,
-        color: "rgba(255,255,255,0.5)",
-        marginBottom: 10,
-        lineHeight: 16,
-    },
 
     // Stats
-    rowStats: {
-        flexDirection: "row",
-        alignItems: "center",
-        flexWrap: "wrap",
-        gap: 6,
-    },
     statChip: {
         flexDirection: "row",
         alignItems: "center",
@@ -505,15 +595,6 @@ const styles = StyleSheet.create({
     },
 
     // Right
-    rowRight: { marginLeft: 8, alignItems: "center", justifyContent: "center" },
-    chevronCircle: {
-        width: 28,
-        height: 28,
-        borderRadius: 14,
-        backgroundColor: "rgba(255,255,255,0.05)",
-        alignItems: "center",
-        justifyContent: "center",
-    },
 
     // Badges
     proPill: {

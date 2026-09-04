@@ -30,6 +30,10 @@ export const LANGUAGE_META: Record<SupportedLang, { name: string; flag: string }
 type Dict = Record<string, string>;
 
 const en: Dict = {
+    "char.choose_partner": "Choose your partner",
+    "char.start_chatting": "Start chatting",
+    "char.unlock_pro": "Unlock with PRO",
+    "char.watch_to_switch": "Watch an ad to switch",
     "play.back_again": "Press back again to exit",
     "ads.gate_title": "Watch a short ad?",
     "ads.gate_body_char": "Watch a short ad to switch to {{name}}.",
@@ -188,6 +192,10 @@ const en: Dict = {
 };
 
 const vi: Dict = {
+    "char.choose_partner": "Chọn người bạn đồng hành",
+    "char.start_chatting": "Bắt đầu trò chuyện",
+    "char.unlock_pro": "Mở khoá bằng PRO",
+    "char.watch_to_switch": "Xem quảng cáo để đổi",
     "play.back_again": "Nhấn back lần nữa để thoát",
     "ads.gate_title": "Xem một quảng cáo ngắn?",
     "ads.gate_body_char": "Xem một quảng cáo ngắn để đổi sang {{name}}.",
@@ -346,6 +354,10 @@ const vi: Dict = {
 };
 
 const ja: Dict = {
+    "char.choose_partner": "パートナーを選ぶ",
+    "char.start_chatting": "チャットを始める",
+    "char.unlock_pro": "PROで解除",
+    "char.watch_to_switch": "広告を見て変更",
     "play.back_again": "もう一度戻るを押すと終了します",
     "ads.gate_title": "短い広告を見ますか？",
     "ads.gate_body_char": "短い広告を見ると{{name}}に変更できます。",
@@ -504,6 +516,10 @@ const ja: Dict = {
 };
 
 const zh: Dict = {
+    "char.choose_partner": "选择你的伴侣",
+    "char.start_chatting": "开始聊天",
+    "char.unlock_pro": "用 PRO 解锁",
+    "char.watch_to_switch": "看广告即可切换",
     "play.back_again": "再按一次返回退出",
     "ads.gate_title": "观看一段短广告？",
     "ads.gate_body_char": "观看一段短广告即可切换到{{name}}。",
@@ -662,6 +678,10 @@ const zh: Dict = {
 };
 
 const ko: Dict = {
+    "char.choose_partner": "파트너 선택",
+    "char.start_chatting": "채팅 시작",
+    "char.unlock_pro": "PRO로 잠금 해제",
+    "char.watch_to_switch": "광고 보고 변경",
     "play.back_again": "뒤로를 한 번 더 누르면 종료됩니다",
     "ads.gate_title": "짧은 광고를 볼까요?",
     "ads.gate_body_char": "짧은 광고를 보면 {{name}}(으)로 바꿀 수 있어요.",
@@ -820,6 +840,10 @@ const ko: Dict = {
 };
 
 const es: Dict = {
+    "char.choose_partner": "Elige a tu pareja",
+    "char.start_chatting": "Empezar a chatear",
+    "char.unlock_pro": "Desbloquear con PRO",
+    "char.watch_to_switch": "Ver un anuncio para cambiar",
     "play.back_again": "Pulsa atrás otra vez para salir",
     "ads.gate_title": "¿Ver un anuncio corto?",
     "ads.gate_body_char": "Mira un anuncio corto para cambiar a {{name}}.",
@@ -978,6 +1002,10 @@ const es: Dict = {
 };
 
 const pt: Dict = {
+    "char.choose_partner": "Escolha seu par",
+    "char.start_chatting": "Começar a conversar",
+    "char.unlock_pro": "Desbloquear com PRO",
+    "char.watch_to_switch": "Ver anúncio para trocar",
     "play.back_again": "Toque em voltar novamente para sair",
     "ads.gate_title": "Assistir a um anúncio curto?",
     "ads.gate_body_char": "Assista a um anúncio curto para mudar para {{name}}.",
@@ -1136,6 +1164,10 @@ const pt: Dict = {
 };
 
 const de: Dict = {
+    "char.choose_partner": "Wähle deine Partnerin",
+    "char.start_chatting": "Chat starten",
+    "char.unlock_pro": "Mit PRO freischalten",
+    "char.watch_to_switch": "Werbung ansehen zum Wechseln",
     "play.back_again": "Zum Beenden erneut zurück drücken",
     "ads.gate_title": "Kurze Werbung ansehen?",
     "ads.gate_body_char": "Sieh dir eine kurze Werbung an, um zu {{name}} zu wechseln.",
@@ -1294,6 +1326,10 @@ const de: Dict = {
 };
 
 const fr: Dict = {
+    "char.choose_partner": "Choisis ta partenaire",
+    "char.start_chatting": "Commencer à discuter",
+    "char.unlock_pro": "Débloquer avec PRO",
+    "char.watch_to_switch": "Voir une pub pour changer",
     "play.back_again": "Appuyez encore sur retour pour quitter",
     "ads.gate_title": "Regarder une courte pub ?",
     "ads.gate_body_char": "Regarde une courte pub pour passer à {{name}}.",
@@ -1452,6 +1488,10 @@ const fr: Dict = {
 };
 
 const it: Dict = {
+    "char.choose_partner": "Scegli la tua partner",
+    "char.start_chatting": "Inizia a chattare",
+    "char.unlock_pro": "Sblocca con PRO",
+    "char.watch_to_switch": "Guarda un annuncio per cambiare",
     "play.back_again": "Premi di nuovo indietro per uscire",
     "ads.gate_title": "Guardare un breve annuncio?",
     "ads.gate_body_char": "Guarda un breve annuncio per passare a {{name}}.",
