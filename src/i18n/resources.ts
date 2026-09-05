@@ -30,6 +30,7 @@ export const LANGUAGE_META: Record<SupportedLang, { name: string; flag: string }
 type Dict = Record<string, string>;
 
 const en: Dict = {
+    "splash.loading": "Getting things ready…",
     "char.choose_partner": "Choose your partner",
     "char.start_chatting": "Start chatting",
     "char.unlock_pro": "Unlock with PRO",
@@ -192,6 +193,7 @@ const en: Dict = {
 };
 
 const vi: Dict = {
+    "splash.loading": "Đang chuẩn bị…",
     "char.choose_partner": "Chọn người bạn đồng hành",
     "char.start_chatting": "Bắt đầu trò chuyện",
     "char.unlock_pro": "Mở khoá bằng PRO",
@@ -354,6 +356,7 @@ const vi: Dict = {
 };
 
 const ja: Dict = {
+    "splash.loading": "準備しています…",
     "char.choose_partner": "パートナーを選ぶ",
     "char.start_chatting": "チャットを始める",
     "char.unlock_pro": "PROで解除",
@@ -516,6 +519,7 @@ const ja: Dict = {
 };
 
 const zh: Dict = {
+    "splash.loading": "正在准备…",
     "char.choose_partner": "选择你的伴侣",
     "char.start_chatting": "开始聊天",
     "char.unlock_pro": "用 PRO 解锁",
@@ -678,6 +682,7 @@ const zh: Dict = {
 };
 
 const ko: Dict = {
+    "splash.loading": "준비하는 중…",
     "char.choose_partner": "파트너 선택",
     "char.start_chatting": "채팅 시작",
     "char.unlock_pro": "PRO로 잠금 해제",
@@ -840,6 +845,7 @@ const ko: Dict = {
 };
 
 const es: Dict = {
+    "splash.loading": "Preparando todo…",
     "char.choose_partner": "Elige a tu pareja",
     "char.start_chatting": "Empezar a chatear",
     "char.unlock_pro": "Desbloquear con PRO",
@@ -1002,6 +1008,7 @@ const es: Dict = {
 };
 
 const pt: Dict = {
+    "splash.loading": "Preparando tudo…",
     "char.choose_partner": "Escolha seu par",
     "char.start_chatting": "Começar a conversar",
     "char.unlock_pro": "Desbloquear com PRO",
@@ -1164,6 +1171,7 @@ const pt: Dict = {
 };
 
 const de: Dict = {
+    "splash.loading": "Wird vorbereitet…",
     "char.choose_partner": "Wähle deine Partnerin",
     "char.start_chatting": "Chat starten",
     "char.unlock_pro": "Mit PRO freischalten",
@@ -1326,6 +1334,7 @@ const de: Dict = {
 };
 
 const fr: Dict = {
+    "splash.loading": "Préparation…",
     "char.choose_partner": "Choisis ta partenaire",
     "char.start_chatting": "Commencer à discuter",
     "char.unlock_pro": "Débloquer avec PRO",
@@ -1488,6 +1497,7 @@ const fr: Dict = {
 };
 
 const it: Dict = {
+    "splash.loading": "Preparazione…",
     "char.choose_partner": "Scegli la tua partner",
     "char.start_chatting": "Inizia a chattare",
     "char.unlock_pro": "Sblocca con PRO",

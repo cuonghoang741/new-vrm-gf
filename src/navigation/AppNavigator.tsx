@@ -10,10 +10,10 @@ import OnboardingScreen from "../screens/OnboardingScreen";
 import PlayScreen from "../screens/PlayScreen";
 import LanguageScreen from "../screens/LanguageScreen";
 import WelcomeBackScreen from "../screens/WelcomeBackScreen";
-import { View, StyleSheet, Image } from "react-native";
 import { initI18n, hasChosenLanguage, setAppLanguage, currentLang } from "../i18n";
 import { markAppOpened, isReturningSession } from "../services/session";
 import { analyticsService } from "../services/AnalyticsService";
+import { LoadingScreen } from "../screens/LoadingScreen";
 
 export type RootStackParamList = {
     Splash: undefined;
@@ -26,18 +26,12 @@ export type RootStackParamList = {
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-// Define a splash component to show during loading
-function SplashScreen() {
-    return (
-        <View style={styles.loadingContainer}>
-            <Image
-                source={require("../../assets/splash-icon.png")}
-                style={styles.splashLogo}
-                resizeMode="contain"
-            />
-        </View>
-    );
-}
+/**
+ * How long the boot screen stays up at minimum. It exists so the splash
+ * banner has a window to fill in — boot itself resolves off local storage in
+ * well under a second. Held as max(boot, this), never the sum.
+ */
+const SPLASH_MIN_MS = 2800;
 
 export default function AppNavigator() {
     const { isLoggedIn, isLoading, isOnboarded, setIsOnboarded } = useAuth();
@@ -45,8 +39,15 @@ export default function AppNavigator() {
     // Boot: session tracking + i18n init (device-locale / saved) + first-launch
     // language gate. Nothing with text renders until i18n is ready.
     const [booted, setBooted] = useState(false);
+    /** Minimum dwell on the boot screen — see SPLASH_MIN_MS. */
+    const [minDwellDone, setMinDwellDone] = useState(false);
     const [needsLanguage, setNeedsLanguage] = useState(false);
     const [welcomeBackDone, setWelcomeBackDone] = useState(false);
+
+    useEffect(() => {
+        const t = setTimeout(() => setMinDwellDone(true), SPLASH_MIN_MS);
+        return () => clearTimeout(t);
+    }, []);
 
     useEffect(() => {
         (async () => {
@@ -107,8 +108,8 @@ export default function AppNavigator() {
                     contentStyle: { backgroundColor: "#0a0a1a" },
                 }}
             >
-                {!booted || isLoading ? (
-                    <Stack.Screen name="Splash" component={SplashScreen} />
+                {!booted || isLoading || !minDwellDone ? (
+                    <Stack.Screen name="Splash" component={LoadingScreen} />
                 ) : needsLanguage ? (
                     <Stack.Screen name="Language">
                         {() => <LanguageScreen onDone={handleLanguageDone} />}
@@ -136,17 +137,4 @@ export default function AppNavigator() {
         </NavigationContainer>
     );
 }
-
-const styles = StyleSheet.create({
-    loadingContainer: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        backgroundColor: "#FF6FA5",
-    },
-    splashLogo: {
-        width: 100,
-        height: 100,
-    },
-});
 
