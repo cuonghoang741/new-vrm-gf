@@ -18,7 +18,27 @@ function deviceLang(): SupportedLang {
     }
 }
 
-let _current: SupportedLang = "en";
+let _current: SupportedLang = deviceLang();
+
+/**
+ * Synchronous bootstrap, run at module load.
+ *
+ * `resources` is a plain static import and `getLocales()` is synchronous, so
+ * there is nothing to wait for — and waiting was the bug: the boot screen
+ * mounts before initI18n() resolves and was printing raw keys ("splash.loading")
+ * to the user. Every screen now has strings from the very first frame, in the
+ * device's language.
+ *
+ * initI18n() below still runs, and only switches languages if the user has
+ * saved a different one.
+ */
+i18n.use(initReactI18next).init({
+    resources,
+    lng: _current,
+    fallbackLng: "en",
+    interpolation: { escapeValue: false },
+    returnNull: false,
+});
 
 /** Gọi MỘT LẦN khi khởi động (trước khi render UI có chữ). */
 export async function initI18n(): Promise<SupportedLang> {
@@ -32,15 +52,13 @@ export async function initI18n(): Promise<SupportedLang> {
         saved && (SUPPORTED as readonly string[]).includes(saved)
             ? (saved as SupportedLang)
             : deviceLang();
-    _current = lng;
 
-    await i18n.use(initReactI18next).init({
-        resources,
-        lng,
-        fallbackLng: "en",
-        interpolation: { escapeValue: false },
-        returnNull: false,
-    });
+    // Already initialised synchronously above; only switch if the saved
+    // preference differs from the device default we booted with.
+    if (lng !== _current) {
+        _current = lng;
+        await i18n.changeLanguage(lng);
+    }
     return lng;
 }
 

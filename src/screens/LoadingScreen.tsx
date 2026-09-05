@@ -9,7 +9,6 @@ import {
 } from "react-native";
 import { useTranslation } from "react-i18next";
 import { AdBanner } from "../components/ads/AdBanner";
-import { i18n } from "../i18n";
 
 /**
  * Boot gate. Replaces the bare logo that used to sit here.
@@ -25,10 +24,6 @@ import { i18n } from "../i18n";
  */
 export function LoadingScreen() {
     const { t } = useTranslation();
-    // This screen is mounted *before* initI18n() resolves, so t() would print
-    // the raw key. Show the caption only once the resources exist — on a warm
-    // boot that is almost immediately, and it is never wrong.
-    const ready = i18n.isInitialized;
     const progress = useRef(new Animated.Value(0)).current;
     const pulse = useRef(new Animated.Value(0.85)).current;
 
@@ -82,11 +77,7 @@ export function LoadingScreen() {
                     <Animated.View style={[styles.fill, { width }]} />
                 </View>
 
-                {ready ? (
-                    <Text style={styles.caption}>{t("splash.loading")}</Text>
-                ) : (
-                    <View style={styles.captionSpacer} />
-                )}
+                <Text style={styles.caption}>{t("splash.loading")}</Text>
             </View>
 
             {/* The reason this screen has a dwell at all. Light tokens: the
@@ -109,9 +100,6 @@ const styles = StyleSheet.create({
         backgroundColor: "rgba(255,255,255,0.28)",
     },
     fill: { height: "100%", borderRadius: 3, backgroundColor: "#FFFFFF" },
-    // Reserves the caption's height so the layout does not shift when the
-    // text appears.
-    captionSpacer: { height: 17, marginTop: 14 },
     caption: {
         marginTop: 14,
         color: "rgba(255,255,255,0.9)",

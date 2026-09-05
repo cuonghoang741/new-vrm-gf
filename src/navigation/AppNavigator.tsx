@@ -37,7 +37,9 @@ export default function AppNavigator() {
     const { isLoggedIn, isLoading, isOnboarded, setIsOnboarded } = useAuth();
 
     // Boot: session tracking + i18n init (device-locale / saved) + first-launch
-    // language gate. Nothing with text renders until i18n is ready.
+    // language gate. i18n is bootstrapped synchronously at module load, so
+    // screens have strings from the first frame; this only applies a saved
+    // language preference on top.
     const [booted, setBooted] = useState(false);
     /** Minimum dwell on the boot screen — see SPLASH_MIN_MS. */
     const [minDwellDone, setMinDwellDone] = useState(false);
