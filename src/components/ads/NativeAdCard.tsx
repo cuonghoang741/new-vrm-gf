@@ -76,7 +76,7 @@ export function NativeAdCard({ placement = "native" }: { placement?: string }) {
                     </View>
                     {ad.body ? (
                         <NativeAsset assetType={NativeAssetType.BODY}>
-                            <Text style={styles.body} numberOfLines={2}>
+                            <Text style={styles.body} numberOfLines={1}>
                                 {ad.body}
                             </Text>
                         </NativeAsset>
@@ -138,15 +138,28 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: "rgba(255,255,255,0.10)",
         padding: 12,
+        // Tall enough for the 44px icon row plus padding, so the card never
+        // has to grow past what NativeAdView measured. Clipping with
+        // overflow:hidden was the wrong tool — it hid the overflow instead of
+        // preventing it, and cut the body text mid-word, which is its own
+        // policy finding ("content must be fully visible").
+        minHeight: 76,
     },
-    row: { flexDirection: "row", alignItems: "center" },
-    icon: { width: 44, height: 44, borderRadius: 10, marginRight: 12 },
-    middle: { flex: 1, marginRight: 10 },
+    row: { flexDirection: "row", alignItems: "center", gap: 12 },
+    // No margins on an asset view: spacing comes from the row's gap. A margin
+    // on the registered asset is a common trigger for AdMob's "advertiser
+    // assets outside native ad view" finding.
+    icon: { width: 44, height: 44, borderRadius: 10 },
+    // minWidth:0 is what actually lets a flex child shrink below its content
+    // width; without it a long headline pushes the CTA past the card edge.
+    middle: { flex: 1, minWidth: 0 },
     headlineRow: { flexDirection: "row", alignItems: "center" },
     adBadge: {
         color: "#0a0a1a",
         backgroundColor: "#FFC107",
-        fontSize: 10,
+        // AdMob requires the "Ad" attribution to be prominent — 15px minimum.
+        // It was 10px, which is a finding on its own.
+        fontSize: 15,
         fontWeight: "800",
         paddingHorizontal: 5,
         paddingVertical: 1,
@@ -161,6 +174,8 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         paddingHorizontal: 14,
         paddingVertical: 9,
+        flexShrink: 0,
+        maxWidth: 128,
     },
     ctaText: { color: "#fff", fontSize: 13, fontWeight: "800" },
 
