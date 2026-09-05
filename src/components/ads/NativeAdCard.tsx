@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, Image, StyleSheet } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { Animated, View, Text, Image, StyleSheet } from "react-native";
 import {
     NativeAd,
     NativeAdView,
@@ -7,17 +7,23 @@ import {
     NativeAssetType,
 } from "react-native-google-mobile-ads";
 import { AdUnits } from "../../config/ads";
+import { analyticsService } from "../../services/AnalyticsService";
 import { useSubscription } from "../../contexts/SubscriptionContext";
 
 /**
  * Compact native advertising card (icon + headline + body + CTA) with the
- * required "Ad" attribution badge. Hidden for PRO users and while nothing has
- * loaded (collapses to null, reserving no space) — safe to drop into the
- * language / onboarding / welcome-back screens like Yuuki's native placements.
+ * required "Ad" attribution badge.
+ *
+ * The slot is present from the first render and shows a same-size skeleton
+ * until the ad arrives. Mediation audits check exactly this: a card that
+ * pops in from zero height is a finding ("do not pop the ad in suddenly"),
+ * and the loading area has to match the real card's size. It only collapses
+ * for PRO, or once the load has definitively failed.
  */
-export function NativeAdCard() {
+export function NativeAdCard({ placement = "native" }: { placement?: string }) {
     const { isPro } = useSubscription();
     const [ad, setAd] = useState<NativeAd | null>(null);
+    const [failed, setFailed] = useState(false);
 
     useEffect(() => {
         if (isPro) return;
@@ -32,16 +38,24 @@ export function NativeAdCard() {
                 } else {
                     loaded = a;
                     setAd(a);
+                    analyticsService.logAdLoaded("native", placement);
                 }
             })
-            .catch(() => {});
+            .catch(() => {
+                if (!cancelled) setFailed(true);
+                analyticsService.logAdLoadFailed("native", placement);
+            });
         return () => {
             cancelled = true;
             loaded?.destroy();
         };
     }, [isPro]);
 
-    if (isPro || !ad) return null;
+    if (isPro) return null;
+    // Nothing will ever arrive — give the space back rather than leaving a
+    // skeleton shimmering forever.
+    if (failed) return null;
+    if (!ad) return <NativeAdSkeleton />;
 
     return (
         <NativeAdView nativeAd={ad} style={styles.card}>
@@ -82,6 +96,39 @@ export function NativeAdCard() {
     );
 }
 
+/**
+ * Placeholder with the same box model as the loaded card — same padding,
+ * radius, border and the same 44px icon row — so the slot does not resize
+ * when the real ad swaps in.
+ */
+function NativeAdSkeleton() {
+    const shimmer = useRef(new Animated.Value(0.35)).current;
+
+    useEffect(() => {
+        const loop = Animated.loop(
+            Animated.sequence([
+                Animated.timing(shimmer, { toValue: 0.75, duration: 700, useNativeDriver: true }),
+                Animated.timing(shimmer, { toValue: 0.35, duration: 700, useNativeDriver: true }),
+            ])
+        );
+        loop.start();
+        return () => loop.stop();
+    }, [shimmer]);
+
+    return (
+        <View style={[styles.card, styles.skeletonCard]}>
+            <View style={styles.row}>
+                <Animated.View style={[styles.icon, styles.bone, { opacity: shimmer }]} />
+                <View style={styles.middle}>
+                    <Animated.View style={[styles.boneLine, { width: "62%", opacity: shimmer }]} />
+                    <Animated.View style={[styles.boneLine, { width: "88%", marginTop: 7, height: 9, opacity: shimmer }]} />
+                </View>
+                <Animated.View style={[styles.ctaBone, { opacity: shimmer }]} />
+            </View>
+        </View>
+    );
+}
+
 const PINK = "#FF6FA5";
 
 const styles = StyleSheet.create({
@@ -116,4 +163,10 @@ const styles = StyleSheet.create({
         paddingVertical: 9,
     },
     ctaText: { color: "#fff", fontSize: 13, fontWeight: "800" },
+
+    // ─── Loading skeleton (must match the card's box model) ───
+    skeletonCard: { backgroundColor: "rgba(255,255,255,0.04)" },
+    bone: { backgroundColor: "rgba(255,255,255,0.16)" },
+    boneLine: { height: 11, borderRadius: 5, backgroundColor: "rgba(255,255,255,0.16)" },
+    ctaBone: { width: 78, height: 34, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.16)" },
 });

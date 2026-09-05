@@ -555,7 +555,7 @@ export default function OnboardingScreen({
                     result. Collapses for PRO / no-fill. */}
                 {(step === 1 || step === 2) && (
                     <View style={{ paddingHorizontal: 20, marginBottom: 10 }}>
-                        <NativeAdCard />
+                        <NativeAdCard placement="native_onboarding" />
                     </View>
                 )}
 

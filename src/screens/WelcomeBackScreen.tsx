@@ -32,7 +32,7 @@ export default function WelcomeBackScreen({ onContinue }: { onContinue: () => vo
 
             {/* native_welcome_back — collapses for PRO / no-fill */}
             <View style={styles.adSlot}>
-                <NativeAdCard />
+                <NativeAdCard placement="native_welcome_back" />
             </View>
 
             <Pressable style={styles.cta} onPress={handleContinue}>

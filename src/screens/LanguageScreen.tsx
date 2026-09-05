@@ -71,7 +71,7 @@ export default function LanguageScreen({ onDone }: { onDone: () => void }) {
 
             {/* native_language — small native ad above the CTA (collapses for PRO / no-fill) */}
             <View style={styles.adSlot}>
-                <NativeAdCard />
+                <NativeAdCard placement="native_language" />
             </View>
 
             <Pressable style={styles.cta} onPress={onDone}>

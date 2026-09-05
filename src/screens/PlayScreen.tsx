@@ -66,6 +66,7 @@ import { useSubscription } from "../contexts/SubscriptionContext";
 import { analyticsService } from "../services/AnalyticsService";
 import { useAndroidBack } from "../hooks/useAndroidBack";
 import { surfaceOn } from "../theme/surface";
+import { AdBanner } from "../components/ads/AdBanner";
 import { useInterstitialAd } from "../hooks/useInterstitialAd";
 import { useRewardedAd } from "../hooks/useRewardedAd";
 import { AdUnits } from "../config/ads";
@@ -1348,6 +1349,15 @@ export default function PlayScreen() {
                             }
                         />
                     </View>
+
+                    {/* Banner sits above the chat bar, with the divider the
+                        policy requires between ad and content. Hidden while the
+                        keyboard is up: it would be shoved into the composer, and
+                        a banner that moves over the 3D surface forces the
+                        platform view to recomposite every frame. */}
+                    {!isKeyboardVisible && (
+                        <AdBanner placement="play_chat" isBackgroundDark={isBackgroundDark} />
+                    )}
 
                     <View style={styles.inputBar}>
                         {isLiquidGlassSupported ? (
