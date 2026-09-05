@@ -23,6 +23,7 @@ import {
 import AppleLogo from "../components/icons/AppleLogo";
 import GoogleLogo from "../components/icons/GoogleLogo";
 import * as AppleAuthentication from "expo-apple-authentication";
+import { AdBanner } from "../components/ads/AdBanner";
 import * as WebBrowser from "expo-web-browser";
 import { authService } from "../services";
 import { fetchAndCacheCharacters } from "../cache/charactersCache";
@@ -334,6 +335,13 @@ export default function SignInScreen() {
                         <Text style={styles.termsLink} onPress={() => openBrowserSafe("https://personal-muse-3d.lovable.app/privacy")}>{t("signin.privacy")}</Text> {t("signin.terms_and")}{" "}
                         <Text style={styles.termsLink} onPress={() => openBrowserSafe("https://personal-muse-3d.lovable.app/eula")}>{t("signin.eula")}</Text>
                     </Text>
+
+                    {/* Below the terms, deliberately clear of the sign-in
+                        buttons: a banner tucked under the primary CTA is the
+                        classic accidental-click layout. */}
+                    <View style={styles.bannerBleed}>
+                        <AdBanner placement="signin" />
+                    </View>
                 </View>
             </View>
         </View>
@@ -388,6 +396,9 @@ const styles = StyleSheet.create({
     },
 
     // ─── Bottom ───
+    // Cancels bottomArea's side padding so the adaptive banner gets the full
+    // screen width it sizes itself against.
+    bannerBleed: { marginHorizontal: -28, marginTop: 14 },
     bottomArea: {
         paddingHorizontal: 28,
         paddingBottom: Platform.OS === "ios" ? 40 : 24,
