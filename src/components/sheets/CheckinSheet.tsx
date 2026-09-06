@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import React, { useCallback, useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react";
 import { View, Text, StyleSheet, Pressable, Alert, ActivityIndicator } from "react-native";
 import { analyticsService } from "../../services/AnalyticsService";
-import { IconGift, IconDiamondFilled, IconCircleCheckFilled } from "@tabler/icons-react-native";
+import { IconGift, IconCircleCheckFilled } from "@tabler/icons-react-native";
 import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
 import { useInterstitialAd } from "../../hooks/useInterstitialAd";
 import {
@@ -13,6 +13,7 @@ import {
     claimDailyReward,
     type DayReward,
 } from "../../services/checkinService";
+import RubyIcon from "../icons/RubyIcon";
 
 interface Props {
     isOpened: boolean;
@@ -110,7 +111,7 @@ const CheckinSheet = forwardRef<CheckinSheetRef, Props>(
             >
                 <View style={styles.container}>
                     <View style={styles.balanceRow}>
-                        <IconDiamondFilled size={18} color="#FF6FA5" />
+                        <RubyIcon size={18} color="#FF6FA5" />
                         <Text style={styles.balanceText}>{ruby} ruby</Text>
                     </View>
                     <Text style={styles.subtitle}>
@@ -141,7 +142,7 @@ const CheckinSheet = forwardRef<CheckinSheetRef, Props>(
                                             <IconCircleCheckFilled size={18} color="#FF6FA5" />
                                         ) : r.ruby > 0 ? (
                                             <View style={styles.rubyTag}>
-                                                <IconDiamondFilled size={11} color={isNext ? "#fff" : "#FF8FB8"} />
+                                                <RubyIcon size={11} color={isNext ? "#fff" : "#FF8FB8"} />
                                                 <Text style={[styles.rubyTagText, isNext && { color: "#fff" }]}>{r.ruby}</Text>
                                             </View>
                                         ) : (

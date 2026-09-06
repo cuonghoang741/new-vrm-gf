@@ -15,12 +15,13 @@ import { Image } from "expo-image";
 import { BlurView } from "expo-blur";
 import { Video, ResizeMode } from "expo-av";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { IconPhoto, IconVideo, IconLock, IconX } from "@tabler/icons-react-native";
+import { IconPhoto, IconVideo, IconX } from "@tabler/icons-react-native";
 import * as Haptics from "expo-haptics";
 import { supabase } from "../../config/supabase";
 import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
 import { useSubscription } from "../../contexts/SubscriptionContext";
 import { analyticsService } from "../../services/AnalyticsService";
+import LockIcon from "../icons/LockIcon";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const COLUMN_COUNT = 3;
@@ -156,7 +157,7 @@ const MediaSheet = forwardRef<MediaSheetRef, MediaSheetProps>(
                             <View style={styles.lockedOverlay}>
                                 <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(10,6,20,0.4)" }]} />
                                 <View style={styles.lockBadge}>
-                                    <IconLock size={16} color="#fff" />
+                                    <LockIcon size={16} color="#fff" />
                                 </View>
                                 <Text style={styles.lockText}>PRO</Text>
                             </View>

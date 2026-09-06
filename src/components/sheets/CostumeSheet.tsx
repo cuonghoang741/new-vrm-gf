@@ -12,13 +12,14 @@ import {
 } from "react-native";
 import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { IconDiamondFilled } from "@tabler/icons-react-native";
+
 import * as Haptics from "expo-haptics";
 import { useRewardedAd } from "../../hooks/useRewardedAd";
 import { AdUnits } from "../../config/ads";
 import { supabase } from "../../config/supabase";
 import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
 import { purchaseItem } from "../../services/checkinService";
+import RubyIcon from "../icons/RubyIcon";
 
 const { width } = Dimensions.get("window");
 const GRID_PADDING = 20;
@@ -277,7 +278,7 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
                         )}
                         {isLocked && (item.price_ruby ?? 0) > 0 && (
                             <View style={styles.priceBadge}>
-                                <IconDiamondFilled size={10} color="#FF6FA5" />
+                                <RubyIcon size={10} color="#FF6FA5" />
                                 <Text style={styles.priceBadgeText}>{item.price_ruby}</Text>
                             </View>
                         )}

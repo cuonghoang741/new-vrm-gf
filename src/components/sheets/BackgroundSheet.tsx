@@ -15,8 +15,9 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { supabase } from "../../config/supabase";
 import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
-import { IconSun, IconMoon, IconDiamondFilled } from "@tabler/icons-react-native";
+import { IconSun, IconMoon } from "@tabler/icons-react-native";
 import { purchaseItem } from "../../services/checkinService";
+import RubyIcon from "../icons/RubyIcon";
 
 const { width } = Dimensions.get("window");
 const GRID_PADDING = 20;
@@ -243,7 +244,7 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
                         )}
                         {isLocked && (item.price_ruby ?? 0) > 0 && (
                             <View style={styles.priceBadge}>
-                                <IconDiamondFilled size={10} color="#FF6FA5" />
+                                <RubyIcon size={10} color="#FF6FA5" />
                                 <Text style={styles.priceBadgeText}>{item.price_ruby}</Text>
                             </View>
                         )}

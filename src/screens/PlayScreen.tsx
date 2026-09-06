@@ -24,25 +24,7 @@ import { Image } from "expo-image";
 import { BlurView } from "expo-blur";
 import { LiquidGlassView, isLiquidGlassSupported } from "@callstack/liquid-glass";
 
-import {
-    IconSend,
-    IconMessageCircle,
-    IconX,
-    IconMusic,
-    IconUser,
-    IconHanger,
-    IconPhoto,
-    IconSettings,
-    IconCrown,
-    IconPhotoFilled,
-    IconCube,
-    IconPhoneCall,
-    IconVideo,
-    IconPhone,
-    IconBadge3d,
-    IconLock,
-    IconDiamondFilled,
-} from "@tabler/icons-react-native";
+import { IconSend, IconMessageCircle, IconX, IconMusic, IconUser, IconHanger, IconPhoto, IconSettings, IconCrown, IconPhotoFilled, IconCube, IconPhoneCall, IconVideo, IconPhone, IconBadge3d } from "@tabler/icons-react-native";
 
 import { CameraView } from "expo-camera";
 import { Video, ResizeMode } from "expo-av";
@@ -66,6 +48,8 @@ import { useSubscription } from "../contexts/SubscriptionContext";
 import { analyticsService } from "../services/AnalyticsService";
 import { useAndroidBack } from "../hooks/useAndroidBack";
 import { surfaceOn } from "../theme/surface";
+import { CharacterSwitcher } from "../components/CharacterSwitcher";
+import { getCharacters } from "../cache/charactersCache";
 import { AdBanner } from "../components/ads/AdBanner";
 import { useInterstitialAd } from "../hooks/useInterstitialAd";
 import { useRewardedAd } from "../hooks/useRewardedAd";
@@ -74,6 +58,8 @@ import { FREE_MESSAGE_LIMIT, REWARD_MESSAGE_BONUS } from "../config/limits";
 import { Alert } from "react-native";
 
 import * as SecureStore from "expo-secure-store";
+import RubyIcon from "../components/icons/RubyIcon";
+import LockIcon from "../components/icons/LockIcon";
 
 const { width, height } = Dimensions.get("window");
 
@@ -125,6 +111,7 @@ export default function PlayScreen() {
     const { isPro, refreshStatus } = useSubscription();
     const { showInterstitial } = useInterstitialAd();
     const { show: showRewardedForMessages } = useRewardedAd(AdUnits.rewarded, "unlock_messages");
+    const { showForGate: showSwitchAd } = useRewardedAd(AdUnits.rewarded, "switch_character");
 
     // Character state
     const [characterId, setCharacterId] = useState<string | null>(null);
@@ -903,6 +890,44 @@ export default function PlayScreen() {
     /** Banner sits under the composer; PRO and the open keyboard both hide it. */
     const showPlayBanner = !isPro && !isKeyboardVisible;
 
+    /** Roster for the top quick-switch carousel. */
+    const [switcherChars, setSwitcherChars] = useState<any[]>([]);
+    useEffect(() => {
+        let alive = true;
+        getCharacters()
+            .then((cs) => { if (alive) setSwitcherChars(cs.filter((c: any) => c.available !== false)); })
+            .catch(() => {});
+        return () => { alive = false; };
+    }, []);
+
+    /**
+     * Quick switch runs the same rewarded gate as the character sheet. Leaving
+     * it ungated would make the sheet's gate pointless — this is simply the
+     * faster route to the same change.
+     */
+    const handleQuickSwitch = useCallback(
+        (c: any) => {
+            if (isPro) return handleCharacterSelect(c);
+            Alert.alert(
+                t("ads.gate_title"),
+                t("ads.gate_body_char", { name: c.name }),
+                [
+                    { text: t("common.cancel"), style: "cancel" },
+                    { text: t("common.upgrade_pro"), onPress: () => setSubscriptionOpen(true) },
+                    {
+                        text: t("ads.watch_ad"),
+                        onPress: async () => {
+                            const outcome = await showSwitchAd();
+                            if (outcome === "dismissed") return;
+                            handleCharacterSelect(c);
+                        },
+                    },
+                ]
+            );
+        },
+        [isPro, handleCharacterSelect, showSwitchAd, t]
+    );
+
     const lastBackAt = useRef(0);
     useAndroidBack(
         useCallback(() => {
@@ -1050,7 +1075,7 @@ export default function PlayScreen() {
                             <View style={styles.lockedMediaOverlay}>
                                 <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
                                 <View style={styles.lockBadge}>
-                                    <IconLock size={24} color="#fff" />
+                                    <LockIcon size={24} color="#fff" />
                                 </View>
                                 <Text style={styles.lockText}>PRO ONLY</Text>
                             </View>
@@ -1174,7 +1199,7 @@ export default function PlayScreen() {
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                     {!isPro && (
                         <Pressable onPress={() => setSubscriptionOpen(true)} hitSlop={8} style={styles.upgradeProInner}>
-                            <IconDiamondFilled size={20} color="#FFFFFF" />
+                            <RubyIcon size={20} color="#FFFFFF" />
                         </Pressable>
                     )}
                     <View>
@@ -1204,6 +1229,20 @@ export default function PlayScreen() {
                     </View>
                 </View>
             </View>
+
+            {/* Quick character switch — three at a time, active one centred and
+                larger. Sits below the top bar so it clears the name and the
+                right-hand bubble column. */}
+            {!isKeyboardVisible && switcherChars.length > 1 && (
+                <View style={styles.switcherBar} pointerEvents="box-none">
+                    <CharacterSwitcher
+                        characters={switcherChars}
+                        activeId={characterId}
+                        onSelect={handleQuickSwitch}
+                        isBackgroundDark={isBackgroundDark}
+                    />
+                </View>
+            )}
 
             <View style={styles.leftFloatingContainer}>
                 <LiquidGlassView
@@ -1260,7 +1299,7 @@ export default function PlayScreen() {
                     hitSlop={8}
                     style={[styles.rubyPill, { backgroundColor: surface.glass, borderColor: surface.border }]}
                 >
-                    <IconDiamondFilled size={15} color={ACCENT} />
+                    <RubyIcon size={15} color={ACCENT} />
                     <Text style={[styles.rubyPillText, { color: surface.icon }]}>{ruby}</Text>
                 </Pressable>
             </View>
@@ -1544,7 +1583,7 @@ export default function PlayScreen() {
                 <BlurView intensity={65} tint="dark" style={[StyleSheet.absoluteFill, { zIndex: 500 }]}>
                     <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 40 }}>
                         <View style={{ backgroundColor: 'rgba(255, 107, 157, 0.18)', padding: 20, borderRadius: 100, marginBottom: 20 }}>
-                            <IconLock size={40} color={ACCENT} />
+                            <LockIcon size={40} color={ACCENT} />
                         </View>
                         <Text style={{ color: "#fff", fontSize: 24, fontWeight: "800", textAlign: "center", marginBottom: 12 }}>
                             Sensitive Activity
@@ -1604,6 +1643,14 @@ const styles = StyleSheet.create({
         transform: [{ scaleX: -1 }], // Mirror front camera
     },
 
+    switcherBar: {
+        position: "absolute",
+        top: Platform.OS === "ios" ? 124 : 104,
+        left: 0,
+        right: 0,
+        alignItems: "center",
+        zIndex: 6,
+    },
     topBar: {
         position: "absolute", top: Platform.OS === "ios" ? 60 : 40,
         left: 20, right: 20,

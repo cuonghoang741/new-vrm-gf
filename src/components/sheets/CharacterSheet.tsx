@@ -10,7 +10,7 @@ import {
     Alert,
 } from "react-native";
 import { Image } from "expo-image";
-import { IconLock, IconWoman } from "@tabler/icons-react-native";
+import { IconWoman } from "@tabler/icons-react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import * as Haptics from "expo-haptics";
@@ -20,6 +20,7 @@ import { supabase } from "../../config/supabase";
 import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
 import { LinearGradient } from 'expo-linear-gradient';
 import { purchaseItem } from "../../services/checkinService";
+import LockIcon from "../icons/LockIcon";
 
 const BG = "#0F0A1E";
 const ACCENT = "#FF4D8D";
@@ -281,7 +282,7 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
 
                     {locked && isAvailable && (
                         <View style={styles.tileLock}>
-                            <IconLock size={16} color="#fff" />
+                            <LockIcon size={16} color="#fff" />
                         </View>
                     )}
                     {isCurrent && (
@@ -378,7 +379,7 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
 
                     {heroLocked && (
                         <View style={styles.heroLockBadge}>
-                            <IconLock size={26} color="#fff" />
+                            <LockIcon size={26} color="#fff" />
                         </View>
                     )}
 

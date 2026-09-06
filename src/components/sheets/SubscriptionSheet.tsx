@@ -24,25 +24,12 @@ import { analyticsService } from "../../services/AnalyticsService";
 import * as WebBrowser from "expo-web-browser";
 import { openBrowserSafe } from "../../utils/openBrowserSafe";
 import { AdsManager } from "../../services/AdsManager";
-import {
-    IconX,
-    IconCube3dSphere,
-    IconVideo,
-    IconLock,
-    IconUsers,
-    IconSparkles,
-    IconHeart,
-    IconMusic,
-    IconChevronLeft,
-    IconChevronRight,
-    IconCrown,
-    IconAdOff,
-    IconMessageHeart,
-} from "@tabler/icons-react-native";
+import { IconX, IconCube3dSphere, IconVideo, IconUsers, IconSparkles, IconHeart, IconMusic, IconChevronLeft, IconChevronRight, IconCrown, IconAdOff, IconMessageHeart } from "@tabler/icons-react-native";
 import { useSubscription } from "../../contexts/SubscriptionContext";
 import VRMViewer, { VRMViewerHandle } from "../VRMViewer";
 import { getCharacters } from "../../cache/charactersCache";
 import { supabase } from "../../config/supabase";
+import LockIcon from "../icons/LockIcon";
 
 const FEATURES = [
     { icon: IconAdOff, text: "sub.b1", color: "#FF6FA5" },
