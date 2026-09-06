@@ -245,6 +245,8 @@ export default function ActionsBubble({
                         variant={isInCall ? "solid" : "liquid"}
                         colorScheme={isInCall ? "error" : undefined}
                         size="sm"
+                        tintColor={surface.glass}
+                        borderColor={surface.border}
                         startIcon={isInCall ? IconPhoneOff : IconPhoneCall}
                         startIconColor={isInCall ? surface.danger : iconColor}
                         textColor={isInCall ? surface.danger : iconColor}

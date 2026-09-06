@@ -900,6 +900,9 @@ export default function PlayScreen() {
     /** Palette for everything floating over the scene — see theme/surface. */
     const surface = surfaceOn(isBackgroundDark);
 
+    /** Banner sits under the composer; PRO and the open keyboard both hide it. */
+    const showPlayBanner = !isPro && !isKeyboardVisible;
+
     const lastBackAt = useRef(0);
     useAndroidBack(
         useCallback(() => {
@@ -1069,7 +1072,14 @@ export default function PlayScreen() {
                             <Text style={[styles.messageText, isUser ? styles.userText : styles.aiText]}>{item.text}</Text>
                         </LiquidGlassView>
                     ) : (
-                        <View style={[styles.messageBubble, isUser ? styles.userBubble : styles.aiBubble, { marginBottom: 0 }]}>
+                        <View
+                            style={[
+                                styles.messageBubble,
+                                isUser ? styles.userBubble : styles.aiBubble,
+                                !isUser && { backgroundColor: surface.glass, borderColor: surface.border },
+                                { marginBottom: 0 },
+                            ]}
+                        >
                             {isAI && <Text style={styles.aiName}>{characterName}</Text>}
                             <Text style={[styles.messageText, isUser ? styles.userText : styles.aiText]}>{item.text}</Text>
                         </View>
@@ -1169,7 +1179,19 @@ export default function PlayScreen() {
                     )}
                     <View>
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                            <Text style={styles.charNameTop}>{characterName}</Text>
+                            <Text
+                                style={[
+                                    styles.charNameTop,
+                                    {
+                                        color: surface.icon,
+                                        textShadowColor: isBackgroundDark
+                                            ? "rgba(0,0,0,0.5)"
+                                            : "rgba(255,255,255,0.65)",
+                                    },
+                                ]}
+                            >
+                                {characterName}
+                            </Text>
                             {isPro && (
                                 <Pressable onPress={() => setSubscriptionOpen(true)} hitSlop={8}>
                                     <IconCrown size={18} color={GOLD} fill={GOLD} />
@@ -1185,9 +1207,13 @@ export default function PlayScreen() {
 
             <View style={styles.leftFloatingContainer}>
                 <LiquidGlassView
-                    style={styles.liquidToggleWrapper}
+                    style={[
+                        styles.liquidToggleWrapper,
+                        { borderColor: surface.border },
+                        Platform.OS === "android" && { backgroundColor: surface.glass },
+                    ]}
                     effect="regular"
-                    tintColor={GLASS_FILL}
+                    tintColor={surface.glass}
                 >
                     <View style={styles.toggleRow}>
                         <TouchableOpacity
@@ -1200,7 +1226,7 @@ export default function PlayScreen() {
                         >
                             <Text style={[
                                 styles.toggleLabel,
-                                !is3DMode ? styles.toggleLabelActive : styles.toggleLabelInactive
+                                !is3DMode ? styles.toggleLabelActive : { color: surface.muted }
                             ]}>2D</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
@@ -1218,7 +1244,7 @@ export default function PlayScreen() {
                         >
                             <Text style={[
                                 styles.toggleLabel,
-                                is3DMode ? styles.toggleLabelActive : styles.toggleLabelInactive
+                                is3DMode ? styles.toggleLabelActive : { color: surface.muted }
                             ]}>3D</Text>
                         </TouchableOpacity>
                     </View>
@@ -1229,9 +1255,13 @@ export default function PlayScreen() {
                     </View>
                 )}
                 {/* Ruby balance — right below the 2D/3D toggle. Tap to check in. */}
-                <Pressable onPress={() => setCheckinOpen(true)} hitSlop={8} style={styles.rubyPill}>
+                <Pressable
+                    onPress={() => setCheckinOpen(true)}
+                    hitSlop={8}
+                    style={[styles.rubyPill, { backgroundColor: surface.glass, borderColor: surface.border }]}
+                >
                     <IconDiamondFilled size={15} color={ACCENT} />
-                    <Text style={styles.rubyPillText}>{ruby}</Text>
+                    <Text style={[styles.rubyPillText, { color: surface.icon }]}>{ruby}</Text>
                 </Pressable>
             </View>
 
@@ -1310,13 +1340,17 @@ export default function PlayScreen() {
                                 <View style={styles.emptyChat}>
                                     <BlurView
                                         intensity={30}
-                                        tint="dark"
+                                        tint={isBackgroundDark ? "dark" : "light"}
                                         experimentalBlurMethod="dimezisBlurView"
-                                        style={styles.emptyCard}
+                                        style={[styles.emptyCard, { borderColor: surface.border }]}
                                     >
                                         <Text style={styles.emptyChatEmoji}>👋</Text>
-                                        <Text style={styles.emptyChatTitle}>Say hello to {characterName}</Text>
-                                        <Text style={styles.emptyChatSub}>{t("play.start_convo")}</Text>
+                                        <Text style={[styles.emptyChatTitle, { color: surface.icon }]}>
+                                            Say hello to {characterName}
+                                        </Text>
+                                        <Text style={[styles.emptyChatSub, { color: surface.muted }]}>
+                                            {t("play.start_convo")}
+                                        </Text>
                                     </BlurView>
                                 </View>
                             }
@@ -1350,16 +1384,15 @@ export default function PlayScreen() {
                         />
                     </View>
 
-                    {/* Banner sits above the chat bar, with the divider the
-                        policy requires between ad and content. Hidden while the
-                        keyboard is up: it would be shoved into the composer, and
-                        a banner that moves over the 3D surface forces the
-                        platform view to recomposite every frame. */}
-                    {!isKeyboardVisible && (
-                        <AdBanner placement="play_chat" isBackgroundDark={isBackgroundDark} />
-                    )}
-
-                    <View style={styles.inputBar}>
+                    <View
+                        style={[
+                            styles.inputBar,
+                            // The banner now carries the home-indicator inset, so
+                            // the composer must not also reserve it or the two
+                            // end up separated by dead space.
+                            showPlayBanner && { paddingBottom: 10 },
+                        ]}
+                    >
                         {isLiquidGlassSupported ? (
                             <LiquidGlassView
                                 style={[
@@ -1409,6 +1442,17 @@ export default function PlayScreen() {
                             style={styles.sendBtnLiquid}
                         />
                     </View>
+
+                    {/* Banner pinned below the composer, with the divider the
+                        policy requires between ad and content. Hidden while the
+                        keyboard is up — it would be pushed into the composer,
+                        and a banner that moves over the 3D surface forces the
+                        platform view to recomposite every frame. */}
+                    {showPlayBanner && (
+                        <View style={styles.playBannerSlot}>
+                            <AdBanner placement="play_chat" isBackgroundDark={isBackgroundDark} />
+                        </View>
+                    )}
                 </View>
 
                 <VoiceLoadingOverlay
@@ -1801,6 +1845,7 @@ const styles = StyleSheet.create({
     emptyChatSub: { fontSize: 13, color: "rgba(255, 194, 218, 0.85)", textAlign: "center" },
 
     // Input
+    playBannerSlot: { paddingBottom: Platform.OS === "ios" ? 20 : 0 },
     inputBar: {
         flexDirection: "row", alignItems: "flex-end",
         paddingHorizontal: 16, paddingVertical: 10,
