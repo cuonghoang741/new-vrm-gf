@@ -919,18 +919,18 @@ export default function PlayScreen() {
     /** Character awaiting the user's answer in the ad-gate dialog. */
     const [switchGateFor, setSwitchGateFor] = useState<any | null>(null);
 
-    useEffect(() => { loadUnlocks(); }, []);
+    useEffect(() => { loadUnlocks(user?.id); }, [user?.id]);
 
     /**
      * Whatever the app picked for the user on boot is theirs already — a fresh
      * install must not open with its own starting character behind an ad.
      */
     useEffect(() => {
-        if (characterId) autoUnlock("character", characterId);
-    }, [characterId]);
+        if (characterId) autoUnlock("character", characterId, user?.id);
+    }, [characterId, user?.id]);
     useEffect(() => {
-        if (backgroundId) autoUnlock("background", backgroundId);
-    }, [backgroundId]);
+        if (backgroundId) autoUnlock("background", backgroundId, user?.id);
+    }, [backgroundId, user?.id]);
 
     /** Roster for the top quick-switch carousel. */
     const [switcherChars, setSwitcherChars] = useState<any[]>([]);
@@ -1500,7 +1500,7 @@ export default function PlayScreen() {
                         if (!c) return;
                         const outcome = await showSwitchAd();
                         if (outcome === "dismissed") return;
-                        await markUnlocked("character", c.id);
+                        await markUnlocked("character", c.id, user?.id);
                         handleCharacterSelect(c);
                     }}
                     onUpgrade={() => {

@@ -78,7 +78,7 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
     /** Bumped whenever something unlocks, so the badges disappear immediately. */
     const [, setUnlockTick] = useState(0);
     useEffect(() => {
-        loadUnlocks();
+        loadUnlocks(userId);
         return subscribeUnlocks(() => setUnlockTick((n) => n + 1));
     }, []);
     /** Tile being previewed in the hero — not yet the active character. */
@@ -196,7 +196,7 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
             if (outcome === "dismissed") return;
             // "unavailable" counts too: we could not serve an ad, and the user
             // should not be charged again for our own no-fill.
-            await markUnlocked("character", char.id);
+            await markUnlocked("character", char.id, userId);
             applySelection(char);
         },
         [isPro, showForGate, applySelection]

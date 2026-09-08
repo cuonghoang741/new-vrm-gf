@@ -73,7 +73,7 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
     /** Bumped whenever something unlocks, so the badges disappear immediately. */
     const [, setUnlockTick] = useState(0);
     useEffect(() => {
-        loadUnlocks();
+        loadUnlocks(userId);
         return subscribeUnlocks(() => setUnlockTick((n) => n + 1));
     }, []);
     const [loading, setLoading] = useState(false);
@@ -211,7 +211,7 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
             if (outcome === "dismissed") return; // saw it, backed out
             // "unavailable" counts too — the user should not pay twice for our
             // own no-fill.
-            await markUnlocked("costume", costume.id);
+            await markUnlocked("costume", costume.id, userId);
             applySelection(costume);
         },
         [isPro, showForGate, applySelection]

@@ -168,7 +168,7 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
     /** Bumped whenever something unlocks, so the badges disappear immediately. */
     const [, setUnlockTick] = useState(0);
     useEffect(() => {
-        loadUnlocks();
+        loadUnlocks(userId);
         return subscribeUnlocks(() => setUnlockTick((n) => n + 1));
     }, []);
 
@@ -239,7 +239,7 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
             const outcome = await showForGate();
             if (outcome === "dismissed") return;
             // "unavailable" counts too — no charging twice for our own no-fill.
-            await markUnlocked("background", bg.id);
+            await markUnlocked("background", bg.id, userId);
             applySelection(bg);
         },
         [isPro, showForGate, applySelection]
