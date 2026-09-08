@@ -41,6 +41,8 @@ const TEST_AD_UNITS = {
   rewarded: "ca-app-pub-3940256099942544/5224354917",
   rewardedInterstitial: "ca-app-pub-3940256099942544/5354046379",
   native: "ca-app-pub-3940256099942544/2247696110",
+  nativeLanguageBeforePick: "ca-app-pub-3940256099942544/2247696110",
+  nativeLanguageAfterPick: "ca-app-pub-3940256099942544/2247696110",
   appOpen: "ca-app-pub-3940256099942544/9257395921",
 } as const;
 
@@ -69,6 +71,25 @@ const PROD_AD_UNITS = {
   appOpen: Platform.select({
     android: "ca-app-pub-4908431670564026/8317582099",
     ios: "ca-app-pub-4908431670564026/5313274107",
+  })!,
+
+  /**
+   * Language screen — two separate units, one shown before the user picks and
+   * one after, mirroring Yuuki's nativeLanguageBeforePick / AfterPick.
+   *
+   * ⚠️ Both still point at the generic `native` unit. Yuuki's real IDs live
+   * under a different AdMob account, so these need their own units created in
+   * this app's AdMob console. Until then the two placements serve fine but
+   * report as one unit, which defeats the point of splitting them — the whole
+   * reason for two units is to see the two stages separately.
+   */
+  nativeLanguageBeforePick: Platform.select({
+    android: "ca-app-pub-4908431670564026/3308797995",
+    ios: "ca-app-pub-4908431670564026/9252519115",
+  })!,
+  nativeLanguageAfterPick: Platform.select({
+    android: "ca-app-pub-4908431670564026/3308797995",
+    ios: "ca-app-pub-4908431670564026/9252519115",
   })!,
 } as const;
 

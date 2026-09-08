@@ -24,8 +24,17 @@ export function NativeAdCard({
     placement = "native",
     ctaColor,
     cornerRadius,
+    adUnitId,
+    fullWidthCta = false,
 }: {
     placement?: string;
+    /** Defaults to the shared native unit; the language screen passes its own. */
+    adUnitId?: string;
+    /**
+     * Yuuki's `isCompact`: CTA on its own row spanning the card instead of a
+     * small button on the right.
+     */
+    fullWidthCta?: boolean;
     /**
      * 0 for an edge-to-edge footer banner, left undefined for a contained
      * card. Same knob yuuki exposes.
@@ -45,7 +54,7 @@ export function NativeAdCard({
         if (isPro) return;
         let cancelled = false;
         let loaded: NativeAd | null = null;
-        NativeAd.createForAdRequest(AdUnits.native, {
+        NativeAd.createForAdRequest(adUnitId ?? AdUnits.native, {
             requestNonPersonalizedAdsOnly: false,
         })
             .then((a) => {
@@ -65,7 +74,7 @@ export function NativeAdCard({
             cancelled = true;
             loaded?.destroy();
         };
-    }, [isPro]);
+    }, [isPro, adUnitId]);
 
     if (isPro) return null;
     // Nothing will ever arrive — give the space back rather than leaving a
@@ -101,7 +110,7 @@ export function NativeAdCard({
                         </NativeAsset>
                     ) : null}
                 </View>
-                {ad.callToAction ? (
+                {ad.callToAction && !fullWidthCta ? (
                     <NativeAsset assetType={NativeAssetType.CALL_TO_ACTION}>
                         <View style={[styles.cta, ctaColor ? { backgroundColor: ctaColor } : null]}>
                             <Text style={styles.ctaText} numberOfLines={1}>
@@ -111,6 +120,21 @@ export function NativeAdCard({
                     </NativeAsset>
                 ) : null}
             </View>
+
+            {ad.callToAction && fullWidthCta ? (
+                <NativeAsset assetType={NativeAssetType.CALL_TO_ACTION}>
+                    <View
+                        style={[
+                            styles.ctaWide,
+                            ctaColor ? { backgroundColor: ctaColor } : null,
+                        ]}
+                    >
+                        <Text style={styles.ctaText} numberOfLines={1}>
+                            {ad.callToAction}
+                        </Text>
+                    </View>
+                </NativeAsset>
+            ) : null}
         </NativeAdView>
     );
 }
@@ -197,6 +221,14 @@ const styles = StyleSheet.create({
         maxWidth: 128,
     },
     ctaText: { color: "#fff", fontSize: 13, fontWeight: "800" },
+    ctaWide: {
+        marginTop: 10,
+        borderRadius: 12,
+        paddingVertical: 12,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: PINK,
+    },
 
     // ─── Loading skeleton (must match the card's box model) ───
     skeletonCard: { backgroundColor: "rgba(255,255,255,0.04)" },

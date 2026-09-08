@@ -17,6 +17,7 @@ import {
     currentLang,
 } from "../i18n";
 import { NativeAdCard } from "../components/ads/NativeAdCard";
+import { AdUnits } from "../config/ads";
 
 /**
  * Màn chọn ngôn ngữ — hiện ở lần mở app đầu tiên (trước SignIn), gated bằng
@@ -92,34 +93,48 @@ export default function LanguageScreen({ onDone }: { onDone: () => void }) {
                 the pink Continue button: keep the "Ad" badge prominent and the
                 card's own frame distinct, or the two read as one control, which
                 is the accidental-click pattern AdMob bans accounts over. */}
-            {/* Fixed footer — a sibling of the list, not inside its scrolling
-                content, so it never scrolls away. Edge-to-edge with square
-                corners so it reads as a distinct bottom banner rather than
-                another list row. Both are how yuuki places it.
+            {/* Ported from Flutter yuuki's language_screen.dart: two DIFFERENT
+                ad units, swapped on the first tap — neutral grey before the
+                pick, the app's active CTA pink after it, with a full-width CTA
+                (its `isCompact`). The differing keys are load-bearing: they
+                force a fresh card so the old ad is disposed and the new unit is
+                actually requested, rather than one ad being recoloured.
 
-                Two requests, not one recoloured: the `key` change remounts and
-                therefore re-requests, so native_language_1 (muted CTA, while
-                still choosing) and native_language_2 (brand CTA, after the
-                pick) report as separate impressions. */}
+                The pink full-width CTA lands where a primary button would sit,
+                which is the part reviewers look at — the prominent "Ad" badge
+                and the card's own frame are what keep it readable as an ad, so
+                neither should be trimmed. */}
             <View style={styles.adFooter}>
-                <NativeAdCard
-                    key={picked ? "lang-post-pick" : "lang-pre-pick"}
-                    placement={picked ? "native_language_2" : "native_language_1"}
-                    ctaColor={picked ? PINK : MUTED_CTA}
-                    cornerRadius={0}
-                />
+                {picked ? (
+                    <NativeAdCard
+                        key="lang-ad-after"
+                        adUnitId={AdUnits.nativeLanguageAfterPick}
+                        placement="native_language_1_2"
+                        ctaColor={CTA_AFTER}
+                        fullWidthCta
+                    />
+                ) : (
+                    <NativeAdCard
+                        key="lang-ad-before"
+                        adUnitId={AdUnits.nativeLanguageBeforePick}
+                        placement="native_language_1_1"
+                        ctaColor={CTA_BEFORE}
+                        fullWidthCta
+                    />
+                )}
             </View>
         </SafeAreaView>
     );
 }
 
 const PINK = "#FF6FA5";
-/** Deliberately inert grey for the first, pre-selection ad. */
-const MUTED_CTA = "#5A5566";
+/** Yuuki's exact CTA colours for the two stages. */
+const CTA_BEFORE = "#6B7280";
+const CTA_AFTER = "#FF2E74";
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#0a0a1a" },
-    adFooter: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "rgba(255,255,255,0.10)" },
+    adFooter: { paddingLeft: 20, paddingRight: 20, paddingTop: 8, paddingBottom: 16 },
     headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     saveText: { color: PINK, fontSize: 16, fontWeight: "800" },
     header: { paddingHorizontal: 24, paddingTop: 24, paddingBottom: 8 },
