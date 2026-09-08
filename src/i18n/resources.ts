@@ -30,6 +30,8 @@ export const LANGUAGE_META: Record<SupportedLang, { name: string; flag: string }
 type Dict = Record<string, string>;
 
 const en: Dict = {
+    "play.greeting4": "I was just thinking about you… and hoping you'd show up. Ready to have some fun? ✨",
+    "play.greeting5": "I've been so bored without you. Glad you're finally here. 😘",
     "play.say_hi_hint": "Send the first message 💬",
     "splash.loading": "Getting things ready…",
     "char.choose_partner": "Choose your partner",
@@ -194,6 +196,8 @@ const en: Dict = {
 };
 
 const vi: Dict = {
+    "play.greeting4": "Em vừa nghĩ đến anh… và mong anh xuất hiện. Sẵn sàng vui chưa? ✨",
+    "play.greeting5": "Thiếu anh em chán chết đi được. Cuối cùng cũng tới rồi. 😘",
     "play.say_hi_hint": "Nhắn câu đầu tiên đi 💬",
     "splash.loading": "Đang chuẩn bị…",
     "char.choose_partner": "Chọn người bạn đồng hành",
@@ -358,6 +362,8 @@ const vi: Dict = {
 };
 
 const ja: Dict = {
+    "play.greeting4": "ちょうどあなたのこと考えてたの…来てくれると思ってた。楽しむ準備はいい？✨",
+    "play.greeting5": "あなたがいなくて退屈だったの。やっと来てくれたね。😘",
     "play.say_hi_hint": "最初のメッセージを送ろう 💬",
     "splash.loading": "準備しています…",
     "char.choose_partner": "パートナーを選ぶ",
@@ -522,6 +528,8 @@ const ja: Dict = {
 };
 
 const zh: Dict = {
+    "play.greeting4": "我正想着你呢…希望你会出现。准备好玩了吗？✨",
+    "play.greeting5": "没有你我好无聊。你终于来了。😘",
     "play.say_hi_hint": "发送第一条消息 💬",
     "splash.loading": "正在准备…",
     "char.choose_partner": "选择你的伴侣",
@@ -686,6 +694,8 @@ const zh: Dict = {
 };
 
 const ko: Dict = {
+    "play.greeting4": "막 네 생각하고 있었어… 와줄 거라 믿었어. 놀 준비됐어? ✨",
+    "play.greeting5": "네가 없어서 너무 심심했어. 드디어 왔구나. 😘",
     "play.say_hi_hint": "첫 메시지를 보내보세요 💬",
     "splash.loading": "준비하는 중…",
     "char.choose_partner": "파트너 선택",
@@ -850,6 +860,8 @@ const ko: Dict = {
 };
 
 const es: Dict = {
+    "play.greeting4": "Justo pensaba en ti… y esperaba que aparecieras. ¿Listo para divertirnos? ✨",
+    "play.greeting5": "Me aburría tanto sin ti. Por fin llegaste. 😘",
     "play.say_hi_hint": "Envía el primer mensaje 💬",
     "splash.loading": "Preparando todo…",
     "char.choose_partner": "Elige a tu pareja",
@@ -1014,6 +1026,8 @@ const es: Dict = {
 };
 
 const pt: Dict = {
+    "play.greeting4": "Eu estava pensando em você… e torcendo para aparecer. Pronto para se divertir? ✨",
+    "play.greeting5": "Estava tão entediada sem você. Enfim chegou. 😘",
     "play.say_hi_hint": "Envie a primeira mensagem 💬",
     "splash.loading": "Preparando tudo…",
     "char.choose_partner": "Escolha seu par",
@@ -1178,6 +1192,8 @@ const pt: Dict = {
 };
 
 const de: Dict = {
+    "play.greeting4": "Ich habe gerade an dich gedacht… und gehofft, du kommst. Bereit für Spaß? ✨",
+    "play.greeting5": "Ohne dich war mir so langweilig. Endlich bist du da. 😘",
     "play.say_hi_hint": "Schreib die erste Nachricht 💬",
     "splash.loading": "Wird vorbereitet…",
     "char.choose_partner": "Wähle deine Partnerin",
@@ -1342,6 +1358,8 @@ const de: Dict = {
 };
 
 const fr: Dict = {
+    "play.greeting4": "Je pensais justement à toi… en espérant que tu viennes. Prêt à t’amuser ? ✨",
+    "play.greeting5": "Je m’ennuyais tellement sans toi. Enfin te voilà. 😘",
     "play.say_hi_hint": "Envoie le premier message 💬",
     "splash.loading": "Préparation…",
     "char.choose_partner": "Choisis ta partenaire",
@@ -1506,6 +1524,8 @@ const fr: Dict = {
 };
 
 const it: Dict = {
+    "play.greeting4": "Stavo giusto pensando a te… speravo saresti venuto. Pronto a divertirti? ✨",
+    "play.greeting5": "Mi annoiavo tanto senza di te. Finalmente sei qui. 😘",
     "play.say_hi_hint": "Manda il primo messaggio 💬",
     "splash.loading": "Preparazione…",
     "char.choose_partner": "Scegli la tua partner",

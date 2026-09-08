@@ -1,10 +1,5 @@
 import { useTranslation } from "react-i18next";
-import React, {
-    useRef,
-    useState,
-    useCallback,
-    useEffect,
-} from "react";
+import React, { useRef, useState, useCallback, useEffect, useMemo } from "react";
 import {
     View,
     Text,
@@ -530,14 +525,7 @@ export default function PlayScreen() {
 
             if (history.length === 0) {
                 // If chat is entirely empty, inject a random flirty default message
-                const flirtyGreetings = [
-                    t("play.greeting1"),
-                    "I was just thinking about you... and hoping you'd show up. Ready to have some fun? ✨",
-                    t("play.greeting2"),
-                    t("play.greeting3"),
-                    "I've been so bored without you. Thrilled you're finally here to entertain me. 😘"
-                ];
-                const defaultMsgText = flirtyGreetings[Math.floor(Math.random() * flirtyGreetings.length)];
+                const defaultMsgText = pickGreeting();
 
                 const starterMsg: ChatMessage = {
                     id: `greeting-${characterId}`,
@@ -890,6 +878,42 @@ export default function PlayScreen() {
 
     /** Banner sits under the composer; PRO and the open keyboard both hide it. */
     const showPlayBanner = !isPro && !isKeyboardVisible;
+
+    /**
+     * One of her opening lines. Two of the five used to be hardcoded English,
+     * so a non-English user got English 40% of the time; all five are
+     * translated now.
+     */
+    const pickGreeting = useCallback(() => {
+        const all = [
+            t("play.greeting1"),
+            t("play.greeting2"),
+            t("play.greeting3"),
+            t("play.greeting4"),
+            t("play.greeting5"),
+        ];
+        return all[Math.floor(Math.random() * all.length)];
+    }, [t]);
+
+    /**
+     * Shown when the chat is genuinely empty — no signed-in user, or history
+     * still loading. Rendered as one of her messages rather than an empty-state
+     * card, so the screen opens mid-conversation instead of announcing that
+     * nothing has happened. Held in a ref so it does not reshuffle on
+     * every render.
+     */
+    const localGreetingRef = useRef<string | null>(null);
+    if (localGreetingRef.current === null) localGreetingRef.current = pickGreeting();
+
+    const displayMessages = useMemo<ChatMessage[]>(() => {
+        if (messages.length > 0) return messages;
+        return [{
+            id: "local-greeting",
+            role: "model",
+            text: localGreetingRef.current ?? "",
+            createdAt: new Date(),
+        }];
+    }, [messages]);
 
     /** Character awaiting the user's answer in the ad-gate dialog. */
     const [switchGateFor, setSwitchGateFor] = useState<any | null>(null);
@@ -1341,7 +1365,7 @@ export default function PlayScreen() {
                     <View style={styles.chatMessagesWrapper} pointerEvents="box-none">
                         <FlatList
                             ref={flatListRef}
-                            data={messages}
+                            data={displayMessages}
                             renderItem={renderMessage}
                             keyExtractor={(item) => item.id}
                             style={styles.messageList}
@@ -1350,44 +1374,6 @@ export default function PlayScreen() {
                             keyboardShouldPersistTaps="handled"
                             keyboardDismissMode="on-drag"
                             onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
-                            ListEmptyComponent={
-                                <View style={styles.emptyChat}>
-                                    <BlurView
-                                        intensity={34}
-                                        tint={isBackgroundDark ? "dark" : "light"}
-                                        experimentalBlurMethod="dimezisBlurView"
-                                        style={[styles.emptyCard, { borderColor: surface.border }]}
-                                    >
-                                        {/* Her own portrait rather than a waving
-                                            emoji — the card is an invitation to
-                                            talk to *her*, and the emoji said
-                                            nothing about who that is. */}
-                                        {characterThumbnail ? (
-                                            <View style={[styles.emptyAvatarRing, { borderColor: surface.accent }]}>
-                                                <Image
-                                                    source={{ uri: characterThumbnail }}
-                                                    style={styles.emptyAvatar}
-                                                    contentFit="cover"
-                                                    transition={200}
-                                                />
-                                            </View>
-                                        ) : (
-                                            <Text style={styles.emptyChatEmoji}>👋</Text>
-                                        )}
-                                        <Text style={[styles.emptyChatTitle, { color: surface.icon }]}>
-                                            {characterName}
-                                        </Text>
-                                        <Text style={[styles.emptyChatSub, { color: surface.muted }]}>
-                                            {t("play.start_convo")}
-                                        </Text>
-                                        <View style={[styles.emptyHint, { borderColor: surface.border }]}>
-                                            <Text style={[styles.emptyHintText, { color: surface.muted }]}>
-                                                {t("play.say_hi_hint")}
-                                            </Text>
-                                        </View>
-                                    </BlurView>
-                                </View>
-                            }
                             ListFooterComponent={
                                 isSending ? (
                                     isLiquidGlassSupported ? (
@@ -1656,9 +1642,16 @@ const styles = StyleSheet.create({
         transform: [{ scaleX: -1 }], // Mirror front camera
     },
 
-    // Sits in the top bar's free middle, between the diamond on the left and
-    // the bubble column on the right.
-    switcherInBar: { flex: 1, alignItems: "center", paddingLeft: 4 },
+    // Absolutely centred on the bar rather than flexed into the space left
+    // over: with flex the diamond's width pushed the whole cluster right of
+    // centre. box-none pointer events keep the diamond tappable underneath.
+    switcherInBar: {
+        position: "absolute",
+        left: 0,
+        right: 0,
+        alignItems: "center",
+        justifyContent: "center",
+    },
     topBar: {
         position: "absolute", top: Platform.OS === "ios" ? 60 : 40,
         left: 20, right: 20,
@@ -1884,31 +1877,6 @@ const styles = StyleSheet.create({
     },
     userText: { color: "#FFFFFF" },
     aiText: { color: "rgba(255,255,255,0.85)" },
-    emptyChat: { alignItems: "center", justifyContent: "center", paddingVertical: 24 },
-    emptyCard: {
-        alignItems: "center",
-        paddingVertical: 24,
-        paddingHorizontal: 28,
-        borderRadius: 28,
-        overflow: "hidden",
-        backgroundColor: "rgba(255,255,255,0.06)",
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: "rgba(255,255,255,0.18)",
-    },
-    emptyChatEmoji: { fontSize: 46, marginBottom: 12 },
-    emptyAvatarRing: {
-        width: 78, height: 78, borderRadius: 39,
-        borderWidth: 2, padding: 3, marginBottom: 14,
-        alignItems: "center", justifyContent: "center",
-    },
-    emptyAvatar: { width: 68, height: 68, borderRadius: 34 },
-    emptyHint: {
-        marginTop: 14, paddingHorizontal: 14, paddingVertical: 7,
-        borderRadius: 999, borderWidth: 1,
-    },
-    emptyHintText: { fontSize: 12, fontWeight: "600" },
-    emptyChatTitle: { fontSize: 19, fontWeight: "800", color: "#FFFFFF", marginBottom: 5, textAlign: "center", letterSpacing: 0.2 },
-    emptyChatSub: { fontSize: 13, color: "rgba(255, 194, 218, 0.85)", textAlign: "center" },
 
     // Input
     playBannerSlot: { paddingBottom: Platform.OS === "ios" ? 20 : 0 },
