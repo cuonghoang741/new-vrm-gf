@@ -46,7 +46,18 @@ export default function LanguageScreen({ onDone }: { onDone: () => void }) {
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
-                <Text style={styles.title}>{t("lang.title")}</Text>
+                <View style={styles.headerRow}>
+                    <Text style={styles.title}>{t("lang.title")}</Text>
+                    {/* Only appears once a language has been picked, so the
+                        choice is always explicit — yuuki's gate. It also keeps
+                        the primary action at the top, far from the ad in the
+                        footer, instead of directly above it. */}
+                    {picked && (
+                        <Pressable onPress={onDone} hitSlop={10}>
+                            <Text style={styles.saveText}>{t("common.save")}</Text>
+                        </Pressable>
+                    )}
+                </View>
                 <Text style={styles.subtitle}>{t("lang.subtitle")}</Text>
             </View>
 
@@ -81,17 +92,23 @@ export default function LanguageScreen({ onDone }: { onDone: () => void }) {
                 the pink Continue button: keep the "Ad" badge prominent and the
                 card's own frame distinct, or the two read as one control, which
                 is the accidental-click pattern AdMob bans accounts over. */}
-            <View style={styles.adSlot}>
+            {/* Fixed footer — a sibling of the list, not inside its scrolling
+                content, so it never scrolls away. Edge-to-edge with square
+                corners so it reads as a distinct bottom banner rather than
+                another list row. Both are how yuuki places it.
+
+                Two requests, not one recoloured: the `key` change remounts and
+                therefore re-requests, so native_language_1 (muted CTA, while
+                still choosing) and native_language_2 (brand CTA, after the
+                pick) report as separate impressions. */}
+            <View style={styles.adFooter}>
                 <NativeAdCard
                     key={picked ? "lang-post-pick" : "lang-pre-pick"}
                     placement={picked ? "native_language_2" : "native_language_1"}
                     ctaColor={picked ? PINK : MUTED_CTA}
+                    cornerRadius={0}
                 />
             </View>
-
-            <Pressable style={styles.cta} onPress={onDone}>
-                <Text style={styles.ctaText}>{t("common.continue")}</Text>
-            </Pressable>
         </SafeAreaView>
     );
 }
@@ -102,7 +119,9 @@ const MUTED_CTA = "#5A5566";
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#0a0a1a" },
-    adSlot: { paddingHorizontal: 16 },
+    adFooter: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "rgba(255,255,255,0.10)" },
+    headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    saveText: { color: PINK, fontSize: 16, fontWeight: "800" },
     header: { paddingHorizontal: 24, paddingTop: 24, paddingBottom: 8 },
     title: { color: "#fff", fontSize: 26, fontWeight: "800" },
     subtitle: { color: "rgba(255,255,255,0.6)", fontSize: 14, marginTop: 8 },

@@ -23,8 +23,14 @@ import { useSubscription } from "../../contexts/SubscriptionContext";
 export function NativeAdCard({
     placement = "native",
     ctaColor,
+    cornerRadius,
 }: {
     placement?: string;
+    /**
+     * 0 for an edge-to-edge footer banner, left undefined for a contained
+     * card. Same knob yuuki exposes.
+     */
+    cornerRadius?: number;
     /**
      * CTA fill for this placement. yuuki exposes the same knob per placement
      * rather than hardcoding one colour.
@@ -65,10 +71,13 @@ export function NativeAdCard({
     // Nothing will ever arrive — give the space back rather than leaving a
     // skeleton shimmering forever.
     if (failed) return null;
-    if (!ad) return <NativeAdSkeleton />;
+    if (!ad) return <NativeAdSkeleton cornerRadius={cornerRadius} />;
 
     return (
-        <NativeAdView nativeAd={ad} style={styles.card}>
+        <NativeAdView
+            nativeAd={ad}
+            style={[styles.card, cornerRadius !== undefined && { borderRadius: cornerRadius }]}
+        >
             <View style={styles.row}>
                 {ad.icon?.url ? (
                     <NativeAsset assetType={NativeAssetType.ICON}>
@@ -111,7 +120,7 @@ export function NativeAdCard({
  * radius, border and the same 44px icon row — so the slot does not resize
  * when the real ad swaps in.
  */
-function NativeAdSkeleton() {
+function NativeAdSkeleton({ cornerRadius }: { cornerRadius?: number }) {
     const shimmer = useRef(new Animated.Value(0.35)).current;
 
     useEffect(() => {
@@ -126,7 +135,7 @@ function NativeAdSkeleton() {
     }, [shimmer]);
 
     return (
-        <View style={[styles.card, styles.skeletonCard]}>
+        <View style={[styles.card, styles.skeletonCard, cornerRadius !== undefined && { borderRadius: cornerRadius }]}>
             <View style={styles.row}>
                 <Animated.View style={[styles.icon, styles.bone, { opacity: shimmer }]} />
                 <View style={styles.middle}>
