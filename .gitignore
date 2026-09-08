@@ -50,3 +50,7 @@ credentials.json
 # keystore backup (secret)
 *keystore-backup.zip
 *keystore-credentials.md
+
+# Real credential values (never commit — this repo is public)
+SECRETS.local.md
+*.local.md
