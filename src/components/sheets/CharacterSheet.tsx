@@ -17,7 +17,7 @@ import * as Haptics from "expo-haptics";
 import { useRewardedAd } from "../../hooks/useRewardedAd";
 import { AdGateDialog } from "../AdGateDialog";
 import { AdUnlockBadge } from "../ads/AdUnlockBadge";
-import { loadUnlocks, markUnlocked, requiresAd, subscribeUnlocks } from "../../services/unlockService";
+import { consumeNoFillGrant, loadUnlocks, markUnlocked, requiresAd, subscribeUnlocks } from "../../services/unlockService";
 import { AdUnits } from "../../config/ads";
 import { supabase } from "../../config/supabase";
 import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
@@ -193,9 +193,14 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
         async (char: Character) => {
             if (isPro) return applySelection(char);
             const outcome = await showForGate();
-            if (outcome === "dismissed") return;
-            // "unavailable" counts too: we could not serve an ad, and the user
-            // should not be charged again for our own no-fill.
+            if (outcome === "dismissed") return; // saw it, backed out
+            if (outcome === "unavailable" && !consumeNoFillGrant()) {
+                // No ad could be served. One asset per run is forgiven so our
+                // own no-fill does not block a feature; past that we stop,
+                // rather than handing over the whole catalogue for free.
+                Alert.alert(t("common.error"), t("ads.no_fill"));
+                return;
+            }
             await markUnlocked("character", char.id, userId);
             applySelection(char);
         },

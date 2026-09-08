@@ -45,7 +45,7 @@ import { useAndroidBack } from "../hooks/useAndroidBack";
 import { surfaceOn } from "../theme/surface";
 import { CharacterSwitcher } from "../components/CharacterSwitcher";
 import { AdGateDialog } from "../components/AdGateDialog";
-import { autoUnlock, loadUnlocks, markUnlocked, requiresAd } from "../services/unlockService";
+import { autoUnlock, consumeNoFillGrant, loadUnlocks, markUnlocked, requiresAd } from "../services/unlockService";
 import { getCharacters } from "../cache/charactersCache";
 import { AdBanner } from "../components/ads/AdBanner";
 import { useInterstitialAd } from "../hooks/useInterstitialAd";
@@ -1500,6 +1500,10 @@ export default function PlayScreen() {
                         if (!c) return;
                         const outcome = await showSwitchAd();
                         if (outcome === "dismissed") return;
+                        if (outcome === "unavailable" && !consumeNoFillGrant()) {
+                            Alert.alert(t("common.error"), t("ads.no_fill"));
+                            return;
+                        }
                         await markUnlocked("character", c.id, user?.id);
                         handleCharacterSelect(c);
                     }}

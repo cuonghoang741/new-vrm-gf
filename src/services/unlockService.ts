@@ -1,14 +1,13 @@
-import * as SecureStore from "expo-secure-store";
 import { supabase } from "../config/supabase";
 
 /** Asset families a one-time rewarded unlock applies to. */
 export type UnlockType = "character" | "costume" | "background";
 
-const KEY = "ad_unlocks_v1";
 const TABLE = "user_unlocks";
 
 /**
- * Permanent "watch one rewarded ad, keep it forever" unlocks for free assets.
+ * Permanent "watch one rewarded ad, keep it forever" unlocks for free assets,
+ * persisted in `public.user_unlocks` and mirroring Yuuki's UnlockService.
  *
  * The rule: switching to a free character/outfit/scene the user has never used
  * costs one rewarded ad. Every switch after that is instant. Charging on every
@@ -18,23 +17,30 @@ const TABLE = "user_unlocks";
  * PRO assets are not handled here; they keep their own paywall. PRO
  * subscribers bypass this entirely, decided by the caller.
  *
- * Storage is two-tier, and deliberately so:
+ * The server is the only durable store. The in-memory cache is exactly that —
+ * a cache — and a restart re-reads it. Nothing is written to the device: an
+ * unlock belongs to the account, not to an install.
  *
- *  - `user_unlocks` in Supabase is the record of truth, so unlocks follow the
- *    account onto a new device or a reinstall.
- *  - SecureStore mirrors it, because this gate also runs *before* sign-in and
- *    must keep working offline. Anything earned while signed out, or while the
- *    write failed, is replayed to the server on the next successful load.
- *
- * Every server call is failure-tolerant. A user who watched an ad has earned
- * the unlock whether or not we managed to write it down.
+ * Failure-tolerant throughout, like the rest of the boot path: if Supabase is
+ * unreachable the cache stays empty and the app still runs. An unlock earned
+ * while a write fails is queued in memory and retried on the next load.
  */
 
-let cache: Set<string> | null = null;
-/** Earned but not yet written to the server — replayed on the next load. */
+let cache = new Set<string>();
+/** Earned but not yet written. In memory only; a restart drops it. */
 let pending = new Set<string>();
 let loadedForUser: string | null = null;
 const listeners = new Set<() => void>();
+
+/**
+ * How many assets may be let through in one run because no ad could be served.
+ * Yuuki's `nofill_unlocks_per_session`, same default.
+ *
+ * Without a cap, a user with no ad fill unlocks the entire catalogue; with
+ * zero, our own no-fill blocks a feature they did nothing wrong to reach.
+ */
+const NO_FILL_GRANTS_PER_SESSION = 1;
+let noFillGrants = 0;
 
 const k = (type: UnlockType, id: string) => `${type}|${id}`;
 const split = (key: string) => {
@@ -52,33 +58,15 @@ export function subscribeUnlocks(fn: () => void): () => void {
     return () => listeners.delete(fn);
 }
 
-async function persistLocal() {
-    try {
-        await SecureStore.setItemAsync(KEY, JSON.stringify([...(cache ?? [])]));
-    } catch {
-        /* kept in memory for this session regardless */
-    }
-}
-
 /**
- * Load the local mirror, then merge the server's rows on top and flush
- * anything that was earned offline.
+ * Read every unlock row for the signed-in user into the cache. Never throws.
  *
- * Safe to call repeatedly; the server round-trip only repeats when the signed
- * in user changes.
+ * Repeats the round-trip only when the signed-in user changes; a failure
+ * clears that marker so the next call retries.
  */
 export async function loadUnlocks(userId?: string | null): Promise<void> {
-    if (!cache) {
-        try {
-            const raw = await SecureStore.getItemAsync(KEY);
-            cache = new Set<string>(raw ? JSON.parse(raw) : []);
-        } catch {
-            cache = new Set<string>();
-        }
-        notify();
-    }
-
-    if (!userId || loadedForUser === userId) return;
+    if (!userId) return;
+    if (loadedForUser === userId) return;
     loadedForUser = userId;
 
     try {
@@ -88,23 +76,15 @@ export async function loadUnlocks(userId?: string | null): Promise<void> {
             .eq("user_id", userId);
         if (error) throw error;
 
-        let added = false;
-        for (const row of data ?? []) {
-            const key = k(row.asset_type as UnlockType, row.asset_id);
-            if (!cache.has(key)) {
-                cache.add(key);
-                added = true;
-            }
-        }
-        if (added) {
-            notify();
-            await persistLocal();
-        }
+        const next = new Set<string>();
+        for (const row of data ?? []) next.add(k(row.asset_type as UnlockType, row.asset_id));
+        // Anything earned this run but not yet written stays usable.
+        for (const key of pending) next.add(key);
+        cache = next;
+        notify();
 
-        // Push up anything earned while signed out or while a write failed.
         await flushPending(userId);
     } catch {
-        // Offline or RLS said no — the local mirror still drives the UI.
         loadedForUser = null;
     }
 }
@@ -124,7 +104,7 @@ async function flushPending(userId: string) {
 }
 
 export function isUnlocked(type: UnlockType, id: string): boolean {
-    return cache?.has(k(type, id)) ?? false;
+    return cache.has(k(type, id));
 }
 
 /**
@@ -143,20 +123,34 @@ export function requiresAd(
     return !isUnlocked(type, id);
 }
 
-/** Record a genuinely earned unlock, locally first and then on the server. */
+/** True while a no-fill failure may still be forgiven this run. */
+export function canGrantOnNoFill(): boolean {
+    return noFillGrants < NO_FILL_GRANTS_PER_SESSION;
+}
+
+/**
+ * Spend one no-fill pass. Returns false once the run's budget is used up, in
+ * which case the caller must block rather than hand the asset over.
+ */
+export function consumeNoFillGrant(): boolean {
+    if (!canGrantOnNoFill()) return false;
+    noFillGrants++;
+    return true;
+}
+
+/** Record a genuinely earned unlock: cache first, then the server. */
 export async function markUnlocked(
     type: UnlockType,
     id: string,
     userId?: string | null
 ): Promise<void> {
-    if (!cache) cache = new Set<string>();
     const key = k(type, id);
     if (cache.has(key)) return;
 
-    // Local first: the UI must update even if the network is down.
+    // Cache first so the UI updates even with no network. The user watched the
+    // ad; they have earned it whether or not we can write it down.
     cache.add(key);
     notify();
-    await persistLocal();
 
     if (!userId) {
         pending.add(key);

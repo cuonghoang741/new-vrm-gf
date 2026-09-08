@@ -22,7 +22,7 @@ import { AdGateDialog } from "../AdGateDialog";
 import { AdUnlockBadge } from "../ads/AdUnlockBadge";
 import { useRewardedAd } from "../../hooks/useRewardedAd";
 import { AdUnits } from "../../config/ads";
-import { loadUnlocks, markUnlocked, requiresAd, subscribeUnlocks } from "../../services/unlockService";
+import { consumeNoFillGrant, loadUnlocks, markUnlocked, requiresAd, subscribeUnlocks } from "../../services/unlockService";
 
 const { width } = Dimensions.get("window");
 const GRID_PADDING = 20;
@@ -237,8 +237,14 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
         async (bg: Background) => {
             if (isPro) return applySelection(bg);
             const outcome = await showForGate();
-            if (outcome === "dismissed") return;
-            // "unavailable" counts too — no charging twice for our own no-fill.
+            if (outcome === "dismissed") return; // saw it, backed out
+            if (outcome === "unavailable" && !consumeNoFillGrant()) {
+                // No ad could be served. One asset per run is forgiven so our
+                // own no-fill does not block a feature; past that we stop,
+                // rather than handing over the whole catalogue for free.
+                Alert.alert(t("common.error"), t("ads.no_fill"));
+                return;
+            }
             await markUnlocked("background", bg.id, userId);
             applySelection(bg);
         },
