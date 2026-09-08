@@ -15,6 +15,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 
 import * as Haptics from "expo-haptics";
 import { useRewardedAd } from "../../hooks/useRewardedAd";
+import { AdGateDialog } from "../AdGateDialog";
 import { AdUnits } from "../../config/ads";
 import { supabase } from "../../config/supabase";
 import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
@@ -65,6 +66,8 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
     const [ownedIds, setOwnedIds] = useState<Set<string>>(new Set());
     const [tempUnlocked, setTempUnlocked] = useState<Set<string>>(new Set());
     const { showForGate } = useRewardedAd(AdUnits.rewarded, "change_costume");
+    /** Outfit awaiting the user's answer in the ad-gate dialog. */
+    const [gateFor, setGateFor] = useState<Costume | null>(null);
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const listRef = useRef<FlatList>(null);
@@ -231,15 +234,7 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
             if (isPro) return applySelection(costume);
 
             Haptics.selectionAsync();
-            Alert.alert(
-                t("ads.gate_title"),
-                t("ads.gate_body_cos"),
-                [
-                    { text: t("common.cancel"), style: "cancel" },
-                    { text: t("common.upgrade_pro"), onPress: goPro },
-                    { text: t("ads.watch_ad"), onPress: () => gateWithRewardedAd(costume) },
-                ]
-            );
+            setGateFor(costume);
         },
         [isPro, ownedIds, tempUnlocked, userId, goPro, doBuy, applySelection, currentCostumeUrl, gateWithRewardedAd, t]
     );
@@ -362,6 +357,20 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
             detents={[0.7, 0.95]}
         >
             {renderContent()}
+            <AdGateDialog
+                visible={gateFor !== null}
+                body={t("ads.gate_body_cos")}
+                onWatch={() => {
+                    const c = gateFor;
+                    setGateFor(null);
+                    if (c) gateWithRewardedAd(c);
+                }}
+                onUpgrade={() => {
+                    setGateFor(null);
+                    goPro();
+                }}
+                onCancel={() => setGateFor(null)}
+            />
         </BottomSheet>
     );
 });

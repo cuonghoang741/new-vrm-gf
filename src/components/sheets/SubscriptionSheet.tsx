@@ -29,7 +29,6 @@ import { useSubscription } from "../../contexts/SubscriptionContext";
 import VRMViewer, { VRMViewerHandle } from "../VRMViewer";
 import { getCharacters } from "../../cache/charactersCache";
 import { supabase } from "../../config/supabase";
-import LockIcon from "../icons/LockIcon";
 
 const FEATURES = [
     { icon: IconAdOff, text: "sub.b1", color: "#FF6FA5" },

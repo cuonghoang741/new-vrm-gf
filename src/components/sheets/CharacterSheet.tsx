@@ -15,6 +15,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import * as Haptics from "expo-haptics";
 import { useRewardedAd } from "../../hooks/useRewardedAd";
+import { AdGateDialog } from "../AdGateDialog";
 import { AdUnits } from "../../config/ads";
 import { supabase } from "../../config/supabase";
 import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
@@ -70,6 +71,8 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
     const [ownedIds, setOwnedIds] = useState<Set<string>>(new Set());
     const [tempUnlocked, setTempUnlocked] = useState<Set<string>>(new Set());
     const { showForGate } = useRewardedAd(AdUnits.rewarded, "change_character");
+    /** Character awaiting the user's answer in the ad-gate dialog. */
+    const [gateFor, setGateFor] = useState<Character | null>(null);
     /** Tile being previewed in the hero — not yet the active character. */
     const [focusedId, setFocusedId] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
@@ -217,15 +220,7 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
             if (isPro) return applySelection(char);
 
             Haptics.selectionAsync();
-            Alert.alert(
-                t("ads.gate_title"),
-                t("ads.gate_body_char", { name: char.name }),
-                [
-                    { text: t("common.cancel"), style: "cancel" },
-                    { text: t("common.upgrade_pro"), onPress: goPro },
-                    { text: t("ads.watch_ad"), onPress: () => gateWithRewardedAd(char) },
-                ]
-            );
+            setGateFor(char);
         },
         [isPro, ownedIds, tempUnlocked, currentCharacterId, userId, goPro, doBuy, applySelection, gateWithRewardedAd, t]
     );
@@ -481,6 +476,20 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
             detents={[0.95]}
         >
             {renderContent()}
+            <AdGateDialog
+                visible={gateFor !== null}
+                body={t("ads.gate_body_char", { name: gateFor?.name ?? "" })}
+                onWatch={() => {
+                    const c = gateFor;
+                    setGateFor(null);
+                    if (c) gateWithRewardedAd(c);
+                }}
+                onUpgrade={() => {
+                    setGateFor(null);
+                    goPro();
+                }}
+                onCancel={() => setGateFor(null)}
+            />
         </BottomSheet>
     );
 });

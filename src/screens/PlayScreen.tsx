@@ -49,6 +49,7 @@ import { analyticsService } from "../services/AnalyticsService";
 import { useAndroidBack } from "../hooks/useAndroidBack";
 import { surfaceOn } from "../theme/surface";
 import { CharacterSwitcher } from "../components/CharacterSwitcher";
+import { AdGateDialog } from "../components/AdGateDialog";
 import { getCharacters } from "../cache/charactersCache";
 import { AdBanner } from "../components/ads/AdBanner";
 import { useInterstitialAd } from "../hooks/useInterstitialAd";
@@ -890,6 +891,9 @@ export default function PlayScreen() {
     /** Banner sits under the composer; PRO and the open keyboard both hide it. */
     const showPlayBanner = !isPro && !isKeyboardVisible;
 
+    /** Character awaiting the user's answer in the ad-gate dialog. */
+    const [switchGateFor, setSwitchGateFor] = useState<any | null>(null);
+
     /** Roster for the top quick-switch carousel. */
     const [switcherChars, setSwitcherChars] = useState<any[]>([]);
     useEffect(() => {
@@ -908,24 +912,9 @@ export default function PlayScreen() {
     const handleQuickSwitch = useCallback(
         (c: any) => {
             if (isPro) return handleCharacterSelect(c);
-            Alert.alert(
-                t("ads.gate_title"),
-                t("ads.gate_body_char", { name: c.name }),
-                [
-                    { text: t("common.cancel"), style: "cancel" },
-                    { text: t("common.upgrade_pro"), onPress: () => setSubscriptionOpen(true) },
-                    {
-                        text: t("ads.watch_ad"),
-                        onPress: async () => {
-                            const outcome = await showSwitchAd();
-                            if (outcome === "dismissed") return;
-                            handleCharacterSelect(c);
-                        },
-                    },
-                ]
-            );
+            setSwitchGateFor(c);
         },
-        [isPro, handleCharacterSelect, showSwitchAd, t]
+        [isPro, handleCharacterSelect]
     );
 
     const lastBackAt = useRef(0);
@@ -1494,6 +1483,24 @@ export default function PlayScreen() {
                     )}
                 </View>
 
+                <AdGateDialog
+                    visible={switchGateFor !== null}
+                    body={t("ads.gate_body_char", { name: switchGateFor?.name ?? "" })}
+                    onWatch={async () => {
+                        const c = switchGateFor;
+                        setSwitchGateFor(null);
+                        if (!c) return;
+                        const outcome = await showSwitchAd();
+                        if (outcome === "dismissed") return;
+                        handleCharacterSelect(c);
+                    }}
+                    onUpgrade={() => {
+                        setSwitchGateFor(null);
+                        setSubscriptionOpen(true);
+                    }}
+                    onCancel={() => setSwitchGateFor(null)}
+                />
+
                 <VoiceLoadingOverlay
                     visible={voiceState.isBooting || voiceState.status === "connecting"}
                     characterName={characterName}
@@ -1645,7 +1652,9 @@ const styles = StyleSheet.create({
 
     switcherBar: {
         position: "absolute",
-        top: Platform.OS === "ios" ? 124 : 104,
+        // Clears the left cluster (2D/3D toggle at 140 plus the ruby pill
+        // under it), which sat at the same height and clipped the left avatar.
+        top: Platform.OS === "ios" ? 232 : 212,
         left: 0,
         right: 0,
         alignItems: "center",
