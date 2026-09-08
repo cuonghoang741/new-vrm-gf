@@ -18,6 +18,7 @@ import {
 } from "../i18n";
 import { NativeAdCard } from "../components/ads/NativeAdCard";
 import { AdUnits } from "../config/ads";
+import { preloadNative } from "../components/ads/nativeAdPreload";
 
 /**
  * Màn chọn ngôn ngữ — hiện ở lần mở app đầu tiên (trước SignIn), gated bằng
@@ -36,6 +37,9 @@ export default function LanguageScreen({ onDone }: { onDone: () => void }) {
     // tells us how often our auto-detection already had it right.
     useEffect(() => {
         analyticsService.logLanguageScreenView(currentLang());
+        // Warm the after-pick unit while the user is still reading the list, so
+        // the swap on their first tap is instant instead of showing a skeleton.
+        preloadNative(AdUnits.nativeLanguageAfterPick);
     }, []);
 
     const pick = async (l: SupportedLang) => {

@@ -8,6 +8,7 @@ import {
 } from "react-native-google-mobile-ads";
 import { AdUnits } from "../../config/ads";
 import { analyticsService } from "../../services/AnalyticsService";
+import { takePreloadedNative } from "./nativeAdPreload";
 import { useSubscription } from "../../contexts/SubscriptionContext";
 
 /**
@@ -52,9 +53,20 @@ export function NativeAdCard({
 
     useEffect(() => {
         if (isPro) return;
+        const unit = adUnitId ?? AdUnits.native;
+
+        // If something preloaded this unit, show it on the first frame — no
+        // skeleton at all. This is what makes a handover feel instant.
+        const ready = takePreloadedNative(unit);
+        if (ready) {
+            setAd(ready);
+            analyticsService.logAdLoaded("native", placement);
+            return () => ready.destroy();
+        }
+
         let cancelled = false;
         let loaded: NativeAd | null = null;
-        NativeAd.createForAdRequest(adUnitId ?? AdUnits.native, {
+        NativeAd.createForAdRequest(unit, {
             requestNonPersonalizedAdsOnly: false,
         })
             .then((a) => {
