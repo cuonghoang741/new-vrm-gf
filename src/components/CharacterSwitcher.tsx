@@ -23,10 +23,14 @@ interface Props {
     /** Runs the app's normal character-change path, gate included. */
     onSelect: (c: SwitcherCharacter) => void;
     isBackgroundDark?: boolean;
+    /** Smaller sizing for the top bar, where vertical room is tight. */
+    compact?: boolean;
 }
 
 const ACTIVE = 60;
 const SIDE = 42;
+const ACTIVE_SM = 40;
+const SIDE_SM = 28;
 
 /**
  * Quick character switch at the top of the Play screen.
@@ -49,8 +53,12 @@ export function CharacterSwitcher({
     activeId,
     onSelect,
     isBackgroundDark = true,
+    compact = false,
 }: Props) {
     const surface = surfaceOn(isBackgroundDark);
+    const dims = compact
+        ? { active: ACTIVE_SM, side: SIDE_SM, gap: 8, ring: 2 }
+        : { active: ACTIVE, side: SIDE, gap: 12, ring: 2.5 };
 
     const index = useMemo(() => {
         const i = characters.findIndex((c) => c.id === activeId);
@@ -96,22 +104,36 @@ export function CharacterSwitcher({
         c.small_thumb_url ?? c.thumbnail_url ?? c.avatar ?? undefined;
 
     return (
-        <View style={styles.wrap} {...pan.panHandlers}>
+        <View style={[styles.wrap, { gap: dims.gap }]} {...pan.panHandlers}>
             {prev && (
                 <Pressable onPress={() => step(-1)} hitSlop={6}>
                     <Image
                         source={{ uri: uri(prev) }}
-                        style={[styles.side, { borderColor: surface.border }]}
+                        style={[
+                            styles.side,
+                            { width: dims.side, height: dims.side, borderRadius: dims.side / 2, borderColor: surface.border },
+                        ]}
                         contentFit="cover"
                         transition={160}
                     />
                 </Pressable>
             )}
 
-            <View style={[styles.activeRing, { borderColor: surface.accent }]}>
+            <View
+                style={[
+                    styles.activeRing,
+                    {
+                        width: dims.active + 6,
+                        height: dims.active + 6,
+                        borderRadius: (dims.active + 6) / 2,
+                        borderWidth: dims.ring,
+                        borderColor: surface.accent,
+                    },
+                ]}
+            >
                 <Image
                     source={{ uri: uri(active) }}
-                    style={styles.active}
+                    style={[styles.active, { width: dims.active, height: dims.active, borderRadius: dims.active / 2 }]}
                     contentFit="cover"
                     transition={160}
                 />
@@ -121,7 +143,10 @@ export function CharacterSwitcher({
                 <Pressable onPress={() => step(1)} hitSlop={6}>
                     <Image
                         source={{ uri: uri(next) }}
-                        style={[styles.side, { borderColor: surface.border }]}
+                        style={[
+                            styles.side,
+                            { width: dims.side, height: dims.side, borderRadius: dims.side / 2, borderColor: surface.border },
+                        ]}
                         contentFit="cover"
                         transition={160}
                     />

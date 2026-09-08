@@ -1193,45 +1193,31 @@ export default function PlayScreen() {
                     )}
                     <View>
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                            <Text
-                                style={[
-                                    styles.charNameTop,
-                                    {
-                                        color: surface.icon,
-                                        textShadowColor: isBackgroundDark
-                                            ? "rgba(0,0,0,0.5)"
-                                            : "rgba(255,255,255,0.65)",
-                                    },
-                                ]}
-                            >
-                                {characterName}
-                            </Text>
                             {isPro && (
                                 <Pressable onPress={() => setSubscriptionOpen(true)} hitSlop={8}>
                                     <IconCrown size={18} color={GOLD} fill={GOLD} />
                                 </Pressable>
                             )}
                         </View>
-                        <Text style={styles.statusText}>
-                            ● Online {remainingQuotaSeconds > 0 ? `| 📞 ${formatTime(remainingQuotaSeconds)}` : ''}
-                        </Text>
                     </View>
                 </View>
-            </View>
 
-            {/* Quick character switch — three at a time, active one centred and
-                larger. Sits below the top bar so it clears the name and the
-                right-hand bubble column. */}
-            {!isKeyboardVisible && switcherChars.length > 1 && (
-                <View style={styles.switcherBar} pointerEvents="box-none">
-                    <CharacterSwitcher
-                        characters={switcherChars}
-                        activeId={characterId}
-                        onSelect={handleQuickSwitch}
-                        isBackgroundDark={isBackgroundDark}
-                    />
-                </View>
-            )}
+                {/* The name and call-time line used to live here. The switcher
+                    reads them better than words did — it shows who is active
+                    and what else is available in the same glance — so it takes
+                    the space instead. */}
+                {!isKeyboardVisible && switcherChars.length > 1 && (
+                    <View style={styles.switcherInBar} pointerEvents="box-none">
+                        <CharacterSwitcher
+                            characters={switcherChars}
+                            activeId={characterId}
+                            onSelect={handleQuickSwitch}
+                            isBackgroundDark={isBackgroundDark}
+                            compact
+                        />
+                    </View>
+                )}
+            </View>
 
             <View style={styles.leftFloatingContainer}>
                 <LiquidGlassView
@@ -1367,18 +1353,38 @@ export default function PlayScreen() {
                             ListEmptyComponent={
                                 <View style={styles.emptyChat}>
                                     <BlurView
-                                        intensity={30}
+                                        intensity={34}
                                         tint={isBackgroundDark ? "dark" : "light"}
                                         experimentalBlurMethod="dimezisBlurView"
                                         style={[styles.emptyCard, { borderColor: surface.border }]}
                                     >
-                                        <Text style={styles.emptyChatEmoji}>👋</Text>
+                                        {/* Her own portrait rather than a waving
+                                            emoji — the card is an invitation to
+                                            talk to *her*, and the emoji said
+                                            nothing about who that is. */}
+                                        {characterThumbnail ? (
+                                            <View style={[styles.emptyAvatarRing, { borderColor: surface.accent }]}>
+                                                <Image
+                                                    source={{ uri: characterThumbnail }}
+                                                    style={styles.emptyAvatar}
+                                                    contentFit="cover"
+                                                    transition={200}
+                                                />
+                                            </View>
+                                        ) : (
+                                            <Text style={styles.emptyChatEmoji}>👋</Text>
+                                        )}
                                         <Text style={[styles.emptyChatTitle, { color: surface.icon }]}>
-                                            Say hello to {characterName}
+                                            {characterName}
                                         </Text>
                                         <Text style={[styles.emptyChatSub, { color: surface.muted }]}>
                                             {t("play.start_convo")}
                                         </Text>
+                                        <View style={[styles.emptyHint, { borderColor: surface.border }]}>
+                                            <Text style={[styles.emptyHintText, { color: surface.muted }]}>
+                                                {t("play.say_hi_hint")}
+                                            </Text>
+                                        </View>
                                     </BlurView>
                                 </View>
                             }
@@ -1650,16 +1656,9 @@ const styles = StyleSheet.create({
         transform: [{ scaleX: -1 }], // Mirror front camera
     },
 
-    switcherBar: {
-        position: "absolute",
-        // Clears the left cluster (2D/3D toggle at 140 plus the ruby pill
-        // under it), which sat at the same height and clipped the left avatar.
-        top: Platform.OS === "ios" ? 232 : 212,
-        left: 0,
-        right: 0,
-        alignItems: "center",
-        zIndex: 6,
-    },
+    // Sits in the top bar's free middle, between the diamond on the left and
+    // the bubble column on the right.
+    switcherInBar: { flex: 1, alignItems: "center", paddingLeft: 4 },
     topBar: {
         position: "absolute", top: Platform.OS === "ios" ? 60 : 40,
         left: 20, right: 20,
@@ -1888,16 +1887,27 @@ const styles = StyleSheet.create({
     emptyChat: { alignItems: "center", justifyContent: "center", paddingVertical: 24 },
     emptyCard: {
         alignItems: "center",
-        paddingVertical: 26,
-        paddingHorizontal: 32,
-        borderRadius: 26,
+        paddingVertical: 24,
+        paddingHorizontal: 28,
+        borderRadius: 28,
         overflow: "hidden",
         backgroundColor: "rgba(255,255,255,0.06)",
         borderWidth: StyleSheet.hairlineWidth,
         borderColor: "rgba(255,255,255,0.18)",
     },
     emptyChatEmoji: { fontSize: 46, marginBottom: 12 },
-    emptyChatTitle: { fontSize: 16, fontWeight: "700", color: "#FFFFFF", marginBottom: 6, textAlign: "center" },
+    emptyAvatarRing: {
+        width: 78, height: 78, borderRadius: 39,
+        borderWidth: 2, padding: 3, marginBottom: 14,
+        alignItems: "center", justifyContent: "center",
+    },
+    emptyAvatar: { width: 68, height: 68, borderRadius: 34 },
+    emptyHint: {
+        marginTop: 14, paddingHorizontal: 14, paddingVertical: 7,
+        borderRadius: 999, borderWidth: 1,
+    },
+    emptyHintText: { fontSize: 12, fontWeight: "600" },
+    emptyChatTitle: { fontSize: 19, fontWeight: "800", color: "#FFFFFF", marginBottom: 5, textAlign: "center", letterSpacing: 0.2 },
     emptyChatSub: { fontSize: 13, color: "rgba(255, 194, 218, 0.85)", textAlign: "center" },
 
     // Input

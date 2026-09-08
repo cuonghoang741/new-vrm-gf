@@ -30,6 +30,7 @@ export const LANGUAGE_META: Record<SupportedLang, { name: string; flag: string }
 type Dict = Record<string, string>;
 
 const en: Dict = {
+    "play.say_hi_hint": "Send the first message 💬",
     "splash.loading": "Getting things ready…",
     "char.choose_partner": "Choose your partner",
     "char.start_chatting": "Start chatting",
@@ -193,6 +194,7 @@ const en: Dict = {
 };
 
 const vi: Dict = {
+    "play.say_hi_hint": "Nhắn câu đầu tiên đi 💬",
     "splash.loading": "Đang chuẩn bị…",
     "char.choose_partner": "Chọn người bạn đồng hành",
     "char.start_chatting": "Bắt đầu trò chuyện",
@@ -356,6 +358,7 @@ const vi: Dict = {
 };
 
 const ja: Dict = {
+    "play.say_hi_hint": "最初のメッセージを送ろう 💬",
     "splash.loading": "準備しています…",
     "char.choose_partner": "パートナーを選ぶ",
     "char.start_chatting": "チャットを始める",
@@ -519,6 +522,7 @@ const ja: Dict = {
 };
 
 const zh: Dict = {
+    "play.say_hi_hint": "发送第一条消息 💬",
     "splash.loading": "正在准备…",
     "char.choose_partner": "选择你的伴侣",
     "char.start_chatting": "开始聊天",
@@ -682,6 +686,7 @@ const zh: Dict = {
 };
 
 const ko: Dict = {
+    "play.say_hi_hint": "첫 메시지를 보내보세요 💬",
     "splash.loading": "준비하는 중…",
     "char.choose_partner": "파트너 선택",
     "char.start_chatting": "채팅 시작",
@@ -845,6 +850,7 @@ const ko: Dict = {
 };
 
 const es: Dict = {
+    "play.say_hi_hint": "Envía el primer mensaje 💬",
     "splash.loading": "Preparando todo…",
     "char.choose_partner": "Elige a tu pareja",
     "char.start_chatting": "Empezar a chatear",
@@ -1008,6 +1014,7 @@ const es: Dict = {
 };
 
 const pt: Dict = {
+    "play.say_hi_hint": "Envie a primeira mensagem 💬",
     "splash.loading": "Preparando tudo…",
     "char.choose_partner": "Escolha seu par",
     "char.start_chatting": "Começar a conversar",
@@ -1171,6 +1178,7 @@ const pt: Dict = {
 };
 
 const de: Dict = {
+    "play.say_hi_hint": "Schreib die erste Nachricht 💬",
     "splash.loading": "Wird vorbereitet…",
     "char.choose_partner": "Wähle deine Partnerin",
     "char.start_chatting": "Chat starten",
@@ -1334,6 +1342,7 @@ const de: Dict = {
 };
 
 const fr: Dict = {
+    "play.say_hi_hint": "Envoie le premier message 💬",
     "splash.loading": "Préparation…",
     "char.choose_partner": "Choisis ta partenaire",
     "char.start_chatting": "Commencer à discuter",
@@ -1497,6 +1506,7 @@ const fr: Dict = {
 };
 
 const it: Dict = {
+    "play.say_hi_hint": "Manda il primo messaggio 💬",
     "splash.loading": "Preparazione…",
     "char.choose_partner": "Scegli la tua partner",
     "char.start_chatting": "Inizia a chattare",
