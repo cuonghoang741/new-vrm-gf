@@ -1369,7 +1369,7 @@ export default function PlayScreen() {
                             renderItem={renderMessage}
                             keyExtractor={(item) => item.id}
                             style={styles.messageList}
-                            contentContainerStyle={[styles.messageListContent, messages.length === 0 && styles.messageListContentEmpty]}
+                            contentContainerStyle={styles.messageListContent}
                             showsVerticalScrollIndicator={false}
                             keyboardShouldPersistTaps="handled"
                             keyboardDismissMode="on-drag"
@@ -1828,7 +1828,6 @@ const styles = StyleSheet.create({
     // Messages
     messageList: { flexGrow: 1 },
     messageListContent: { padding: 16, paddingBottom: 8 },
-    messageListContentEmpty: { flexGrow: 1, justifyContent: "center", alignItems: "center" },
     messageBubble: { maxWidth: "80%", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 18, marginBottom: 8 },
     userBubble: {
         alignSelf: "flex-end",
