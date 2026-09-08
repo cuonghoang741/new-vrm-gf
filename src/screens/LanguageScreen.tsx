@@ -84,15 +84,6 @@ export default function LanguageScreen({ onDone }: { onDone: () => void }) {
                 }}
             />
 
-            {/* Two ads, as on yuuki: a muted one while the user is still
-                choosing, then a second request once they have picked. The `key`
-                is what makes it a genuinely new ad rather than a recolour of
-                the first — remounting re-requests.
-
-                The second CTA uses the brand rose. Note it sits directly above
-                the pink Continue button: keep the "Ad" badge prominent and the
-                card's own frame distinct, or the two read as one control, which
-                is the accidental-click pattern AdMob bans accounts over. */}
             {/* Ported from Flutter yuuki's language_screen.dart: two DIFFERENT
                 ad units, swapped on the first tap — neutral grey before the
                 pick, the app's active CTA pink after it, with a full-width CTA
