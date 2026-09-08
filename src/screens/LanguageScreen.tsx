@@ -28,6 +28,8 @@ import { NativeAdCard } from "../components/ads/NativeAdCard";
 export default function LanguageScreen({ onDone }: { onDone: () => void }) {
     const { t } = useTranslation();
     const [sel, setSel] = useState<SupportedLang>(currentLang());
+    /** Flips once the user has actually chosen, which swaps in a second ad. */
+    const [picked, setPicked] = useState(false);
 
     // Which language the device suggested before the user touched anything —
     // tells us how often our auto-detection already had it right.
@@ -37,6 +39,7 @@ export default function LanguageScreen({ onDone }: { onDone: () => void }) {
 
     const pick = async (l: SupportedLang) => {
         setSel(l);
+        setPicked(true);
         await setAppLanguage(l);
     };
 
@@ -69,9 +72,21 @@ export default function LanguageScreen({ onDone }: { onDone: () => void }) {
                 }}
             />
 
-            {/* native_language — small native ad above the CTA (collapses for PRO / no-fill) */}
+            {/* Two ads, as on yuuki: a muted one while the user is still
+                choosing, then a second request once they have picked. The `key`
+                is what makes it a genuinely new ad rather than a recolour of
+                the first — remounting re-requests.
+
+                The second CTA uses the brand rose. Note it sits directly above
+                the pink Continue button: keep the "Ad" badge prominent and the
+                card's own frame distinct, or the two read as one control, which
+                is the accidental-click pattern AdMob bans accounts over. */}
             <View style={styles.adSlot}>
-                <NativeAdCard placement="native_language" />
+                <NativeAdCard
+                    key={picked ? "lang-post-pick" : "lang-pre-pick"}
+                    placement={picked ? "native_language_2" : "native_language_1"}
+                    ctaColor={picked ? PINK : MUTED_CTA}
+                />
             </View>
 
             <Pressable style={styles.cta} onPress={onDone}>
@@ -82,6 +97,8 @@ export default function LanguageScreen({ onDone }: { onDone: () => void }) {
 }
 
 const PINK = "#FF6FA5";
+/** Deliberately inert grey for the first, pre-selection ad. */
+const MUTED_CTA = "#5A5566";
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#0a0a1a" },

@@ -20,7 +20,17 @@ import { useSubscription } from "../../contexts/SubscriptionContext";
  * and the loading area has to match the real card's size. It only collapses
  * for PRO, or once the load has definitively failed.
  */
-export function NativeAdCard({ placement = "native" }: { placement?: string }) {
+export function NativeAdCard({
+    placement = "native",
+    ctaColor,
+}: {
+    placement?: string;
+    /**
+     * CTA fill for this placement. yuuki exposes the same knob per placement
+     * rather than hardcoding one colour.
+     */
+    ctaColor?: string;
+}) {
     const { isPro } = useSubscription();
     const [ad, setAd] = useState<NativeAd | null>(null);
     const [failed, setFailed] = useState(false);
@@ -84,7 +94,7 @@ export function NativeAdCard({ placement = "native" }: { placement?: string }) {
                 </View>
                 {ad.callToAction ? (
                     <NativeAsset assetType={NativeAssetType.CALL_TO_ACTION}>
-                        <View style={styles.cta}>
+                        <View style={[styles.cta, ctaColor ? { backgroundColor: ctaColor } : null]}>
                             <Text style={styles.ctaText} numberOfLines={1}>
                                 {ad.callToAction}
                             </Text>
