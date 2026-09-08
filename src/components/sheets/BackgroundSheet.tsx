@@ -18,6 +18,11 @@ import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
 import { IconSun, IconMoon } from "@tabler/icons-react-native";
 import { purchaseItem } from "../../services/checkinService";
 import RubyIcon from "../icons/RubyIcon";
+import { AdGateDialog } from "../AdGateDialog";
+import { AdUnlockBadge } from "../ads/AdUnlockBadge";
+import { useRewardedAd } from "../../hooks/useRewardedAd";
+import { AdUnits } from "../../config/ads";
+import { loadUnlocks, markUnlocked, requiresAd, subscribeUnlocks } from "../../services/unlockService";
 
 const { width } = Dimensions.get("window");
 const GRID_PADDING = 20;
@@ -157,6 +162,16 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
         [onSelect, onIsOpenedChange]
     );
 
+    const { showForGate } = useRewardedAd(AdUnits.rewarded, "change_background");
+    /** Scene awaiting the user's answer in the ad-gate dialog. */
+    const [gateFor, setGateFor] = useState<Background | null>(null);
+    /** Bumped whenever something unlocks, so the badges disappear immediately. */
+    const [, setUnlockTick] = useState(0);
+    useEffect(() => {
+        loadUnlocks();
+        return subscribeUnlocks(() => setUnlockTick((n) => n + 1));
+    }, []);
+
     const goPro = useCallback(() => {
         onIsOpenedChange(false);
         sheetRef.current?.dismiss();
@@ -205,9 +220,29 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
                 );
                 return;
             }
+
+            // Already on it — no ad for a no-op.
+            if (bg.id === currentBackgroundId) return applySelection(bg);
+
+            // One ad per scene, ever.
+            if (!requiresAd("background", bg.id, !!isPro)) return applySelection(bg);
+
+            Haptics.selectionAsync();
+            setGateFor(bg);
+        },
+        [isPro, ownedIds, tempUnlocked, userId, goPro, doBuy, applySelection, currentBackgroundId]
+    );
+
+    const gateWithRewardedAd = useCallback(
+        async (bg: Background) => {
+            if (isPro) return applySelection(bg);
+            const outcome = await showForGate();
+            if (outcome === "dismissed") return;
+            // "unavailable" counts too — no charging twice for our own no-fill.
+            await markUnlocked("background", bg.id);
             applySelection(bg);
         },
-        [isPro, ownedIds, tempUnlocked, userId, goPro, doBuy, applySelection]
+        [isPro, showForGate, applySelection]
     );
 
     const renderItem = useCallback(
@@ -251,6 +286,11 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
                         {isSelected && !isLocked && (
                             <View style={styles.selectedBadge}>
                                 <Ionicons name="checkmark" size={10} color="#fff" />
+                            </View>
+                        )}
+                        {!isLocked && !isSelected && requiresAd("background", item.id, !!isPro) && (
+                            <View style={styles.tileAdBadge}>
+                                <AdUnlockBadge compact />
                             </View>
                         )}
                         {!!item.video_url && (
@@ -342,6 +382,20 @@ const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
             detents={[0.7, 0.95]}
         >
             {renderContent()}
+            <AdGateDialog
+                visible={gateFor !== null}
+                body={t("ads.gate_body_bg")}
+                onWatch={() => {
+                    const b = gateFor;
+                    setGateFor(null);
+                    if (b) gateWithRewardedAd(b);
+                }}
+                onUpgrade={() => {
+                    setGateFor(null);
+                    goPro();
+                }}
+                onCancel={() => setGateFor(null)}
+            />
         </BottomSheet>
     );
 });
@@ -414,6 +468,7 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: "rgba(255,255,255,0.2)",
     },
+    tileAdBadge: { position: "absolute", top: 6, right: 6, zIndex: 4 },
     videoBadge: {
         position: "absolute",
         top: 6,

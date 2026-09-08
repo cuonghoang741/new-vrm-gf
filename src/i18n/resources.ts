@@ -30,6 +30,7 @@ export const LANGUAGE_META: Record<SupportedLang, { name: string; flag: string }
 type Dict = Record<string, string>;
 
 const en: Dict = {
+    "ads.gate_body_bg": "Watch a short ad to use this scene.",
     "play.greeting4": "I was just thinking about you… and hoping you'd show up. Ready to have some fun? ✨",
     "play.greeting5": "I've been so bored without you. Glad you're finally here. 😘",
     "play.say_hi_hint": "Send the first message 💬",
@@ -196,6 +197,7 @@ const en: Dict = {
 };
 
 const vi: Dict = {
+    "ads.gate_body_bg": "Xem một quảng cáo ngắn để dùng bối cảnh này.",
     "play.greeting4": "Em vừa nghĩ đến anh… và mong anh xuất hiện. Sẵn sàng vui chưa? ✨",
     "play.greeting5": "Thiếu anh em chán chết đi được. Cuối cùng cũng tới rồi. 😘",
     "play.say_hi_hint": "Nhắn câu đầu tiên đi 💬",
@@ -362,6 +364,7 @@ const vi: Dict = {
 };
 
 const ja: Dict = {
+    "ads.gate_body_bg": "短い広告を見るとこの背景を使えます。",
     "play.greeting4": "ちょうどあなたのこと考えてたの…来てくれると思ってた。楽しむ準備はいい？✨",
     "play.greeting5": "あなたがいなくて退屈だったの。やっと来てくれたね。😘",
     "play.say_hi_hint": "最初のメッセージを送ろう 💬",
@@ -528,6 +531,7 @@ const ja: Dict = {
 };
 
 const zh: Dict = {
+    "ads.gate_body_bg": "观看一段短广告即可使用这个场景。",
     "play.greeting4": "我正想着你呢…希望你会出现。准备好玩了吗？✨",
     "play.greeting5": "没有你我好无聊。你终于来了。😘",
     "play.say_hi_hint": "发送第一条消息 💬",
@@ -694,6 +698,7 @@ const zh: Dict = {
 };
 
 const ko: Dict = {
+    "ads.gate_body_bg": "짧은 광고를 보면 이 배경을 쓸 수 있어요.",
     "play.greeting4": "막 네 생각하고 있었어… 와줄 거라 믿었어. 놀 준비됐어? ✨",
     "play.greeting5": "네가 없어서 너무 심심했어. 드디어 왔구나. 😘",
     "play.say_hi_hint": "첫 메시지를 보내보세요 💬",
@@ -860,6 +865,7 @@ const ko: Dict = {
 };
 
 const es: Dict = {
+    "ads.gate_body_bg": "Mira un anuncio corto para usar este escenario.",
     "play.greeting4": "Justo pensaba en ti… y esperaba que aparecieras. ¿Listo para divertirnos? ✨",
     "play.greeting5": "Me aburría tanto sin ti. Por fin llegaste. 😘",
     "play.say_hi_hint": "Envía el primer mensaje 💬",
@@ -1026,6 +1032,7 @@ const es: Dict = {
 };
 
 const pt: Dict = {
+    "ads.gate_body_bg": "Assista a um anúncio curto para usar este cenário.",
     "play.greeting4": "Eu estava pensando em você… e torcendo para aparecer. Pronto para se divertir? ✨",
     "play.greeting5": "Estava tão entediada sem você. Enfim chegou. 😘",
     "play.say_hi_hint": "Envie a primeira mensagem 💬",
@@ -1192,6 +1199,7 @@ const pt: Dict = {
 };
 
 const de: Dict = {
+    "ads.gate_body_bg": "Sieh dir eine kurze Werbung an, um diese Szene zu nutzen.",
     "play.greeting4": "Ich habe gerade an dich gedacht… und gehofft, du kommst. Bereit für Spaß? ✨",
     "play.greeting5": "Ohne dich war mir so langweilig. Endlich bist du da. 😘",
     "play.say_hi_hint": "Schreib die erste Nachricht 💬",
@@ -1358,6 +1366,7 @@ const de: Dict = {
 };
 
 const fr: Dict = {
+    "ads.gate_body_bg": "Regarde une courte pub pour utiliser ce décor.",
     "play.greeting4": "Je pensais justement à toi… en espérant que tu viennes. Prêt à t’amuser ? ✨",
     "play.greeting5": "Je m’ennuyais tellement sans toi. Enfin te voilà. 😘",
     "play.say_hi_hint": "Envoie le premier message 💬",
@@ -1524,6 +1533,7 @@ const fr: Dict = {
 };
 
 const it: Dict = {
+    "ads.gate_body_bg": "Guarda un breve annuncio per usare questo scenario.",
     "play.greeting4": "Stavo giusto pensando a te… speravo saresti venuto. Pronto a divertirti? ✨",
     "play.greeting5": "Mi annoiavo tanto senza di te. Finalmente sei qui. 😘",
     "play.say_hi_hint": "Manda il primo messaggio 💬",

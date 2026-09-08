@@ -16,6 +16,8 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useRewardedAd } from "../../hooks/useRewardedAd";
 import { AdGateDialog } from "../AdGateDialog";
+import { AdUnlockBadge } from "../ads/AdUnlockBadge";
+import { loadUnlocks, markUnlocked, requiresAd, subscribeUnlocks } from "../../services/unlockService";
 import { AdUnits } from "../../config/ads";
 import { supabase } from "../../config/supabase";
 import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
@@ -68,6 +70,12 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
     const { showForGate } = useRewardedAd(AdUnits.rewarded, "change_costume");
     /** Outfit awaiting the user's answer in the ad-gate dialog. */
     const [gateFor, setGateFor] = useState<Costume | null>(null);
+    /** Bumped whenever something unlocks, so the badges disappear immediately. */
+    const [, setUnlockTick] = useState(0);
+    useEffect(() => {
+        loadUnlocks();
+        return subscribeUnlocks(() => setUnlockTick((n) => n + 1));
+    }, []);
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const listRef = useRef<FlatList>(null);
@@ -201,6 +209,9 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
             if (isPro) return applySelection(costume);
             const outcome = await showForGate();
             if (outcome === "dismissed") return; // saw it, backed out
+            // "unavailable" counts too — the user should not pay twice for our
+            // own no-fill.
+            await markUnlocked("costume", costume.id);
             applySelection(costume);
         },
         [isPro, showForGate, applySelection]
@@ -231,7 +242,8 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
             // Already wearing it — no ad for a no-op.
             if (costume.model_url === currentCostumeUrl) return applySelection(costume);
 
-            if (isPro) return applySelection(costume);
+            // One ad per outfit, ever.
+            if (!requiresAd("costume", costume.id, !!isPro)) return applySelection(costume);
 
             Haptics.selectionAsync();
             setGateFor(costume);
@@ -275,6 +287,11 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(({
                             <View style={styles.priceBadge}>
                                 <RubyIcon size={10} color="#FF6FA5" />
                                 <Text style={styles.priceBadgeText}>{item.price_ruby}</Text>
+                            </View>
+                        )}
+                        {!isLocked && !isSelected && requiresAd("costume", item.id, !!isPro) && (
+                            <View style={styles.tileAdBadge}>
+                                <AdUnlockBadge compact />
                             </View>
                         )}
                         {isSelected && !isLocked && (
@@ -417,6 +434,7 @@ const styles = StyleSheet.create({
         ...StyleSheet.absoluteFillObject,
         backgroundColor: "rgba(0,0,0,0.35)",
     },
+    tileAdBadge: { position: "absolute", top: 6, right: 6 },
     priceBadge: {
         position: "absolute",
         top: 6,

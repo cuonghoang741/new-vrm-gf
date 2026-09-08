@@ -16,6 +16,8 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import * as Haptics from "expo-haptics";
 import { useRewardedAd } from "../../hooks/useRewardedAd";
 import { AdGateDialog } from "../AdGateDialog";
+import { AdUnlockBadge } from "../ads/AdUnlockBadge";
+import { loadUnlocks, markUnlocked, requiresAd, subscribeUnlocks } from "../../services/unlockService";
 import { AdUnits } from "../../config/ads";
 import { supabase } from "../../config/supabase";
 import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
@@ -73,6 +75,12 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
     const { showForGate } = useRewardedAd(AdUnits.rewarded, "change_character");
     /** Character awaiting the user's answer in the ad-gate dialog. */
     const [gateFor, setGateFor] = useState<Character | null>(null);
+    /** Bumped whenever something unlocks, so the badges disappear immediately. */
+    const [, setUnlockTick] = useState(0);
+    useEffect(() => {
+        loadUnlocks();
+        return subscribeUnlocks(() => setUnlockTick((n) => n + 1));
+    }, []);
     /** Tile being previewed in the hero — not yet the active character. */
     const [focusedId, setFocusedId] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
@@ -186,6 +194,9 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
             if (isPro) return applySelection(char);
             const outcome = await showForGate();
             if (outcome === "dismissed") return;
+            // "unavailable" counts too: we could not serve an ad, and the user
+            // should not be charged again for our own no-fill.
+            await markUnlocked("character", char.id);
             applySelection(char);
         },
         [isPro, showForGate, applySelection]
@@ -195,8 +206,9 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
         (char: Character) => {
             if (char.available === false) return;
             const isOwned = ownedIds.has(char.id) || tempUnlocked.has(char.id);
-            // Switching characters requires PRO, ownership, or buying with ruby.
-            if (!isPro && !isOwned && char.id !== currentCharacterId) {
+            // Only PRO-tier characters need the paywall; free ones fall through
+            // to the rewarded gate below.
+            if (char.tier === "pro" && !isPro && !isOwned && char.id !== currentCharacterId) {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
                 const price = char.price_ruby ?? 0;
                 const buttons: any[] = [{ text: t("common.cancel"), style: "cancel" }];
@@ -217,7 +229,9 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
             // Re-picking the current character is a no-op — never charge an ad.
             if (char.id === currentCharacterId) return applySelection(char);
 
-            if (isPro) return applySelection(char);
+            // One ad per character, ever. Already paid for, or PRO, goes
+            // straight through.
+            if (!requiresAd("character", char.id, !!isPro)) return applySelection(char);
 
             Haptics.selectionAsync();
             setGateFor(char);
@@ -238,8 +252,21 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
         setFocusedId(c.id);
     }, []);
 
+    /**
+     * PRO-locked, i.e. behind the paywall or a ruby purchase.
+     *
+     * This used to ignore `tier` entirely and treat every character the user
+     * did not already own as locked — which meant the six free characters were
+     * paywalled along with the twenty-six PRO ones, and no free character was
+     * ever reachable. Costumes and backgrounds already keyed off tier; this
+     * brings characters in line.
+     *
+     * A free character is not locked. It costs one rewarded ad the first time,
+     * which is a separate gate (see requiresAd).
+     */
     const isLockedFor = useCallback(
         (c: Character) =>
+            c.tier === "pro" &&
             !isPro &&
             !(ownedIds.has(c.id) || tempUnlocked.has(c.id)) &&
             c.id !== currentCharacterId,
@@ -278,6 +305,11 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
                     {locked && isAvailable && (
                         <View style={styles.tileLock}>
                             <LockIcon size={16} color="#fff" />
+                        </View>
+                    )}
+                    {!locked && isAvailable && requiresAd("character", item.id, !!isPro) && (
+                        <View style={styles.tileAdBadge}>
+                            <AdUnlockBadge compact />
                         </View>
                     )}
                     {isCurrent && (
@@ -546,6 +578,7 @@ const styles = StyleSheet.create({
         alignItems: "center", justifyContent: "center",
         backgroundColor: "rgba(0,0,0,0.5)",
     },
+    tileAdBadge: { position: "absolute", top: 6, right: 6 },
     tileCurrent: {
         position: "absolute", top: 6, left: 6,
         width: 22, height: 22, borderRadius: 11,

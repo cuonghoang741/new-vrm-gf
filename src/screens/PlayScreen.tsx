@@ -45,6 +45,7 @@ import { useAndroidBack } from "../hooks/useAndroidBack";
 import { surfaceOn } from "../theme/surface";
 import { CharacterSwitcher } from "../components/CharacterSwitcher";
 import { AdGateDialog } from "../components/AdGateDialog";
+import { autoUnlock, loadUnlocks, markUnlocked, requiresAd } from "../services/unlockService";
 import { getCharacters } from "../cache/charactersCache";
 import { AdBanner } from "../components/ads/AdBanner";
 import { useInterstitialAd } from "../hooks/useInterstitialAd";
@@ -918,6 +919,19 @@ export default function PlayScreen() {
     /** Character awaiting the user's answer in the ad-gate dialog. */
     const [switchGateFor, setSwitchGateFor] = useState<any | null>(null);
 
+    useEffect(() => { loadUnlocks(); }, []);
+
+    /**
+     * Whatever the app picked for the user on boot is theirs already — a fresh
+     * install must not open with its own starting character behind an ad.
+     */
+    useEffect(() => {
+        if (characterId) autoUnlock("character", characterId);
+    }, [characterId]);
+    useEffect(() => {
+        if (backgroundId) autoUnlock("background", backgroundId);
+    }, [backgroundId]);
+
     /** Roster for the top quick-switch carousel. */
     const [switcherChars, setSwitcherChars] = useState<any[]>([]);
     useEffect(() => {
@@ -935,7 +949,9 @@ export default function PlayScreen() {
      */
     const handleQuickSwitch = useCallback(
         (c: any) => {
-            if (isPro) return handleCharacterSelect(c);
+            // One ad per character, ever — the quick switch must not re-charge
+            // for someone the user already unlocked.
+            if (!requiresAd("character", c.id, !!isPro)) return handleCharacterSelect(c);
             setSwitchGateFor(c);
         },
         [isPro, handleCharacterSelect]
@@ -1484,6 +1500,7 @@ export default function PlayScreen() {
                         if (!c) return;
                         const outcome = await showSwitchAd();
                         if (outcome === "dismissed") return;
+                        await markUnlocked("character", c.id);
                         handleCharacterSelect(c);
                     }}
                     onUpgrade={() => {
