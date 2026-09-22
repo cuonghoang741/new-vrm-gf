@@ -44,6 +44,43 @@ async function sendTelegramNotification(message: string) {
     }
 }
 
+/**
+ * Keep the money. RevenueCat sends the price the user actually paid and the
+ * currency they paid it in; both used to end up only in a Telegram message.
+ * One row per (transaction, event type) — `record_purchase` upserts on that,
+ * so a webhook retry rewrites the same row instead of inventing a sale.
+ */
+async function recordPurchase(event: any, userId: string, txId: string, rubyAdded: number | null) {
+    const { data, error } = await supabase.rpc("record_purchase", {
+        p_user_id: userId,
+        p_product_id: event.product_id ?? null,
+        p_transaction_id: txId,
+        p_event_type: event.type ?? null,
+        p_price: event.price_in_purchased_currency ?? event.price ?? null,
+        p_currency: event.currency ?? null,
+        p_store: event.store ?? null,
+        p_environment: event.environment ?? null,
+        p_period_type: event.period_type ?? null,
+        p_ruby_added: rubyAdded,
+        p_purchased_at: event.purchased_at_ms ? new Date(event.purchased_at_ms).toISOString() : null,
+        p_metadata: {
+            entitlement_ids: event.entitlement_ids ?? null,
+            country_code: event.country_code ?? null,
+            original_transaction_id: event.original_transaction_id ?? null,
+            price_usd: event.price ?? null,
+            takehome_percentage: event.takehome_percentage ?? null,
+            cancel_reason: event.cancel_reason ?? null,
+            is_trial_conversion: event.is_trial_conversion ?? null,
+            event_id: event.id ?? null,
+        },
+    });
+    if (error || data?.error) {
+        // Never fail the webhook over bookkeeping: the entitlement and the
+        // ruby matter more than the receipt, and the receipt can be replayed.
+        console.error("record_purchase failed:", error ?? data?.error, txId);
+    }
+}
+
 serve(async (req) => {
     try {
         // 1. Authenticate the webhook
@@ -73,6 +110,10 @@ serve(async (req) => {
         if (productId.startsWith("truemate.ruby.")) {
             const txId = event.transaction_id || event.original_transaction_id || event.id;
             if (!userId || !txId) return new Response("Missing user or transaction", { status: 400 });
+            // A TEST event carrying a real product id must not pay anyone.
+            if (event.type === "TEST") {
+                return new Response("Test OK", { status: 200 });
+            }
             const refund = event.type === "CANCELLATION" || event.type === "REFUND";
             const { data, error } = await supabase.rpc(refund ? "revoke_ruby_pack" : "grant_ruby_pack", {
                 p_user_id: userId,
@@ -84,7 +125,24 @@ serve(async (req) => {
                 // 500 → RevenueCat retries the webhook.
                 return new Response("Database error", { status: 500 });
             }
+            // `grant_ruby_pack` reports its own refusals in the payload, not as
+            // a transport error: `unknown_user` (the purchase was made before
+            // Purchases.logIn, so it is filed under an anonymous RevenueCat id)
+            // and `unknown_product` both used to come back here as a cheerful
+            // 200 — the ruby was never credited, RevenueCat never retried, and
+            // nothing anywhere recorded that someone had paid.
+            if (data?.error) {
+                console.error("Ruby pack not fulfilled:", data.error, productId, txId, userId);
+                await sendTelegramNotification(
+                    `⚠️ <b>RUBY CHƯA CỘNG</b>\n\n📦 ${productId}\n👤 <code>${userId}</code>\n🧾 <code>${txId}</code>\n❌ ${data.error}`
+                );
+                // Retry: an aliased/transferred user id can resolve later.
+                return new Response(JSON.stringify({ error: data.error }), { status: 500 });
+            }
             console.log(`Ruby pack ${refund ? "revoked" : "granted"}: ${productId} ${txId}`, data);
+
+            await recordPurchase(event, userId, String(txId), refund ? -(data?.revoked ?? 0) : (data?.granted ?? 0));
+
             if (!refund && data?.granted) {
                 const price = event.price_in_purchased_currency || 0;
                 const currency = event.currency || "USD";
@@ -110,6 +168,27 @@ serve(async (req) => {
                     plan: event.product_id || 'pro',
                     current_period_end: new Date(event.expiration_at_ms).toISOString(),
                     expires_at: new Date(event.expiration_at_ms).toISOString(),
+                    updated_at: new Date().toISOString(),
+                    // What they paid, where, and on which transaction. The row
+                    // used to say only "pro, active, until <date>".
+                    price: event.price_in_purchased_currency ?? null,
+                    currency_code: event.currency ?? null,
+                    store: event.store ?? null,
+                    environment: event.environment ?? null,
+                    period_type: event.period_type ?? null,
+                    transaction_id: event.transaction_id ?? event.original_transaction_id ?? null,
+                    purchased_at: event.purchased_at_ms ? new Date(event.purchased_at_ms).toISOString() : null,
+                };
+                shouldUpdate = true;
+                break;
+
+            // A refunded subscription used to be dropped on the floor: only
+            // EXPIRATION ever downgraded anyone, so a refunded user kept PRO
+            // until the period they no longer paid for ran out.
+            case "REFUND":
+                updateData = {
+                    status: 'refunded',
+                    tier: 'free',
                     updated_at: new Date().toISOString(),
                 };
                 shouldUpdate = true;
@@ -158,6 +237,9 @@ serve(async (req) => {
                 return new Response("Database error", { status: 500 });
             }
             console.log(`Successfully updated subscription for user ${userId}`);
+
+            const subTx = event.transaction_id || event.original_transaction_id || event.id;
+            if (subTx) await recordPurchase(event, userId, String(subTx), null);
 
             // Grant 30 minutes (1800 seconds) call quota if user is on PRO tier
             if (updateData.tier === 'pro') {

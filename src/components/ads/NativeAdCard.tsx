@@ -120,7 +120,7 @@ export function NativeAdCard({
             nativeAd={ad}
             style={[styles.card, cornerRadius !== undefined && { borderRadius: cornerRadius }]}
         >
-            <View style={styles.row}>
+            <View style={[styles.row, fullWidthCta && styles.rowAboveCta]}>
                 {/* The spacing lives on these wrappers, never on the asset
                     view itself: RN implements `gap` as margins on the direct
                     children, and a margin on a registered asset is what makes
@@ -230,16 +230,16 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         borderWidth: 1,
         borderColor: "rgba(255,255,255,0.10)",
-        // NO horizontal padding on the ad view itself.
+        // NO padding on the ad view itself, in either axis.
         //
         // `NativeAsset` hands its child to the native ad view, which positions
         // registered assets inside the view's own content box — on top of the
-        // position RN already gave them. Any padding here is therefore applied
-        // twice: the icon and the CTA sat 28pt from the left edge instead of
-        // 14, and the CTA's right edge ran flush into the border. The inset
-        // now lives on the plain wrapper views below, which the native side
-        // does not know about.
-        paddingVertical: 14,
+        // position RN already gave them, so padding here is applied twice.
+        // Horizontally that put the icon and the CTA 28pt from the left while
+        // the CTA's right edge ran into the border; vertically it pushed the
+        // whole card 14pt down and ate the bottom inset, leaving the CTA
+        // sitting on the card's bottom edge. The insets live on the plain
+        // wrapper views below, which the native side does not know about.
         // Tall enough for the 44px icon row plus padding, so the card never
         // has to grow past what NativeAdView measured. Clipping with
         // overflow:hidden was the wrong tool — it hid the overflow instead of
@@ -247,12 +247,14 @@ const styles = StyleSheet.create({
         // policy finding ("content must be fully visible").
         minHeight: 76,
     },
-    row: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14 },
+    row: { flexDirection: "row", alignItems: "center", padding: 14 },
+    /** With a full-width CTA under it, the row's bottom inset is the CTA's. */
+    rowAboveCta: { paddingBottom: 0 },
     iconSlot: { marginRight: 12 },
     // The button keeps its size; the headline column (minWidth:0) is what
     // gives way when the text is long.
     ctaSlot: { marginLeft: 12, flexShrink: 0 },
-    ctaWideSlot: { marginTop: 12, paddingHorizontal: 14 },
+    ctaWideSlot: { marginTop: 12, paddingHorizontal: 14, paddingBottom: 14 },
     // No margins on an asset view: spacing comes from the row's gap. A margin
     // on the registered asset is a common trigger for AdMob's "advertiser
     // assets outside native ad view" finding.

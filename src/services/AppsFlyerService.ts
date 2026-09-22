@@ -39,9 +39,7 @@ export const AppsFlyerService = {
     logEvent: async (eventName: string, eventValues: Record<string, any> = {}) => {
         try {
             await AppsFlyerService.waitForInit(); // Ensure init has had a chance to run
-            // Map internal events to AppsFlyer standard events
-            const AV = appsFlyer.AF_EVENTS; // Access AppsFlyer constants if available, or use strings
-
+            // Map internal events to AppsFlyer standard events.
             let mappedEventName = eventName;
 
             // Basic mapping
@@ -68,7 +66,23 @@ export const AppsFlyerService = {
                     break;
             }
 
-            await appsFlyer.logEvent(mappedEventName, eventValues);
+            // AppsFlyer reads revenue from `af_revenue` + `af_currency` and
+            // nothing else. The values were being forwarded verbatim as
+            // {amount, currency}, so every purchase arrived worth nothing and
+            // no campaign could be optimised on ROAS.
+            const values: Record<string, any> = { ...eventValues };
+            const amount = eventValues.amount ?? eventValues.value ?? eventValues.price;
+            const currency = eventValues.currency ?? eventValues.currency_code;
+            if (typeof amount === "number" && amount > 0) {
+                values.af_revenue = amount;
+                values.af_currency = currency ?? "USD";
+                if (eventValues.item_id ?? eventValues.product_id) {
+                    values.af_content_id = eventValues.item_id ?? eventValues.product_id;
+                }
+                if (eventValues.item_type) values.af_content_type = eventValues.item_type;
+            }
+
+            await appsFlyer.logEvent(mappedEventName, values);
             console.log(`[AppsFlyer] Event logged: ${mappedEventName} (was ${eventName})`);
         } catch (error) {
             console.error(`[AppsFlyer] Failed to log event ${eventName}:`, error);
