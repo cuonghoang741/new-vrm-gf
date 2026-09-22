@@ -33,10 +33,18 @@ const RETRY_MS = 2000;
 export function AdBanner({
     placement = "banner",
     isBackgroundDark = true,
+    onGaveUp,
 }: {
     placement?: string;
     /** Themes the slot + divider against the scene, like the other floating UI. */
     isBackgroundDark?: boolean;
+    /**
+     * Fired once the retries are spent and this slot will never fill. The
+     * caller has to hear about it: a parent that reserves height for the
+     * banner would otherwise keep holding an empty strip after the banner
+     * itself has given the space back.
+     */
+    onGaveUp?: () => void;
 }) {
     const { t } = useTranslation();
     const { isPro } = useSubscription();
@@ -81,6 +89,7 @@ export function AdBanner({
                         retryTimer.current = setTimeout(() => setAttempt((a) => a + 1), RETRY_MS);
                     } else {
                         setFailed(true);
+                        onGaveUp?.();
                     }
                     analyticsService.logAdLoadFailed(
                         "banner",

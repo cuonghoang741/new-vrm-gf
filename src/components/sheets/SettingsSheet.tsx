@@ -38,6 +38,8 @@ import {
 import { LANGUAGE_META, currentLang } from "../../i18n";
 import { useSubscription } from "../../contexts/SubscriptionContext";
 import * as Haptics from "expo-haptics";
+import mobileAds from "react-native-google-mobile-ads";
+import { USE_TEST_ADS } from "../../config/ads";
 import { analyticsService } from "../../services/AnalyticsService";
 import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
 import { supabase } from "../../config/supabase";
@@ -61,13 +63,15 @@ interface SettingItemProps {
     label: string;
     subtitle?: string;
     onPress: () => void;
+    /** Hidden diagnostics; nothing in the UI hints at it. */
+    onLongPress?: () => void;
     danger?: boolean;
     showChevron?: boolean;
 }
 
-function SettingItem({ icon, label, subtitle, onPress, danger, showChevron = true }: SettingItemProps) {
+function SettingItem({ icon, label, subtitle, onPress, onLongPress, danger, showChevron = true }: SettingItemProps) {
     return (
-        <TouchableOpacity style={styles.settingItem} onPress={onPress} activeOpacity={0.65}>
+        <TouchableOpacity style={styles.settingItem} onPress={onPress} onLongPress={onLongPress} activeOpacity={0.65}>
             <View style={[styles.settingIconContainer, danger && styles.settingIconDanger]}>
                 {icon}
             </View>
@@ -393,8 +397,24 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                                 <SettingItem
                                     icon={<IconInfoCircle size={20} color="#93C5FD" />}
                                     label={t("set.app_version")}
-                                    subtitle="1.0.0"
+                                    // Which ad units this binary actually
+                                    // requests. Two APKs that look identical
+                                    // otherwise cost an afternoon of "why do
+                                    // I see no ads" — so the build says so.
+                                    subtitle={`1.0.0 · ads: ${USE_TEST_ADS ? "test" : "real"}`}
                                     onPress={() => { }}
+                                    // Hidden diagnostic: hold the version row
+                                    // to open AdMob's Ad Inspector, which is
+                                    // the only thing that says WHY a unit is
+                                    // not filling on this particular device
+                                    // (no ad config, app not approved, a
+                                    // mediation adapter erroring, …).
+                                    onLongPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                                        mobileAds().openAdInspector().catch((e: any) =>
+                                            Alert.alert("Ad Inspector", String(e?.message ?? e))
+                                        );
+                                    }}
                                     showChevron={false}
                                 />
                             </View>

@@ -67,7 +67,7 @@ export default function LanguageScreen({ onDone }: { onDone: () => void }) {
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
                 <View style={styles.headerRow}>
-                    <Text style={styles.title}>{t("lang.title")}</Text>
+                    <Text style={styles.title} numberOfLines={2}>{t("lang.title")}</Text>
                     {/* Only appears once a language has been picked, so the
                         choice is always explicit — yuuki's gate. It also keeps
                         the primary action at the top, far from the ad in the
@@ -159,7 +159,7 @@ const CTA_AFTER = "#FF2E74";
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#0a0a1a" },
     adFooter: { paddingLeft: 20, paddingRight: 20, paddingTop: 8, paddingBottom: 16 },
-    headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
     // A filled pill, not bare text: as plain pink text next to the title it
     // read as a label and people did not find the way forward.
     savePill: {
@@ -172,7 +172,9 @@ const styles = StyleSheet.create({
     },
     saveText: { color: "#fff", fontSize: 15, fontWeight: "800" },
     header: { paddingHorizontal: 24, paddingTop: 24, paddingBottom: 8 },
-    title: { color: "#fff", fontSize: 26, fontWeight: "800" },
+    // flexShrink + a smaller size: "Choose your language" is the longest of
+    // the ten translations and it ran straight under the Save pill.
+    title: { color: "#fff", fontSize: 24, fontWeight: "800", flexShrink: 1 },
     subtitle: { color: "rgba(255,255,255,0.6)", fontSize: 14, marginTop: 8 },
     list: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 24, gap: 10 },
     row: {

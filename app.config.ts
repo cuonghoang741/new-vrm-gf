@@ -7,7 +7,9 @@ const PROJECT_SLUG = "truemate";
 const EAS_OWNER = "hoangcuongdcyb365";
 
 // App production config
-const APP_NAME = "TrueFeel";
+// The store listing, the launcher label and the Facebook display name are
+// all "TrueMate" — the Android package (com.truemate.girlfriend) always was.
+const APP_NAME = "TrueMate";
 const BUNDLE_IDENTIFIER = "com.truefeel";
 const PACKAGE_NAME = "com.truemate.girlfriend";
 const ICON = "./assets/logo.png";
@@ -213,7 +215,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
             "expo-secure-store",
             {
                 faceIDPermission:
-                    "Allow TrueFeel to access your Face ID for secure authentication.",
+                    "Allow TrueMate to access your Face ID for secure authentication.",
             },
         ],
         [

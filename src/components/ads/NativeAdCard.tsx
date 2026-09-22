@@ -70,6 +70,21 @@ export function NativeAdCard({
     const [ad, setAd] = useState<NativeAd | null>(null);
     const [failed, setFailed] = useState(false);
 
+    /**
+     * A request that never answers used to shimmer for the rest of the
+     * session: the slot only collapsed on an explicit failure, and a no-fill
+     * that times out somewhere in mediation never produces one. After this
+     * long the space goes back to the screen.
+     */
+    useEffect(() => {
+        if (isPro || ad || failed) return;
+        const t = setTimeout(() => {
+            setFailed(true);
+            analyticsService.logAdLoadFailed("native", placement, "timeout");
+        }, LOAD_TIMEOUT_MS);
+        return () => clearTimeout(t);
+    }, [isPro, ad, failed, placement]);
+
     useEffect(() => {
         if (isPro) return;
         const unit = adUnitId ?? AdUnits.native;
@@ -218,6 +233,8 @@ function NativeAdSkeleton({ cornerRadius }: { cornerRadius?: number }) {
 }
 
 const PINK = "#FF6FA5";
+/** How long a native slot may sit empty before it gives the space back. */
+const LOAD_TIMEOUT_MS = 12_000;
 
 const styles = StyleSheet.create({
     card: {

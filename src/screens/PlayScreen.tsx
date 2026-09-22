@@ -661,7 +661,14 @@ export default function PlayScreen() {
     const surface = surfaceOn(!is3DMode && characterAvatar ? true : isBackgroundDark);
 
     /** Banner sits under the composer; PRO and the open keyboard both hide it. */
-    const showPlayBanner = !isPro && !isKeyboardVisible;
+    /**
+     * The banner gives its space back when the retries are spent; the chat
+     * block reserves that space, so it has to hear about it too — otherwise a
+     * no-fill leaves a 60pt hole above the composer for the rest of the
+     * session.
+     */
+    const [bannerGaveUp, setBannerGaveUp] = useState(false);
+    const showPlayBanner = !isPro && !isKeyboardVisible && !bannerGaveUp;
 
     /**
      * One of her opening lines. Two of the five used to be hardcoded English,
@@ -988,7 +995,11 @@ export default function PlayScreen() {
                 up (see showPlayBanner). */}
             {showPlayBanner && (
                 <View style={styles.playBannerPinned}>
-                    <AdBanner placement="play_chat" isBackgroundDark={isBackgroundDark} />
+                    <AdBanner
+                        placement="play_chat"
+                        isBackgroundDark={isBackgroundDark}
+                        onGaveUp={() => setBannerGaveUp(true)}
+                    />
                 </View>
             )}
 
