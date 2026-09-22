@@ -8,5 +8,11 @@
         "src/*"
       ]
     }
-  }
+  },
+  "exclude": [
+    "node_modules",
+    "web-admin",
+    "supabase/functions",
+    "supabase-edge"
+  ]
 }

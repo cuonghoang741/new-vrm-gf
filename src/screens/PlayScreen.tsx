@@ -17,6 +17,7 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { Image } from "expo-image";
 import { BlurView } from "expo-blur";
+import * as Haptics from "expo-haptics";
 import { LiquidGlassView, isLiquidGlassSupported } from "@callstack/liquid-glass";
 
 import { IconSend, IconMessageCircle, IconX, IconMusic, IconUser, IconHanger, IconPhoto, IconSettings, IconCrown, IconPhotoFilled, IconCube, IconPhoneCall, IconVideo, IconPhone, IconBadge3d } from "@tabler/icons-react-native";
@@ -30,19 +31,29 @@ import Button from "../components/common/Button";
 import VRMViewer, { VRMViewerHandle } from "../components/VRMViewer";
 import { chatService, ChatMessage, SuggestedAction } from "../services/chatService";
 import { supabase } from "../config/supabase";
-import CharacterSheet from "../components/sheets/CharacterSheet";
-import CostumeSheet from "../components/sheets/CostumeSheet";
-import BackgroundSheet from "../components/sheets/BackgroundSheet";
-import SettingsSheet from "../components/sheets/SettingsSheet";
-import SubscriptionSheet from "../components/sheets/SubscriptionSheet";
-import MediaSheet from "../components/sheets/MediaSheet";
-import CheckinSheet from "../components/sheets/CheckinSheet";
-import { getRubyBalance } from "../services/checkinService";
+import { refreshRuby, setRuby as setRubyBalance, useRuby } from "../services/rubyStore";
+import { track } from "../services/trackEvents";
+import { getBondState, trackBond } from "../services/bondService";
+import { getCheckinState } from "../services/checkinService";
+import { loadQuality, subscribeQuality } from "../services/renderQuality";
+import { useDance } from "./play/useDance";
 import ActionsBubble from "../components/ActionsBubble";
 import { useSubscription } from "../contexts/SubscriptionContext";
 import { analyticsService } from "../services/AnalyticsService";
 import { useAndroidBack } from "../hooks/useAndroidBack";
 import { surfaceOn } from "../theme/surface";
+import { styles } from "./play/styles";
+import { MessageBubble } from "./play/MessageBubble";
+import { SensitiveOverlay } from "./play/SensitiveOverlay";
+import { PlaySheets } from "./play/PlaySheets";
+import { executeSceneAction } from "./play/sceneActions";
+import { SceneLayer } from "./play/SceneLayer";
+import type { CachedCharacter } from "./play/cache";
+import { loadCharacterForUser } from "./play/loadCharacter";
+import { selectCharacter } from "./play/selectCharacter";
+import { selectCostume } from "./play/selectCostume";
+import { ChatOverlay } from "./play/ChatOverlay";
+import { ACCENT, ACCENT_SOFT, ACCENT_GLOW, GOLD, GLASS_FILL, GLASS_BORDER, TEXT_BRIGHT } from "./play/theme";
 import { CharacterSwitcher } from "../components/CharacterSwitcher";
 import { AdGateDialog } from "../components/AdGateDialog";
 import { autoUnlock, consumeNoFillGrant, loadUnlocks, markUnlocked, requiresAd } from "../services/unlockService";
@@ -50,6 +61,7 @@ import { getCharacters } from "../cache/charactersCache";
 import { AdBanner } from "../components/ads/AdBanner";
 import { useInterstitialAd } from "../hooks/useInterstitialAd";
 import { useRewardedAd } from "../hooks/useRewardedAd";
+import { usePrefetchPaywallModel } from "../hooks/usePrefetchPaywallModel";
 import { AdUnits } from "../config/ads";
 import { FREE_MESSAGE_LIMIT, REWARD_MESSAGE_BONUS } from "../config/limits";
 import { Alert } from "react-native";
@@ -62,31 +74,7 @@ const { width, height } = Dimensions.get("window");
 
 const CACHE_KEY = "play_last_character";
 
-// ─── Unified accent palette (synced with girlfriend-3d-aiva) ───
-// Solid, legible violet "glass" for overlay surfaces (NOT real-time blur, so
-// buttons stay readable on any background), a hot magenta-rose accent, and a
-// luxe gold for premium. This is the palette that reads well over the scene.
-const ACCENT = "#FF3D7F";       // primary rose accent
-const ACCENT_SOFT = "#FF7AA8";  // peach (gradient companion)
-const ACCENT_GLOW = "rgba(255, 61, 127, 0.5)";
-const GOLD = "#F2C14E";         // premium / PRO accent
-const GLASS_FILL = "rgba(32, 16, 54, 0.72)";      // legible dark-violet glass
-const GLASS_BORDER = "rgba(201, 166, 255, 0.24)"; // soft lavender edge
-const TEXT_BRIGHT = "#F4ECFB";  // lavender-white, high-contrast on glass
 
-interface CachedCharacter {
-    characterId: string;
-    characterName: string;
-    modelUrl: string;
-    backgroundUrl: string | null;
-    backgroundId: string | null;
-    thumbnailUrl?: string | null;
-    avatarUrl?: string | null;
-    smallThumbUrl?: string | null;
-    smallAvatarUrl?: string | null;
-    agentElevenlabsId?: string | null;
-    isBackgroundDark?: boolean;
-}
 
 export default function PlayScreen() {
     const { t } = useTranslation();
@@ -103,7 +91,20 @@ export default function PlayScreen() {
     const [subscriptionOpen, setSubscriptionOpen] = useState(false);
     const [mediaSheetOpen, setMediaSheetOpen] = useState(false);
     const [checkinOpen, setCheckinOpen] = useState(false);
-    const [ruby, setRuby] = useState(0);
+    const [questOpen, setQuestOpen] = useState(false);
+    const [bondOpen, setBondOpen] = useState(false);
+    /** Chat hidden = the scene with nothing over it. */
+    const [chatVisible, setChatVisible] = useState(true);
+    /** Check-in streak for the flame button; refreshed when the sheet closes. */
+    const [streak, setStreak] = useState(0);
+    const [needsCheckin, setNeedsCheckin] = useState(false);
+    /** Bumped on every claim so the flame badge re-reads immediately. */
+    const [checkinTick, setCheckinTick] = useState(0);
+    /** Her level, for the pill in the top bar. Server-owned; this is a mirror. */
+    const [bondLevel, setBondLevel] = useState<number | null>(null);
+    /** 0..1 through the current level, for the bar on her card. */
+    const [bondProgress, setBondProgress] = useState<number | null>(null);
+    const ruby = useRuby() ?? 0;
 
     const { isPro, refreshStatus } = useSubscription();
     const { showInterstitial } = useInterstitialAd();
@@ -112,6 +113,7 @@ export default function PlayScreen() {
 
     // Character state
     const [characterId, setCharacterId] = useState<string | null>(null);
+    usePrefetchPaywallModel(characterId, isPro);
     const [characterName, setCharacterName] = useState(t("play.companion"));
     const [characterModelUrl, setCharacterModelUrl] = useState<string | null>(null);
     const [baseModelUrl, setBaseModelUrl] = useState<string | null>(null);
@@ -126,8 +128,8 @@ export default function PlayScreen() {
     const [isBackgroundDark, setIsBackgroundDark] = useState(true); // default dark
     const [vrmReady, setVrmReady] = useState(false);
     const [is3DMode, setIs3DMode] = useState(false); // Only PRO can enable
+    const dance = useDance({ vrmRef, is3DMode, setIs3DMode, characterId });
     const [agentElevenlabsId, setAgentElevenlabsId] = useState<string | null>(null);
-    const [isDancing, setIsDancing] = useState(false);
 
     const [userProfile, setUserProfile] = useState<{ display_name?: string; country?: string } | null>(null);
     const [userCreatedAt, setUserCreatedAt] = useState<string | null>(null);
@@ -166,7 +168,7 @@ export default function PlayScreen() {
 
     // Keep the ruby balance fresh (refetch when buy/check-in sheets toggle).
     useEffect(() => {
-        if (user?.id) getRubyBalance(user.id).then(setRuby).catch(() => { });
+        if (user?.id) refreshRuby();
     }, [user?.id, checkinOpen, bgSheetOpen, costumeSheetOpen, charSheetOpen]);
 
     const {
@@ -218,6 +220,14 @@ export default function PlayScreen() {
                     chatService.saveCallMessage(endMessage, characterId, user.id, true);
 
                     callStartTimeRef.current = null;
+
+                    // Bond XP and the voice quests, by whole minutes talked.
+                    // Without this the "call her for three minutes" quest could
+                    // never complete, because nothing else reports voice time.
+                    const wholeMinutes = Math.floor(durationSeconds / 60);
+                    if (wholeMinutes > 0) {
+                        void trackBond(characterId, isCameraMode ? "video_minute" : "voice_minute", wholeMinutes);
+                    }
 
                     // Interstitial at the natural break after a real call ends.
                     // Skipped for PRO, frequency-capped, and skipped if not
@@ -291,6 +301,10 @@ export default function PlayScreen() {
         if (isNudeBlurred) {
             Keyboard.dismiss();
         }
+        // Blur the 3D canvas from inside the page. A native blur view laid over
+        // a WebView does not blur what the WebView draws — on Android it is a
+        // separate surface — so the gate was translucent over live nudity.
+        vrmRef.current?.setPreviewBlur(isNudeBlurred);
     }, [isNudeBlurred]);
 
     // Pulsing effect for "Calling..." state
@@ -314,13 +328,20 @@ export default function PlayScreen() {
         } catch { }
     }, []);
 
+    /** The device cache, read once; the DB loader awaits it (see loadCharacter). */
+    const cacheRead = useRef<Promise<CachedCharacter | null> | null>(null);
+    if (!cacheRead.current) {
+        cacheRead.current = SecureStore.getItemAsync(CACHE_KEY)
+            .then((raw) => (raw ? (JSON.parse(raw) as CachedCharacter) : null))
+            .catch(() => null);
+    }
+
     // Load cached character instantly on mount
     useEffect(() => {
         const loadCache = async () => {
             try {
-                const raw = await SecureStore.getItemAsync(CACHE_KEY);
-                if (raw) {
-                    const cached: CachedCharacter = JSON.parse(raw);
+                const cached = await cacheRead.current;
+                if (cached) {
                     setCharacterId(cached.characterId);
                     setCharacterName(cached.characterName);
                     setCharacterModelUrl(cached.modelUrl);
@@ -353,155 +374,27 @@ export default function PlayScreen() {
         loadCache();
     }, []);
 
-    // Load user's character from DB (refreshes cache)
+    // Load user's character from DB (refreshes cache) — see play/loadCharacter.
     useEffect(() => {
-        const loadCharacter = async () => {
-            if (!user?.id) return;
-            try {
-                const { data: prefs } = await supabase
-                    .from("user_preferences")
-                    .select("current_character_id")
-                    .eq("user_id", user.id)
-                    .order("created_at", { ascending: false })
-                    .limit(1)
-                    .maybeSingle();
-
-                let charId = prefs?.current_character_id;
-
-                // Self-healing: If user bypassed Onboarding but their preference failed to save previously
-                if (!charId) {
-                    console.log("[PlayScreen] No current_character_id found. Attempting to heal...");
-                    const { data: firstAsset } = await supabase
-                        .from("user_assets")
-                        .select("item_id")
-                        .eq("user_id", user.id)
-                        .eq("item_type", "character")
-                        .limit(1)
-                        .maybeSingle();
-
-                    if (firstAsset?.item_id) {
-                        charId = firstAsset.item_id;
-                    } else {
-                        // Extreme fallback
-                        const { data: firstPublic } = await supabase.from("characters").select("id").eq("is_public", true).eq("available", true).limit(1).maybeSingle();
-                        if (firstPublic?.id) charId = firstPublic.id;
-                    }
-
-                    if (charId) {
-                        // Patch the missing user_preferences
-                        supabase.from("user_preferences").update({ current_character_id: charId, updated_at: new Date().toISOString() }).eq("user_id", user.id).select().then(({ data }) => {
-                            if (data && data.length === 0) {
-                                supabase.from("user_preferences").insert({ user_id: user.id, current_character_id: charId, updated_at: new Date().toISOString() }).then();
-                            }
-                        });
-                    }
-                }
-
-                if (!charId) return;
-
-                setCharacterId(charId);
-
-                let { data: char } = await supabase
-                    .from("characters")
-                    .select("name, base_model_url, background_default_id, thumbnail_url, avatar, agent_elevenlabs_id")
-                    .eq("id", charId)
-                    .maybeSingle();
-
-                if (!char) {
-                    console.log("[PlayScreen] Character not found in DB! Attempting to fallback to public character...");
-                    const { data: firstPublic } = await supabase.from("characters").select("id, name, base_model_url, background_default_id, thumbnail_url, avatar, agent_elevenlabs_id").eq("is_public", true).eq("available", true).limit(1).maybeSingle();
-                    if (firstPublic) {
-                        charId = firstPublic.id;
-                        char = firstPublic;
-                        supabase.from("user_preferences").update({ current_character_id: charId, updated_at: new Date().toISOString() }).eq("user_id", user.id).then();
-                        setCharacterId(charId);
-                    } else {
-                        return;
-                    }
-                }
-
-                console.log("Character found:", char);
-
-                let finalModelUrl = char ? (char.base_model_url ?? "") : "";
-                let finalThumbnailUrl = char ? (char.thumbnail_url ?? null) : null;
-                let finalAvatarUrl = char ? (char.avatar ?? null) : null;
-
-                if (char) {
-                    // Lấy trang phục đang mặc hiện tại (nếu có)
-                    const { data: userChar } = await supabase
-                        .from("user_character")
-                        .select("current_costume_id")
-                        .eq("user_id", user.id)
-                        .eq("character_id", charId)
-                        .maybeSingle();
-
-                    if (userChar?.current_costume_id) {
-                        const { data: costume } = await supabase
-                            .from("character_costumes")
-                            .select("model_url, thumbnail, url")
-                            .eq("id", userChar.current_costume_id)
-                            .maybeSingle();
-                        if (costume) {
-                            if (costume.model_url) finalModelUrl = costume.model_url;
-                            if (costume.thumbnail) finalThumbnailUrl = costume.thumbnail;
-                            if (costume.url) finalAvatarUrl = costume.url;
-                        }
-                    }
-
-                    setCharacterName(char.name);
-                    setCharacterThumbnail(finalThumbnailUrl);
-                    setCharacterAvatar(finalAvatarUrl);
-                    if (finalModelUrl.endsWith(".vrm")) {
-                        setCharacterModelUrl(finalModelUrl);
-                        setBaseModelUrl(char.base_model_url); // Store the default base model
-                    }
-                    if (char.agent_elevenlabs_id) {
-                        setAgentElevenlabsId(char.agent_elevenlabs_id);
-                    }
-                }
-
-                const bgId = char?.background_default_id;
-                let bgUrl: string | null = null;
-
-                // Only override with default background if we HAVEN'T just restored from cache
-                if (bgId) {
-                    if (isCacheRestored.current && backgroundId) {
-                        console.log("[PlayScreen] Keeping cached background:", backgroundId);
-                        bgUrl = backgroundUrl;
-                    } else {
-                        setBackgroundId(bgId);
-                        const { data: bg } = await supabase.from("backgrounds").select("image, is_dark").eq("id", bgId).single();
-                        if (bg?.image) {
-                            bgUrl = bg.image;
-                            setBackgroundUrl(bgUrl);
-                            setIsBackgroundDark(bg.is_dark ?? true);
-                        }
-                    }
-                }
-
-
-                // Clear the restoration flag after the first load attempt
-                isCacheRestored.current = false;
-
-                // Update cache
-                if (char) {
-                    saveCache({
-                        characterId: charId,
-                        characterName: char.name,
-                        modelUrl: finalModelUrl,
-                        backgroundUrl: bgUrl,
-                        backgroundId: bgId ?? null,
-                        thumbnailUrl: finalThumbnailUrl,
-                        avatarUrl: finalAvatarUrl,
-                        agentElevenlabsId: char.agent_elevenlabs_id ?? null,
-                        isBackgroundDark: isBackgroundDark,
-                    });
-                }
-            } catch (e) {
-                console.error("Failed to load character:", e);
-            }
-        };
-        loadCharacter();
+        loadCharacterForUser({
+            userId: user?.id,
+            isCacheRestored,
+            saveCache,
+            cached: cacheRead.current!,
+            backgroundId,
+            backgroundUrl,
+            isBackgroundDark,
+            setCharacterId,
+            setCharacterName,
+            setCharacterThumbnail,
+            setCharacterAvatar,
+            setCharacterModelUrl,
+            setBaseModelUrl,
+            setAgentElevenlabsId,
+            setBackgroundId,
+            setBackgroundUrl,
+            setIsBackgroundDark,
+        });
     }, [user?.id, saveCache]);
 
     // When VRM is ready AND we have model URL → load the model
@@ -512,6 +405,24 @@ export default function PlayScreen() {
     }, [vrmReady, characterModelUrl, characterName]);
 
     // When VRM is ready AND we have background → set it
+    // Apply the saved render quality as soon as the scene exists, and again
+    // whenever it changes in Settings.
+    useEffect(() => {
+        if (!vrmReady) return;
+        loadQuality().then((q) => vrmRef.current?.setRenderQuality(q));
+        return subscribeQuality((q) => vrmRef.current?.setRenderQuality(q));
+    }, [vrmReady]);
+
+    /**
+     * Free camera is the level-5 reward, and PRO on top of it — both gates, as
+     * `bond_capabilities.free_camera` defines them. Below that the camera stays
+     * where the scene puts it.
+     */
+    useEffect(() => {
+        if (!vrmReady) return;
+        vrmRef.current?.setControlsEnabled((bondLevel ?? 1) >= 5 && isPro);
+    }, [vrmReady, bondLevel, isPro]);
+
     useEffect(() => {
         if (vrmReady && backgroundUrl) {
             vrmRef.current?.setBackgroundImage(backgroundUrl);
@@ -577,111 +488,30 @@ export default function PlayScreen() {
     }, [isSending, dot1Anim, dot2Anim, dot3Anim]);
 
     // ─── Execute action from gemini-suggest-action ───
-    const executeAction = useCallback((action: SuggestedAction) => {
-        if (action.action === "none" || action.confidence < 0.5) return;
-
-        console.log(`[PlayScreen] Action: ${action.action}`, action.parameters);
-
-        switch (action.action) {
-            case "play_animation":
-                if (action.parameters.animationName) {
-                    vrmRef.current?.loadAnimationByName(action.parameters.animationName);
-                }
-                break;
-
-            case "change_background":
-                setBgSheetOpen(true);
-                break;
-
-            case "change_costume":
-                setCostumeSheetOpen(true);
-                break;
-
-            case "change_character":
-                setCharSheetOpen(true);
-                break;
-
-            case "send_photo":
-            case "send_video":
-            case "send_nude_media":
-                (async () => {
-                    const type = action.action === "send_video" ? "video" : (action.action === "send_nude_media" ? "nude" : "image");
-
-                    const media = await chatService.fetchRandomMedia(characterId || "", type, isPro);
-                    if (media) {
-                        const mediaMsg: ChatMessage = {
-                            id: `ai-media-${Date.now()}`,
-                            role: "model",
-                            text: "", // Independent media message without text
-                            mediaUrl: media.url,
-                            mediaType: media.type,
-                            mediaTier: media.tier,
-                            createdAt: new Date(),
-                        };
-                        setMessages((prev) => [...prev, mediaMsg]);
-
-                        // Persist to DB with media_id link
-                        chatService.saveMediaMessage(characterId || "", user?.id || "", media.id);
-                    } else {
-                        // Fallback: open media sheet if no specific media found
-                        setMediaSheetOpen(true);
-                    }
-                })();
-                break;
-
-            case "become_nude":
-                (async () => {
-                    // 1. Force 3D Mode
-                    if (!is3DMode) {
-                        setIs3DMode(true);
-                        setVrmReady(false);
-                    }
-
-                    // 2. Find nude costume
-                    const { data: costumes } = await supabase
-                        .from("character_costumes")
-                        .select("*")
-                        .eq("character_id", characterId)
-                        .ilike("costume_name", "%nude%")
-                        .limit(1);
-
-                    if (costumes && costumes.length > 0) {
-                        const nude = costumes[0];
-                        console.log(`[PlayScreen] Action become_nude: Applying costume ${nude.costume_name}`);
-
-                        if (characterModelUrl) {
-                            setBaseModelUrl(characterModelUrl);
-                        }
-                        setCharacterModelUrl(nude.model_url);
-                        if (vrmRef.current) {
-                            vrmRef.current.loadModelByURL(nude.model_url);
-                        }
-
-                        // 3. Set blur if not pro
-                        if (!isPro) {
-                            setIsNudeBlurred(true);
-                        }
-                    } else {
-                        console.log("[PlayScreen] Action become_nude: No nude costume found for this character");
-                        // Fallback: show costume sheet so user can see available options
-                        setCostumeSheetOpen(true);
-                    }
-                })();
-                break;
-
-            case "start_voice_call":
-            case "start_video_call":
-                vrmRef.current?.setCallMode(true);
-                break;
-
-            case "open_subscription":
-                setSubscriptionOpen(true);
-                break;
-
-            default:
-                break;
-        }
-    }, [isPro, characterId, user?.id, is3DMode, characterModelUrl]);
+    /** Bridge from a model-suggested action to the scene — see play/sceneActions. */
+    const executeAction = useCallback(
+        (action: SuggestedAction) =>
+            executeSceneAction(action, {
+                vrmRef,
+                isPro,
+                is3DMode,
+                characterId,
+                characterModelUrl,
+                userId: user?.id,
+                setMessages,
+                setCharSheetOpen,
+                setCostumeSheetOpen,
+                setBgSheetOpen,
+                setMediaSheetOpen,
+                setSubscriptionOpen,
+                setIs3DMode,
+                setVrmReady,
+                setIsNudeBlurred,
+                setBaseModelUrl,
+                setCharacterModelUrl,
+            }),
+        [isPro, characterId, user?.id, is3DMode, characterModelUrl]
+    );
 
     // ─── Send message ───
     // Free user hit the message quota: offer a rewarded ad (clearly labelled)
@@ -715,6 +545,10 @@ export default function PlayScreen() {
         }
 
         setInputText("");
+        track.homeChatSend();
+        // Bond XP for talking to her. Fire-and-forget: the server caps it, and
+        // a lost call costs a few XP rather than blocking the send.
+        void trackBond(characterId, "chat_message", 1);
         const userMsg: ChatMessage = { id: `temp-${Date.now()}`, role: "user", text, createdAt: new Date() };
         setMessages((prev) => [...prev, userMsg]);
         if (!isPro) setFreeMsgUsed((n) => n + 1);
@@ -722,10 +556,14 @@ export default function PlayScreen() {
         setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
 
         try {
-            // Fire action detection in background
-            chatService.suggestAction(text).then(action => {
-                executeAction(action);
-            }).catch(() => { });
+            // Fire action detection in background. Her tag vocabulary goes with
+            // the message so "gửi ảnh đi biển" can pick the beach photo instead
+            // of any photo at all.
+            chatService.getMediaTags(characterId)
+                .then((tags) => chatService.suggestAction(text, tags))
+                .then(action => {
+                    executeAction(action);
+                }).catch(() => { });
 
             const aiMsgBaseId = `ai-${Date.now()}`;
 
@@ -780,94 +618,36 @@ export default function PlayScreen() {
     }, [inputText, isSending, characterId, user?.id, messages, executeAction, isPro, freeMsgUsed, bonusMsgs, requestMoreMessages]);
 
     // ─── Sheet handlers ───
-    const handleCharacterSelect = useCallback(async (char: any) => {
-        setCharacterId(char.id);
-        setCharacterName(char.name);
-        setIsNudeBlurred(false);
-        if (char.thumbnail_url) setCharacterThumbnail(char.thumbnail_url);
-
-        // Fetch full detail for the character (including avatar/vrm/background)
-        const { data: fullChar } = await supabase
-            .from("characters")
-            .select("base_model_url, background_default_id, thumbnail_url, avatar, small_thumb_url, small_avatar")
-            .eq("id", char.id)
-            .single();
-
-        if (fullChar) {
-            if (fullChar.thumbnail_url) setCharacterThumbnail(fullChar.thumbnail_url);
-            if (fullChar.small_thumb_url) setCharacterThumbnailSmall(fullChar.small_thumb_url);
-            if (fullChar.avatar) setCharacterAvatar(fullChar.avatar);
-            if (fullChar.small_avatar) setCharacterAvatarSmall(fullChar.small_avatar);
-
-            // Handle VRM if applicable
-            if (fullChar.base_model_url?.toLowerCase().endsWith(".vrm")) {
-                setCharacterModelUrl(fullChar.base_model_url);
-                setBaseModelUrl(fullChar.base_model_url);
-                vrmRef.current?.loadModelByURL(fullChar.base_model_url, char.name);
-            } else {
-                setCharacterModelUrl(null);
-                setBaseModelUrl(null);
-                setIs3DMode(false); // Drop back to 2D mode for non-VRM characters
-            }
-
-            // Handle Background
-            let charBgUrl = backgroundUrl;
-            let charBgId = fullChar.background_default_id || backgroundId;
-
-            if (fullChar.background_default_id) {
-                const { data: bgData } = await supabase
-                    .from("backgrounds")
-                    .select("image, is_dark, name")
-                    .eq("id", fullChar.background_default_id)
-                    .single();
-                if (bgData?.image) {
-                    charBgUrl = bgData.image;
-                    setBackgroundUrl(charBgUrl);
-                    setBackgroundId(fullChar.background_default_id ?? null);
-                    setIsBackgroundDark(bgData.is_dark ?? true);
-                    setBackgroundName(bgData.name || null);
-                    if (is3DMode) vrmRef.current?.setBackgroundImage(charBgUrl!);
-                }
-            }
-
-            // Log Analytics
-            analyticsService.logCharacterSelect(char.id, char.name);
-
-            // Update Cache
-            saveCache({
-                characterId: char.id,
-                characterName: char.name,
-                modelUrl: fullChar.base_model_url || "",
-                backgroundUrl: charBgUrl,
-                backgroundId: charBgId,
-                thumbnailUrl: fullChar.thumbnail_url || char.thumbnail_url || null,
-                avatarUrl: fullChar.avatar || null,
-                smallThumbUrl: fullChar.small_thumb_url || null,
-                smallAvatarUrl: fullChar.small_avatar || null,
+    const handleCharacterSelect = useCallback(
+        (char: any) =>
+            selectCharacter(char, {
+                userId: user?.id,
+                is3DMode,
+                vrmRef,
+                saveCache,
+                backgroundUrl,
+                backgroundId,
                 agentElevenlabsId,
-                isBackgroundDark
-            });
-        }
-
-        // Update user preference + cache ownership
-        if (user?.id) {
-            const { data: prefData } = await supabase.from("user_preferences").update({ current_character_id: char.id, updated_at: new Date().toISOString() }).eq("user_id", user.id).select();
-            if (prefData && prefData.length === 0) {
-                await supabase.from("user_preferences").insert({ user_id: user.id, current_character_id: char.id, updated_at: new Date().toISOString() });
-            }
-            supabase.from("user_assets")
-                .insert({ user_id: user.id, item_id: char.id, item_type: "character" })
-                .then(() => { }, () => { });
-        }
-
-        // Reload chat
-        const uId = user?.id;
-        const cId = char.id;
-        if (uId && cId) {
-            const history = await chatService.loadHistory(cId, uId);
-            setMessages(history);
-        }
-    }, [user?.id, backgroundUrl, backgroundId, saveCache, is3DMode, agentElevenlabsId, isBackgroundDark]);
+                isBackgroundDark,
+                setCharacterId,
+                setCharacterName,
+                setCharacterThumbnail,
+                setCharacterThumbnailSmall,
+                setCharacterAvatar,
+                setCharacterAvatarSmall,
+                setCharacterModelUrl,
+                setBaseModelUrl,
+                setAgentElevenlabsId,
+                setBackgroundId,
+                setBackgroundUrl,
+                setBackgroundName,
+                setIsBackgroundDark,
+                setIsNudeBlurred,
+                setIs3DMode,
+                setMessages,
+            }),
+        [user?.id, backgroundUrl, backgroundId, saveCache, is3DMode, agentElevenlabsId, isBackgroundDark]
+    );
 
     /**
      * Back closes whatever is on top instead of leaving the app. With nothing
@@ -875,7 +655,10 @@ export default function PlayScreen() {
      * action really is "quit", and users kept losing the app to a stray swipe.
      */
     /** Palette for everything floating over the scene — see theme/surface. */
-    const surface = surfaceOn(isBackgroundDark);
+    // In 2D the costume illustration covers the whole screen, so the scene's
+    // `is_dark` describes an image nobody can see. Those illustrations are
+    // rich, mid-to-dark artwork: the dark glass is the one that reads on them.
+    const surface = surfaceOn(!is3DMode && characterAvatar ? true : isBackgroundDark);
 
     /** Banner sits under the composer; PRO and the open keyboard both hide it. */
     const showPlayBanner = !isPro && !isKeyboardVisible;
@@ -957,11 +740,18 @@ export default function PlayScreen() {
         [isPro, handleCharacterSelect]
     );
 
+    useEffect(() => {
+        track.homeView();
+    }, []);
+
     const lastBackAt = useRef(0);
     useAndroidBack(
         useCallback(() => {
             if (subscriptionOpen) { setSubscriptionOpen(false); return true; }
             if (checkinOpen) { setCheckinOpen(false); return true; }
+            if (bondOpen) { setBondOpen(false); return true; }
+            if (questOpen) { setQuestOpen(false); return true; }
+            if (dance.danceSheetOpen) { dance.setDanceSheetOpen(false); return true; }
             if (mediaSheetOpen) { setMediaSheetOpen(false); return true; }
             if (settingsSheetOpen) { setSettingsSheetOpen(false); return true; }
             if (costumeSheetOpen) { setCostumeSheetOpen(false); return true; }
@@ -974,70 +764,22 @@ export default function PlayScreen() {
             ToastAndroid.show(t("play.back_again"), ToastAndroid.SHORT);
             return true;
         }, [
-            subscriptionOpen, checkinOpen, mediaSheetOpen, settingsSheetOpen,
+            subscriptionOpen, checkinOpen, questOpen, bondOpen, dance.danceSheetOpen, mediaSheetOpen, settingsSheetOpen,
             costumeSheetOpen, bgSheetOpen, charSheetOpen, t,
         ])
     );
 
-    const handleCostumeSelect = useCallback((costume: any) => {
-        analyticsService.logCostumeChange(
-            costume.id ?? costume.costume_name ?? "unknown",
-            characterId ?? undefined
-        );
-        setBackgroundId(costume.background_id || backgroundId);
-        setCostumeName(costume.costume_name || null);
-        if (costume.model_url) {
-            setCharacterModelUrl(costume.model_url);
-            setIsNudeBlurred(false);
-            vrmRef.current?.loadModelByURL(costume.model_url, costume.costume_name);
-        }
-
-        // Cập nhật ảnh đại diện 2D từ costume.url
-        // Nếu costume.url là VRM (data entry cũ), dùng thumbnail làm fallback
-        const isImage = (uri?: string) => uri && /\.(png|jpg|jpeg|webp|gif)/i.test(uri);
-        const avatarToSet = isImage(costume.url) ? costume.url : (isImage(costume.thumbnail) ? costume.thumbnail : costume.url);
-
-        if (avatarToSet) {
-            setCharacterAvatar(avatarToSet);
-            setCharacterAvatarSmall(avatarToSet);
-        }
-
-        if (costume.thumbnail) {
-            setCharacterThumbnail(costume.thumbnail);
-        }
-
-        // Cập nhật lại cache offline cho mượt
-        if (characterId) {
-            saveCache({
-                characterId,
-                characterName,
-                modelUrl: costume.model_url || characterModelUrl || "",
-                backgroundUrl,
-                backgroundId,
-                thumbnailUrl: costume.thumbnail || characterThumbnail || null,
-                avatarUrl: costume.url || characterAvatar || null,
-                agentElevenlabsId,
-                isBackgroundDark,
-            });
-        }
-
-        // Cache ownership
-        if (user?.id && costume.id) {
-            supabase.from("user_assets")
-                .insert({ user_id: user.id, item_id: costume.id, item_type: "character_costume" })
-                .then(() => { }, () => { });
-
-            // Lưu trang phục cuối cùng của nhân vật này lên DB
-            if (characterId) {
-                supabase.from("user_character")
-                    .upsert(
-                        { user_id: user.id, character_id: characterId, current_costume_id: costume.id },
-                        { onConflict: "user_id,character_id" }
-                    )
-                    .then();
-            }
-        }
-    }, [user?.id, characterId, characterName, characterModelUrl, characterThumbnail, backgroundUrl, backgroundId, agentElevenlabsId, saveCache]);
+    const handleCostumeSelect = useCallback(
+        (costume: any) =>
+            selectCostume(costume, {
+                userId: user?.id, vrmRef, saveCache,
+                characterId, characterName, characterThumbnail, characterAvatar, characterModelUrl,
+                backgroundUrl, backgroundId, agentElevenlabsId, isBackgroundDark,
+                setCharacterModelUrl, setCharacterThumbnail, setCharacterAvatar,
+                setCharacterAvatarSmall, setCostumeName, setBackgroundId, setIsNudeBlurred,
+            }),
+        [user?.id, characterId, characterName, characterModelUrl, characterThumbnail, backgroundUrl, backgroundId, agentElevenlabsId, saveCache]
+    );
 
     const handleBackgroundSelect = useCallback((bg: any) => {
         analyticsService.logBackgroundChange(bg.id);
@@ -1070,294 +812,139 @@ export default function PlayScreen() {
         }
     }, [user?.id, characterId, characterName, characterModelUrl, characterThumbnail, characterAvatar, agentElevenlabsId, saveCache]);
 
-    const renderMessage = useCallback(({ item }: { item: ChatMessage }) => {
-        const isAI = item.role === "model";
-        const isUser = item.role === "user";
-        const hasText = item.text.trim().length > 0;
-        const isLocked = item.mediaTier === "pro" && !isPro;
+    useEffect(() => {
+        let alive = true;
+        getCheckinState().then((c) => {
+            if (!alive || !c) return;
+            setStreak(c.currentDay ?? 0);
+            setNeedsCheckin(!c.claimedToday);
+        });
+        return () => { alive = false; };
+    }, [checkinOpen, checkinTick]);
 
-        return (
-            <View style={{ marginBottom: 12, maxWidth: "85%", alignSelf: isUser ? "flex-end" : "flex-start" }}>
-                {item.mediaUrl && (
-                    <Pressable
-                        onPress={() => isLocked && setSubscriptionOpen(true)}
-                        style={[styles.mediaContainer, { marginBottom: hasText ? 6 : 0 }]}
-                    >
-                        {item.mediaType === "video" ? (
-                            <Video
-                                source={{ uri: item.mediaUrl }}
-                                style={styles.messageMedia}
-                                resizeMode={ResizeMode.COVER}
-                                isMuted
-                                shouldPlay={!isLocked}
-                                isLooping
-                            />
-                        ) : (
-                            <Image
-                                source={{ uri: item.mediaUrl }}
-                                style={styles.messageMedia}
-                                contentFit="cover"
-                            />
-                        )}
+    useEffect(() => {
+        if (!characterId) { setBondLevel(null); return; }
+        let alive = true;
+        getBondState(characterId).then((b) => {
+            if (!alive) return;
+            setBondLevel(b?.level ?? 1);
+            setBondProgress(
+                b && b.xpForNext ? Math.min(1, b.xpIntoLevel / Math.max(1, b.xpForNext)) : null
+            );
+        });
+        return () => { alive = false; };
+    }, [characterId, bondOpen]);
 
-                        {isLocked && (
-                            <View style={styles.lockedMediaOverlay}>
-                                <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
-                                <View style={styles.lockBadge}>
-                                    <LockIcon size={24} color="#fff" />
-                                </View>
-                                <Text style={styles.lockText}>PRO ONLY</Text>
-                            </View>
-                        )}
-                    </Pressable>
-                )}
-                {hasText && (
-                    isLiquidGlassSupported ? (
-                        <LiquidGlassView
-                            style={[
-                                styles.messageBubble,
-                                isUser ? styles.userBubbleLiquid : styles.aiBubbleLiquid,
-                                { marginBottom: 0 }
-                            ]}
-                            effect="regular"
-                            tintColor={isUser ? 'rgba(255, 107, 157, 0.55)' : 'rgba(18, 10, 30, 0.5)'}
-                        >
-                            {isAI && <Text style={styles.aiName}>{characterName}</Text>}
-                            <Text style={[styles.messageText, isUser ? styles.userText : styles.aiText]}>{item.text}</Text>
-                        </LiquidGlassView>
-                    ) : (
-                        <View
-                            style={[
-                                styles.messageBubble,
-                                isUser ? styles.userBubble : styles.aiBubble,
-                                !isUser && { backgroundColor: surface.glass, borderColor: surface.border },
-                                { marginBottom: 0 },
-                            ]}
-                        >
-                            {isAI && <Text style={styles.aiName}>{characterName}</Text>}
-                            <Text style={[styles.messageText, isUser ? styles.userText : styles.aiText]}>{item.text}</Text>
-                        </View>
-                    )
-                )}
-            </View>
-        );
-    }, [characterName, isPro]);
+    const renderMessage = useCallback(
+        ({ item }: { item: ChatMessage }) => (
+            <MessageBubble
+                item={item}
+                isPro={isPro}
+                characterName={characterName}
+                surface={surface}
+                onLockedPress={() => {
+                    // Same unlock as tapping a locked tile in the gallery sheet.
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                    track.unlockSelect("gallery", item.id, 0, "pro");
+                    setSubscriptionOpen(true);
+                }}
+            />
+        ),
+        [characterName, isPro, surface]
+    );
+
+
     return (
         <View style={styles.container}>
             <StatusBar style="light" />
 
-            {/* ─── Character Display Overlay ─── */}
-            <View style={styles.charContainer}>
-                {/* 2D Background & Static character — unmounted in 3D mode so the
-                    opaque 3D WebView doesn't composite over a full-screen RN layer. */}
-                {!is3DMode && (
-                    <View style={styles.vrmFull}>
-                        {backgroundUrl && (
-                            <Image
-                                source={{ uri: backgroundUrl }}
-                                style={StyleSheet.absoluteFill}
-                                contentFit="cover"
-                            />
-                        )}
-                        {characterAvatar && (
-                            <Image
-                                source={{ uri: characterAvatar }}
-                                style={styles.staticCharacter}
-                                contentFit="contain"
-                                contentPosition="bottom center"
-                            />
-                        )}
-                    </View>
-                )}
-
-                {/* 3D Mode Overlay - Always mounted to avoid slow reloads */}
-                <View
-                    style={[
-                        StyleSheet.absoluteFill,
-                        {
-                            opacity: is3DMode ? 1 : 0,
-                            zIndex: is3DMode ? 2 : -1,
-                            pointerEvents: is3DMode ? "auto" : "none"
-                        }
-                    ]}
-                >
-                    <VRMViewer
-                        ref={vrmRef}
-                        transparent={false}
-                        onReady={() => setVrmReady(true)}
-                    />
-                </View>
-            </View>
-
-            {/* User Front Camera floating pip for Video Call */}
-            {isCameraMode && (
-                <View style={styles.pipCameraContainer}>
-                    <CameraView style={styles.pipCamera} facing="front" />
-                </View>
-            )}
-
-            {/* Visual Overlay when connecting (Setup Call Screen) */}
-            {voiceState.status === "connecting" && (
-                <BlurView intensity={90} tint="dark" style={[StyleSheet.absoluteFill, { zIndex: 999, justifyContent: 'center', alignItems: 'center' }]}>
-                    {/* Avatar + pulsing rings container */}
-                    <View style={{ alignItems: 'center', justifyContent: 'center', width: 220, height: 220 }}>
-                        {/* Pulsing rings – centered behind avatar */}
-                        <Animated.View style={{ position: 'absolute', width: 220, height: 220, borderRadius: 110, backgroundColor: 'rgba(255, 255, 255, 0.05)', transform: [{ scale: pulseAnim.interpolate({ inputRange: [0.3, 1], outputRange: [0.9, 1.4] }) }], opacity: pulseAnim }} />
-                        <Animated.View style={{ position: 'absolute', width: 170, height: 170, borderRadius: 85, backgroundColor: 'rgba(255, 255, 255, 0.1)', transform: [{ scale: pulseAnim.interpolate({ inputRange: [0.3, 1], outputRange: [0.8, 1.2] }) }], opacity: pulseAnim }} />
-
-                        {characterThumbnail && (
-                            <Image source={{ uri: characterThumbnail }} style={{ width: 140, height: 140, borderRadius: 70, borderWidth: 3, borderColor: '#fff' }} contentFit="cover" />
-                        )}
-                    </View>
-
-                    <Text style={{ fontSize: 32, fontWeight: 'bold', color: '#fff', marginTop: 30 }}>{characterName}</Text>
-                    <Animated.Text style={{ fontSize: 18, color: 'rgba(255,255,255,0.7)', opacity: pulseAnim, marginTop: 10 }}>{t("play.calling")}</Animated.Text>
-
-                    {/* End Call Button */}
-                    <Pressable
-                        style={{ width: 70, height: 70, borderRadius: 35, backgroundColor: '#FF5C7A', justifyContent: 'center', alignItems: 'center', position: 'absolute', bottom: 100, elevation: 5, shadowColor: '#FF5C7A', shadowOpacity: 0.5, shadowRadius: 10, shadowOffset: { width: 0, height: 5 } }}
-                        onPress={endCall}
-                    >
-                        <IconPhone size={32} color="#FFF" style={{ transform: [{ rotate: '135deg' }] }} />
-                    </Pressable>
-                </BlurView>
-            )}
-
-            {/* Top bar */}
-            <View style={styles.topBar}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                    {!isPro && (
-                        <Pressable onPress={() => setSubscriptionOpen(true)} hitSlop={8} style={styles.upgradeProInner}>
-                            <RubyIcon size={20} color="#FFFFFF" />
-                        </Pressable>
-                    )}
-                    <View>
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                            {isPro && (
-                                <Pressable onPress={() => setSubscriptionOpen(true)} hitSlop={8}>
-                                    <IconCrown size={18} color={GOLD} fill={GOLD} />
-                                </Pressable>
-                            )}
-                        </View>
-                    </View>
-                </View>
-
-                {/* The name and call-time line used to live here. The switcher
-                    reads them better than words did — it shows who is active
-                    and what else is available in the same glance — so it takes
-                    the space instead. */}
-                {!isKeyboardVisible && switcherChars.length > 1 && (
-                    <View style={styles.switcherInBar} pointerEvents="box-none">
-                        <CharacterSwitcher
-                            characters={switcherChars}
-                            activeId={characterId}
-                            onSelect={handleQuickSwitch}
-                            isBackgroundDark={isBackgroundDark}
-                            compact
-                        />
-                    </View>
-                )}
-            </View>
-
-            <View style={styles.leftFloatingContainer}>
-                <LiquidGlassView
-                    style={[
-                        styles.liquidToggleWrapper,
-                        { borderColor: surface.border },
-                        Platform.OS === "android" && { backgroundColor: surface.glass },
-                    ]}
-                    effect="regular"
-                    tintColor={surface.glass}
-                >
-                    <View style={styles.toggleRow}>
-                        <TouchableOpacity
-                            onPress={() => {
-                                if (is3DMode) {
-                                    setIs3DMode(false);
-                                }
-                            }}
-                            style={[styles.toggleOption, !is3DMode && styles.toggleOptionActive]}
-                        >
-                            <Text style={[
-                                styles.toggleLabel,
-                                !is3DMode ? styles.toggleLabelActive : { color: surface.muted }
-                            ]}>2D</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            onPress={() => {
-                                if (!is3DMode) {
-                                    if (!isPro) {
-                                        setSubscriptionOpen(true);
-                                    } else {
-                                        setVrmReady(false);
-                                        setIs3DMode(true);
-                                    }
-                                }
-                            }}
-                            style={[styles.toggleOption, is3DMode && styles.toggleOptionActive]}
-                        >
-                            <Text style={[
-                                styles.toggleLabel,
-                                is3DMode ? styles.toggleLabelActive : { color: surface.muted }
-                            ]}>3D</Text>
-                        </TouchableOpacity>
-                    </View>
-                </LiquidGlassView>
-                {!isPro && (
-                    <View style={styles.proBadgeLeft}>
-                        <Text style={styles.proBadgeLeftText}>PRO</Text>
-                    </View>
-                )}
-                {/* Ruby balance — right below the 2D/3D toggle. Tap to check in. */}
-                <Pressable
-                    onPress={() => setCheckinOpen(true)}
-                    hitSlop={8}
-                    style={[styles.rubyPill, { backgroundColor: surface.glass, borderColor: surface.border }]}
-                >
-                    <RubyIcon size={15} color={ACCENT} />
-                    <Text style={[styles.rubyPillText, { color: surface.icon }]}>{ruby}</Text>
-                </Pressable>
-            </View>
+            <SceneLayer
+                is3DMode={is3DMode}
+                setIs3DMode={setIs3DMode}
+                setVrmReady={setVrmReady}
+                vrmRef={vrmRef}
+                backgroundUrl={backgroundUrl}
+                blurScene={isNudeBlurred}
+                characterAvatar={characterAvatar}
+                characterThumbnail={characterThumbnail}
+                characterName={characterName}
+                onOpenBond={() => setBondOpen(true)}
+                onOpenGem={() => (isPro ? setQuestOpen(true) : setSubscriptionOpen(true))}
+                onOpenCheckin={() => setCheckinOpen(true)}
+                streak={streak}
+                needsCheckin={needsCheckin}
+                bondLevel={bondLevel}
+                bondProgress={bondProgress}
+                characterId={characterId}
+                isPro={isPro}
+                isCameraMode={isCameraMode}
+                isKeyboardVisible={isKeyboardVisible}
+                isBackgroundDark={isBackgroundDark}
+                surface={surface}
+                pulseAnim={pulseAnim}
+                voiceStatus={voiceState.status}
+                endCall={endCall}
+                switcherChars={switcherChars}
+                onQuickSwitch={handleQuickSwitch}
+                ruby={ruby}
+                onOpenQuests={() => {
+                    track.homeHeartsSelect(ruby);
+                    setQuestOpen(true);
+                }}
+                setSubscriptionOpen={setSubscriptionOpen}
+            />
 
             {/* ─── Top right bubble actions ─── */}
             {!isKeyboardVisible && (
                 <ActionsBubble
+                    onToggleChat={() => setChatVisible((v) => !v)}
+                    chatVisible={chatVisible}
                     conversationStatus={voiceState.isConnected ? "connected" : voiceState.status}
                     agentElevenlabsId={agentElevenlabsId}
                     isPro={isPro}
                     is3DMode={is3DMode}
                     isBackgroundDark={isBackgroundDark}
-                    isDancing={isDancing}
+                    isDancing={dance.isDancing}
                     isCameraMode={isCameraMode}
-                    onOpenCharacter={() => setCharSheetOpen(true)}
-                    onOpenCostume={() => setCostumeSheetOpen(true)}
-                    onOpenScene={() => setBgSheetOpen(true)}
-                    onOpenGallery={() => setMediaSheetOpen(true)}
-                    onOpenSettings={() => setSettingsSheetOpen(true)}
+                    onOpenCharacter={() => {
+                        track.homeCharacterSwitchSelect();
+                        setCharSheetOpen(true);
+                    }}
+                    onOpenCostume={() => {
+                        track.homeOutfitSelect();
+                        setCostumeSheetOpen(true);
+                    }}
+                    onOpenScene={() => {
+                        track.homeSceneSelect();
+                        setBgSheetOpen(true);
+                    }}
+                    onOpenGallery={() => {
+                        track.homeGallerySelect();
+                        setMediaSheetOpen(true);
+                    }}
+                    onOpenSettings={() => {
+                        track.homeSettingsSelect();
+                        setSettingsSheetOpen(true);
+                    }}
                     onOpenCheckin={() => setCheckinOpen(true)}
+                    onOpenQuests={() => {
+                        track.homeHeartsSelect(ruby);
+                        setQuestOpen(true);
+                    }}
                     onToggleDance={() => {
-                        if (!isPro) {
-                            setSubscriptionOpen(true);
-                            return;
-                        }
-                        if (!is3DMode) {
-                            setVrmReady(false);
-                            setIs3DMode(true);
-                            setIsDancing(true);
-                        } else {
-                            if (isDancing) {
-                                vrmRef.current?.stopAnimation();
-                                setIsDancing(false);
-                            } else {
-                                vrmRef.current?.loadNextAnimation();
-                                setIsDancing(true);
-                            }
-                        }
+                        track.homeDanceSelect();
+                        dance.toggleDance();
                     }}
                     onToggle3D={() => { }} // Now handled independently on the left
-                    onToggleCall={handleToggleVoiceMode}
+                    onToggleCall={() => {
+                        track.homeVideoCallSelect();
+                        handleToggleVoiceMode();
+                    }}
                     onToggleCamera={handleToggleCameraMode}
-                    onOpenSubscription={() => setSubscriptionOpen(true)}
+                    onOpenSubscription={() => {
+                        track.homePremiumSelect();
+                        setSubscriptionOpen(true);
+                    }}
                 />
             )}
 
@@ -1371,126 +958,45 @@ export default function PlayScreen() {
                 />
             )}
 
-            {/* ─── Chat overlay ─── */}
-            <View
-                style={styles.chatOverlay}
-                pointerEvents="box-none"
-            >
-                <View style={[styles.chatContainer, { paddingBottom: keyboardPadding }]} pointerEvents="box-none">
+                {chatVisible && <ChatOverlay
+                    displayMessages={displayMessages}
+                    renderMessage={renderMessage}
+                    flatListRef={flatListRef}
+                    inputText={inputText}
+                    setInputText={setInputText}
+                    handleSend={handleSend}
+                    characterName={characterName}
+                    keyboardPadding={keyboardPadding}
+                    isBackgroundDark={isBackgroundDark}
+                    surface={surface}
+                    showPlayBanner={showPlayBanner}
+                    isSending={isSending}
+                    dot1Anim={dot1Anim}
+                    dot2Anim={dot2Anim}
+                    dot3Anim={dot3Anim}
+                    agentElevenlabsId={agentElevenlabsId}
+                    isInCall={voiceState.isConnected || voiceState.status === "connected"}
+                    onToggleCall={() => {
+                        track.homeVideoCallSelect();
+                        handleToggleVoiceMode();
+                    }}
+                />}
 
-                    <View style={styles.chatMessagesWrapper} pointerEvents="box-none">
-                        <FlatList
-                            ref={flatListRef}
-                            data={displayMessages}
-                            renderItem={renderMessage}
-                            keyExtractor={(item) => item.id}
-                            style={styles.messageList}
-                            contentContainerStyle={styles.messageListContent}
-                            showsVerticalScrollIndicator={false}
-                            keyboardShouldPersistTaps="handled"
-                            keyboardDismissMode="on-drag"
-                            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
-                            ListFooterComponent={
-                                isSending ? (
-                                    isLiquidGlassSupported ? (
-                                        <LiquidGlassView
-                                            style={[styles.messageBubble, styles.aiBubbleLiquid]}
-                                            effect="regular"
-                                            tintColor="rgba(15, 5, 30, 0.4)"
-                                        >
-                                            <Text style={styles.aiName}>{characterName}</Text>
-                                            <View style={{ flexDirection: 'row', alignItems: 'center', height: 20, paddingTop: 4 }}>
-                                                {[dot1Anim, dot2Anim, dot3Anim].map((anim, i) => (
-                                                    <Animated.View key={i} style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: 'rgba(255,107,157,0.95)', marginHorizontal: 2, transform: [{ translateY: anim }] }} />
-                                                ))}
-                                            </View>
-                                        </LiquidGlassView>
-                                    ) : (
-                                        <View style={[styles.messageBubble, styles.aiBubble]}>
-                                            <Text style={styles.aiName}>{characterName}</Text>
-                                            <View style={{ flexDirection: 'row', alignItems: 'center', height: 20, paddingTop: 4 }}>
-                                                {[dot1Anim, dot2Anim, dot3Anim].map((anim, i) => (
-                                                    <Animated.View key={i} style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: 'rgba(255,107,157,0.95)', marginHorizontal: 2, transform: [{ translateY: anim }] }} />
-                                                ))}
-                                            </View>
-                                        </View>
-                                    )
-                                ) : null
-                            }
-                        />
-                    </View>
-
-                    <View
-                        style={[
-                            styles.inputBar,
-                            // The banner now carries the home-indicator inset, so
-                            // the composer must not also reserve it or the two
-                            // end up separated by dead space.
-                            showPlayBanner && { paddingBottom: 10 },
-                        ]}
-                    >
-                        {isLiquidGlassSupported ? (
-                            <LiquidGlassView
-                                style={[
-                                    styles.liquidInputWrapper,
-                                    !isBackgroundDark && { backgroundColor: 'rgba(0,0,0,0.05)' }
-                                ]}
-                                effect="regular"
-                                interactive
-                                tintColor={surface.veil}
-                            >
-                                <TextInput
-                                    style={[styles.textInputLiquid, { color: surface.icon }]}
-                                    placeholder={`Message ${characterName}...`}
-                                    placeholderTextColor={surface.muted}
-                                    value={inputText}
-                                    onChangeText={setInputText}
-                                    multiline
-                                    maxLength={500}
-                                    returnKeyType="default"
-                                    blurOnSubmit={false}
-                                />
-                            </LiquidGlassView>
-                        ) : (
-                            <View style={styles.inputBlurWrapper}>
-                                <TextInput
-                                    style={[styles.textInputLiquid, { color: '#FFFFFF' }]}
-                                    placeholder={`Message ${characterName}...`}
-                                    placeholderTextColor="rgba(255,255,255,0.55)"
-                                    value={inputText}
-                                    onChangeText={setInputText}
-                                    multiline
-                                    maxLength={500}
-                                    returnKeyType="default"
-                                    blurOnSubmit={false}
-                                />
-                            </View>
-                        )}
-                        <Button
-                            variant="liquid"
-                            isIconOnly
-                            startIcon={IconSend}
-                            startIconSize={20}
-                            startIconColor={surface.icon}
-                            tintColor={isBackgroundDark ? "rgba(255, 107, 157, 0.85)" : "rgba(255, 107, 157, 0.95)"}
-                            onPress={handleSend}
-                            disabled={!inputText.trim() || isSending}
-                            style={styles.sendBtnLiquid}
-                        />
-                    </View>
-
-                    {/* Banner pinned below the composer, with the divider the
-                        policy requires between ad and content. Hidden while the
-                        keyboard is up — it would be pushed into the composer,
-                        and a banner that moves over the 3D surface forces the
-                        platform view to recomposite every frame. */}
-                    {showPlayBanner && (
-                        <View style={styles.playBannerSlot}>
-                            <AdBanner placement="play_chat" isBackgroundDark={isBackgroundDark} />
-                        </View>
-                    )}
+                {/* Banner: pinned to the bottom of the screen rather than to the
+                bottom of the chat block, because hiding the chat used to hide
+                the ad with it. Still gone for PRO and while the keyboard is
+                up (see showPlayBanner). */}
+            {showPlayBanner && (
+                <View style={styles.playBannerPinned}>
+                    <AdBanner placement="play_chat" isBackgroundDark={isBackgroundDark} />
                 </View>
+            )}
 
+            {/* Cùng lớp phủ (absolute inset-0, zIndex 20) mà khối chat dùng.
+                    VoiceLoadingOverlay không phải Modal — bỏ wrapper này ra thì
+                    nó tụt xuống dưới khối chat. Hai lớp là anh em nên lớp này
+                    vẫn vẽ đè lên, đúng như thứ tự cũ khi còn lồng nhau. */}
+                <View style={styles.chatOverlay} pointerEvents="box-none">
                 <AdGateDialog
                     visible={switchGateFor !== null}
                     body={t("ads.gate_body_char", { name: switchGateFor?.name ?? "" })}
@@ -1514,57 +1020,51 @@ export default function PlayScreen() {
                     onCancel={() => setSwitchGateFor(null)}
                 />
 
+
                 <VoiceLoadingOverlay
                     visible={voiceState.isBooting || voiceState.status === "connecting"}
                     characterName={characterName}
                     characterAvatar={characterThumbnail ?? undefined}
                 />
+                </View>
 
-            </View>
 
-            {/* ─── Sheets ─── */}
-            <CharacterSheet
-                isOpened={charSheetOpen}
-                onIsOpenedChange={(open) => {
-                    setCharSheetOpen(open);
-                    // Show an interstitial when leaving the character sheet
-                    // (frequency-capped & skipped for PRO inside the hook).
-                    if (!open) showInterstitial();
-                }}
-                currentCharacterId={characterId}
-                onSelect={handleCharacterSelect}
+            <PlaySheets
+                user={user}
+                charSheetOpen={charSheetOpen}
+                setCharSheetOpen={setCharSheetOpen}
+                costumeSheetOpen={costumeSheetOpen}
+                setCostumeSheetOpen={setCostumeSheetOpen}
+                bgSheetOpen={bgSheetOpen}
+                setBgSheetOpen={setBgSheetOpen}
+                settingsSheetOpen={settingsSheetOpen}
+                setSettingsSheetOpen={setSettingsSheetOpen}
+                subscriptionOpen={subscriptionOpen}
+                setSubscriptionOpen={setSubscriptionOpen}
+                mediaSheetOpen={mediaSheetOpen}
+                setMediaSheetOpen={setMediaSheetOpen}
+                checkinOpen={checkinOpen}
+                setCheckinOpen={setCheckinOpen}
+                questOpen={questOpen}
+                bondOpen={bondOpen}
+                bondLevel={bondLevel}
+                bondProgress={bondProgress}
+                setBondOpen={setBondOpen}
+                characterName={characterName}
+                setQuestOpen={setQuestOpen}
+                dance={dance}
+                sceneImage={characterAvatar ?? characterThumbnail}
                 isPro={isPro}
-                onOpenSubscription={() => setSubscriptionOpen(true)}
-                userId={user?.id}
-            />
-            <CostumeSheet
-                isOpened={costumeSheetOpen}
-                onIsOpenedChange={setCostumeSheetOpen}
                 characterId={characterId}
-                currentCostumeUrl={characterModelUrl}
-                onSelect={handleCostumeSelect}
-                isPro={isPro}
-                onOpenSubscription={() => setSubscriptionOpen(true)}
-                userId={user?.id}
-            />
-            <BackgroundSheet
-                isOpened={bgSheetOpen}
-                onIsOpenedChange={setBgSheetOpen}
-                currentBackgroundId={backgroundId}
-                onSelect={handleBackgroundSelect}
-                isPro={isPro}
-                onOpenSubscription={() => setSubscriptionOpen(true)}
-                userId={user?.id}
-            />
-            <SettingsSheet
-                isOpened={settingsSheetOpen}
-                onIsOpenedChange={setSettingsSheetOpen}
-                userId={user?.id}
-                userEmail={user?.email}
-                onOpenSubscription={() => {
-                    setSettingsSheetOpen(false);
-                    setTimeout(() => setSubscriptionOpen(true), 400);
-                }}
+                characterModelUrl={characterModelUrl}
+                backgroundId={backgroundId}
+                backgroundUrl={backgroundUrl}
+                onCharacterSelect={handleCharacterSelect}
+                onCostumeSelect={handleCostumeSelect}
+                onBackgroundSelect={handleBackgroundSelect}
+                onRubyClaimed={(bal) => { setRubyBalance(bal); setCheckinTick((n) => n + 1); }}
+                onPurchaseSuccess={refreshStatus}
+                onCharacterSheetClosed={showInterstitial}
                 onResetOnboarding={async () => {
                     if (!user?.id) return;
                     // Delete user_assets (checkOnboarding checks this table)
@@ -1573,376 +1073,22 @@ export default function PlayScreen() {
                     setIsOnboarded(false);
                 }}
             />
-            <SubscriptionSheet
-                isOpened={subscriptionOpen}
-                onClose={() => setSubscriptionOpen(false)}
-                onPurchaseSuccess={() => {
-                    // Refresh to unlock content
-                    refreshStatus();
+
+            {/* Sensitive content gate (become_nude). Last in the tree and at
+                zIndex 500 so nothing floats over what it is meant to hide. */}
+            <SensitiveOverlay
+                visible={isNudeBlurred}
+                onUpgrade={() => setSubscriptionOpen(true)}
+                onDismiss={() => {
+                    setIsNudeBlurred(false);
+                    setIs3DMode(false);
+                    // Revert to base model so they don't stay nude if they turn 3D back on
+                    if (baseModelUrl) {
+                        setCharacterModelUrl(baseModelUrl);
+                        vrmRef.current?.loadModelByURL(baseModelUrl);
+                    }
                 }}
-                currentModelUrl={characterModelUrl}
-                currentBackgroundUrl={backgroundUrl}
-                currentCharacterId={characterId}
             />
-            <MediaSheet
-                isOpened={mediaSheetOpen}
-                onIsOpenedChange={setMediaSheetOpen}
-                characterId={characterId}
-                onOpenSubscription={() => { setMediaSheetOpen(false); setSubscriptionOpen(true); }}
-            />
-
-            <CheckinSheet
-                isOpened={checkinOpen}
-                onIsOpenedChange={setCheckinOpen}
-                userId={user?.id}
-                onClaimed={(bal) => setRuby(bal)}
-            />
-
-            {/* Blurred Overlay for Sensitive Content (become_nude action) - Moved to root end to ensure absolute top priority */}
-            {isNudeBlurred && (
-                <BlurView intensity={65} tint="dark" style={[StyleSheet.absoluteFill, { zIndex: 500 }]}>
-                    <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 40 }}>
-                        <View style={{ backgroundColor: 'rgba(255, 107, 157, 0.18)', padding: 20, borderRadius: 100, marginBottom: 20 }}>
-                            <LockIcon size={40} color={ACCENT} />
-                        </View>
-                        <Text style={{ color: "#fff", fontSize: 24, fontWeight: "800", textAlign: "center", marginBottom: 12 }}>
-                            Sensitive Activity
-                        </Text>
-                        <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 16, textAlign: "center", lineHeight: 22, marginBottom: 30 }}>
-                            You reached a special interaction! Become a PRO user to unlock exclusive 3D content and see this character's true self.
-                        </Text>
-                        <Pressable
-                            style={{ backgroundColor: ACCENT, paddingHorizontal: 30, paddingVertical: 14, borderRadius: 30, shadowColor: ACCENT, shadowOpacity: 0.5, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 6 }}
-                            onPress={() => setSubscriptionOpen(true)}
-                        >
-                            <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>{t("play.unlock_pro")}</Text>
-                        </Pressable>
-                        <Pressable
-                            style={{ marginTop: 20, padding: 10 }}
-                            onPress={() => {
-                                setIsNudeBlurred(false);
-                                setIs3DMode(false);
-                                // Revert to base model so they don't stay nude if they turn 3D back on
-                                if (baseModelUrl) {
-                                    setCharacterModelUrl(baseModelUrl);
-                                    vrmRef.current?.loadModelByURL(baseModelUrl);
-                                }
-                            }}
-                        >
-                            <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 14 }}>{t("play.dismiss")}</Text>
-                        </Pressable>
-                    </View>
-                </BlurView>
-            )}
         </View>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: "#050505", // Near black background
-    },
-    vrmFull: {
-        ...StyleSheet.absoluteFillObject,
-    },
-    pipCameraContainer: {
-        position: 'absolute',
-        top: 100,
-        left: 20,
-        width: 100,
-        height: 140,
-        borderRadius: 16,
-        overflow: 'hidden',
-        borderWidth: 2,
-        borderColor: 'rgba(255,255,255,0.3)',
-        zIndex: 50,
-    },
-    pipCamera: {
-        flex: 1,
-        transform: [{ scaleX: -1 }], // Mirror front camera
-    },
-
-    // Absolutely centred on the bar rather than flexed into the space left
-    // over: with flex the diamond's width pushed the whole cluster right of
-    // centre. box-none pointer events keep the diamond tappable underneath.
-    switcherInBar: {
-        position: "absolute",
-        left: 0,
-        right: 0,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    topBar: {
-        position: "absolute", top: Platform.OS === "ios" ? 60 : 40,
-        left: 20, right: 20,
-        flexDirection: "row", justifyContent: "space-between", alignItems: "center",
-        zIndex: 5,
-    },
-    charNameTop: {
-        fontSize: 20, fontWeight: "700", color: "#FFFFFF",
-        textShadowColor: "rgba(0,0,0,0.5)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4,
-    },
-    statusText: { fontSize: 12, color: "#48BB78", fontWeight: "500", marginTop: 2 },
-    upgradeProInner: {
-        width: 38,
-        height: 38,
-        borderRadius: 19,
-        justifyContent: "center",
-        alignItems: "center",
-        backgroundColor: ACCENT,
-        borderWidth: 1.5,
-        borderColor: "rgba(255,255,255,0.85)",
-        shadowColor: ACCENT,
-        shadowOpacity: 0.75,
-        shadowRadius: 9,
-        shadowOffset: { width: 0, height: 2 },
-        elevation: 6,
-    },
-    rubyPill: {
-        flexDirection: "row",
-        alignItems: "center",
-        alignSelf: "flex-start",
-        gap: 5,
-        paddingHorizontal: 12,
-        height: 32,
-        borderRadius: 16,
-        marginTop: 8,
-        backgroundColor: GLASS_FILL,
-        borderWidth: 1,
-        borderColor: GLASS_BORDER,
-    },
-    rubyPillText: {
-        color: "#FFFFFF",
-        fontSize: 14,
-        fontWeight: "700",
-    },
-    settingsBtn: {
-        // kept for potential reuse
-    },
-
-    // Left bubble actions
-    leftActions: {
-        position: "absolute", left: 14,
-        bottom: Platform.OS === "ios" ? 120 : 100,
-        gap: 10, zIndex: 5,
-    },
-
-    // Static character (non-3D mode)
-    staticCharacter: {
-        ...StyleSheet.absoluteFillObject,
-    },
-
-    // 3D toggle independent
-    leftFloatingContainer: {
-        position: 'absolute',
-        left: 20,
-        top: Platform.OS === 'ios' ? 140 : 120, // Below topBar info
-        zIndex: 100,
-    },
-    impressive3DBtn: {
-        width: 100,
-        height: 48,
-        borderRadius: 14,
-        borderWidth: 1.5,
-        borderColor: 'rgba(255,255,255,0.25)',
-    },
-    liquidToggleWrapper: {
-        borderRadius: 24,
-        overflow: 'hidden',
-        width: 110,
-        height: 42,
-        borderWidth: 1,
-        borderColor: GLASS_BORDER,
-        backgroundColor: Platform.OS === 'android' ? GLASS_FILL : 'transparent',
-        shadowColor: '#1A0A2E',
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        shadowOffset: { width: 0, height: 3 },
-        elevation: 4,
-    },
-    toggleRow: {
-        flexDirection: 'row',
-        flex: 1,
-        padding: 4,
-        alignItems: 'stretch',
-    },
-    toggleOption: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderRadius: 20,
-    },
-    toggleOptionActive: {
-        backgroundColor: ACCENT,
-        shadowColor: ACCENT,
-        shadowOpacity: 0.55,
-        shadowRadius: 8,
-        shadowOffset: { width: 0, height: 2 },
-        elevation: 4,
-    },
-    toggleLabel: {
-        fontSize: 12,
-        fontWeight: '800',
-    },
-    toggleLabelInactive: {
-        color: 'rgba(201,166,255,0.75)',
-    },
-    toggleLabelActive: {
-        color: '#FFFFFF',
-    },
-
-    proBadgeLeft: {
-        position: 'absolute',
-        top: -6,
-        right: -6,
-        backgroundColor: GOLD,
-        borderRadius: 8,
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        zIndex: 10,
-    },
-    proBadgeLeftText: {
-        fontSize: 10,
-        fontWeight: "900",
-        color: "#fff",
-        letterSpacing: 0.5,
-    },
-
-    // 3D toggle PRO badge (legacy)
-    proBadgeMini: {
-        position: "absolute", top: -4, right: -4,
-        backgroundColor: GOLD, borderRadius: 6,
-        paddingHorizontal: 4, paddingVertical: 1,
-    },
-    proBadgeMiniText: {
-        fontSize: 7, fontWeight: "900", color: "#fff",
-    },
-
-
-    // Chat overlay
-    charContainer: {
-        ...StyleSheet.absoluteFillObject,
-        zIndex: 0,
-    },
-    nudeBlurContainer: {
-        ...StyleSheet.absoluteFillObject,
-        zIndex: 100,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    chatOverlay: {
-        position: "absolute", top: 0, bottom: 0, left: 0, right: 0, zIndex: 20,
-    },
-    chatContainer: {
-        flex: 1, backgroundColor: "transparent",
-        overflow: "hidden",
-        justifyContent: "flex-end", // Push everything to bottom
-    },
-    chatMessagesWrapper: {
-        width: "86%",
-        maxHeight: height * 0.3,
-        alignSelf: "flex-start", // align left
-    },
-
-
-    // Messages
-    messageList: { flexGrow: 1 },
-    messageListContent: { padding: 16, paddingBottom: 8 },
-    messageBubble: { maxWidth: "80%", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 18, marginBottom: 8 },
-    userBubble: {
-        alignSelf: "flex-end",
-        backgroundColor: ACCENT,
-        borderBottomRightRadius: 6,
-        shadowColor: ACCENT_GLOW,
-        shadowOpacity: 1,
-        shadowRadius: 10,
-        shadowOffset: { width: 0, height: 3 },
-        elevation: 4,
-    },
-    aiBubble: { alignSelf: "flex-start", backgroundColor: GLASS_FILL, borderWidth: 1, borderColor: GLASS_BORDER, borderBottomLeftRadius: 6 },
-    userBubbleLiquid: {
-        alignSelf: "flex-end",
-        borderBottomRightRadius: 6,
-        backgroundColor: Platform.OS === 'android' ? 'rgba(255, 107, 157, 0.22)' : 'transparent',
-    },
-    aiBubbleLiquid: {
-        alignSelf: "flex-start",
-        borderBottomLeftRadius: 6,
-        backgroundColor: Platform.OS === 'android' ? 'rgba(15, 5, 30, 0.3)' : 'transparent',
-    },
-    aiName: { fontSize: 11, fontWeight: "700", color: "rgba(255, 150, 190, 0.95)", marginBottom: 3, letterSpacing: 0.2 },
-    messageText: {
-        fontSize: 14, lineHeight: 20,
-    },
-    mediaContainer: {
-        width: 200, height: 260, borderRadius: 12, overflow: "hidden", marginBottom: 8,
-    },
-    messageMedia: {
-        width: "100%", height: "100%",
-    },
-    lockedMediaOverlay: {
-        ...StyleSheet.absoluteFillObject,
-        alignItems: "center", justifyContent: "center",
-        backgroundColor: "rgba(0,0,0,0.3)",
-    },
-    lockBadge: {
-        width: 48, height: 48, borderRadius: 24,
-        backgroundColor: "rgba(255, 107, 157, 0.6)",
-        alignItems: "center", justifyContent: "center",
-        marginBottom: 8,
-    },
-    lockText: {
-        fontSize: 12, fontWeight: "800", color: "#fff", letterSpacing: 1,
-    },
-    userText: { color: "#FFFFFF" },
-    aiText: { color: "rgba(255,255,255,0.85)" },
-
-    // Input
-    playBannerSlot: { paddingBottom: Platform.OS === "ios" ? 20 : 0 },
-    inputBar: {
-        flexDirection: "row", alignItems: "flex-end",
-        paddingHorizontal: 16, paddingVertical: 10,
-        paddingBottom: Platform.OS === "ios" ? 30 : 10,
-        borderTopWidth: 1, borderTopColor: "rgba(255, 255, 255, 0.06)", gap: 10,
-    },
-    textInput: {
-        flex: 1, backgroundColor: "rgba(255, 143, 184, 0.08)",
-        borderRadius: 22, paddingHorizontal: 18, paddingVertical: 10,
-        fontSize: 15, color: "#FFFFFF", maxHeight: 100,
-        borderWidth: 1, borderColor: "rgba(255, 143, 184, 0.15)",
-    },
-    liquidInputWrapper: {
-        flex: 1,
-        borderRadius: 22,
-        overflow: 'hidden',
-        minHeight: 44,
-        maxHeight: 120,
-        borderWidth: Platform.OS === 'android' ? 1 : 0,
-        borderColor: GLASS_BORDER,
-        backgroundColor: Platform.OS === 'android' ? GLASS_FILL : 'transparent',
-        justifyContent: 'center',
-    },
-    inputBlurWrapper: {
-        flex: 1,
-        borderRadius: 22,
-        overflow: 'hidden',
-        minHeight: 44,
-        maxHeight: 120,
-        justifyContent: 'center',
-        backgroundColor: GLASS_FILL,
-        borderWidth: 1,
-        borderColor: GLASS_BORDER,
-    },
-    textInputLiquid: {
-        flex: 1,
-        paddingHorizontal: 18,
-        paddingVertical: Platform.OS === 'ios' ? 12 : 10,
-        fontSize: 15,
-        color: "#FFFFFF",
-        textAlignVertical: 'center',
-    },
-    sendBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: "#9B59FF", justifyContent: "center", alignItems: "center" },
-    sendBtnLiquid: { width: 44, height: 44, borderRadius: 22 },
-    sendBtnDisabled: { backgroundColor: "rgba(255, 107, 157, 0.3)" },
-});

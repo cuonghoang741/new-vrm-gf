@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { View, Text, StyleSheet, Platform } from "react-native";
+import { useTranslation } from "react-i18next";
 import {
     IconUser,
-    IconWoman,
+    IconHanger,
     IconMap2,
     IconPhoto,
     IconMusic,
@@ -11,12 +12,14 @@ import {
     IconPhoneCall,
     IconPhoneOff,
     IconVideo,
-    IconCrown,
-    IconChevronDown,
-    IconChevronUp,
+    IconChevronLeft,
+    IconChevronRight,
     IconSettings,
     IconBadge3d,
     IconGift,
+    IconCalendarCheck,
+    IconMessage,
+    IconMessageOff,
 } from "@tabler/icons-react-native";
 import Button from "./common/Button";
 import { surfaceOn } from "../theme/surface";
@@ -46,7 +49,12 @@ interface ActionsBubbleProps {
     onToggleCamera: () => void;
     onOpenSubscription: () => void;
     onOpenSettings: () => void;
+    /** Show or hide the chat overlay, so the scene can be seen unobstructed. */
+    onToggleChat: () => void;
+    chatVisible: boolean;
     onOpenCheckin: () => void;
+    /** Quest page (daily/special quests, free ruby, ruby shop). */
+    onOpenQuests: () => void;
 }
 
 export default function ActionsBubble({
@@ -57,6 +65,8 @@ export default function ActionsBubble({
     isBackgroundDark = true,
     isDancing,
     isCameraMode,
+    onToggleChat,
+    chatVisible,
     onOpenCharacter,
     onOpenCostume,
     onOpenScene,
@@ -68,7 +78,9 @@ export default function ActionsBubble({
     onOpenSubscription,
     onOpenSettings,
     onOpenCheckin,
+    onOpenQuests,
 }: ActionsBubbleProps) {
+    const { t } = useTranslation();
     const isInCall = ["connected", "connecting"].includes(conversationStatus);
     const [showLabels, setShowLabels] = useState(false);
 
@@ -81,38 +93,9 @@ export default function ActionsBubble({
 
     return (
         <View style={styles.actionsBubble}>
-            {/* ─── Toggle Labels Button ─── */}
-            <Button
-                variant="liquid"
-                size="sm"
-                tintColor={surface.glass}
-                borderColor={surface.border}
-                isIconOnly
-                startIcon={showLabels ? IconChevronUp : IconChevronDown}
-                startIconColor={iconColor}
-                textColor={iconColor}
-                onPress={() => setShowLabels(!showLabels)}
-            />
-
             {/* ─── Normal mode: show all action buttons ─── */}
             {!isInCall && (
                 <>
-                    <View>
-                        <Button
-                            variant="liquid"
-                            size="sm"
-                            tintColor={surface.glass}
-                            borderColor={surface.border}
-                            startIcon={IconGift}
-                            startIconColor={iconColor}
-                            textColor={iconColor}
-                            onPress={onOpenCheckin}
-                            isIconOnly={!showLabels}
-                        >
-                            Daily
-                        </Button>
-                        <View style={[styles.notificationDot, { backgroundColor: surface.accent, borderColor: surface.glass, shadowColor: surface.accent }]} />
-                    </View>
                     <Button
                         variant="liquid"
                         size="sm"
@@ -124,7 +107,36 @@ export default function ActionsBubble({
                         onPress={onOpenSettings}
                         isIconOnly={!showLabels}
                     >
-                        Settings
+                        {t("act.settings")}
+                    </Button>
+                    <View>
+                        <Button
+                            variant="liquid"
+                            size="sm"
+                            tintColor={surface.glass}
+                            borderColor={surface.border}
+                            startIcon={IconGift}
+                            startIconColor={iconColor}
+                            textColor={iconColor}
+                            onPress={onOpenQuests}
+                            isIconOnly={!showLabels}
+                        >
+                            {t("act.quests")}
+                        </Button>
+                        <View style={[styles.notificationDot, { backgroundColor: surface.accent, borderColor: surface.glass, shadowColor: surface.accent }]} />
+                    </View>
+                    <Button
+                        variant="liquid"
+                        size="sm"
+                        tintColor={surface.glass}
+                        borderColor={surface.border}
+                        startIcon={IconCalendarCheck}
+                        startIconColor={iconColor}
+                        textColor={iconColor}
+                        onPress={onOpenCheckin}
+                        isIconOnly={!showLabels}
+                    >
+                        {t("act.checkin")}
                     </Button>
                     <View>
                         <Button
@@ -138,7 +150,7 @@ export default function ActionsBubble({
                             onPress={onOpenCharacter}
                             isIconOnly={!showLabels}
                         >
-                            Character
+                            {t("act.character")}
                         </Button>
                         <View style={[styles.notificationDot, { backgroundColor: surface.accent, borderColor: surface.glass, shadowColor: surface.accent }]} />
                     </View>
@@ -149,13 +161,13 @@ export default function ActionsBubble({
                             size="sm"
                             tintColor={surface.glass}
                             borderColor={surface.border}
-                            startIcon={IconWoman}
+                            startIcon={IconHanger}
                             startIconColor={iconColor}
                             textColor={iconColor}
                             onPress={onOpenCostume}
                             isIconOnly={!showLabels}
                         >
-                            Costume
+                            {t("act.costume")}
                         </Button>
                         <View style={[styles.notificationDot, { backgroundColor: surface.accent, borderColor: surface.glass, shadowColor: surface.accent }]} />
                     </View>
@@ -183,7 +195,7 @@ export default function ActionsBubble({
                         onPress={onOpenScene}
                         isIconOnly={!showLabels}
                     >
-                        Location
+                        {t("act.location")}
                     </Button>
                     <View>
                         <Button
@@ -197,7 +209,7 @@ export default function ActionsBubble({
                             onPress={onOpenGallery}
                             isIconOnly={!showLabels}
                         >
-                            Gallery
+                            {t("act.gallery")}
                         </Button>
                         <View style={[styles.notificationDot, { backgroundColor: surface.accent, borderColor: surface.glass, shadowColor: surface.accent }]} />
                     </View>
@@ -213,9 +225,10 @@ export default function ActionsBubble({
                             onPress={onToggleDance}
                             isIconOnly={!showLabels}
                         >
-                            {isDancing ? "Stop" : "Dance"}
+                            {isDancing ? t("act.stop") : t("act.dance")}
                         </Button>
-                        {!isPro && <View style={[styles.proBadgeMini, { backgroundColor: surface.gold }]}><Text style={styles.proBadgeMiniText}>PRO</Text></View>}
+                        {/* No badge: the button opens the dance picker, where
+                            every dance shows its own lock (free, ad, PRO, ruby). */}
                     </View>
 
                 </>
@@ -234,47 +247,41 @@ export default function ActionsBubble({
                     onPress={onToggleCamera}
                     isIconOnly={!showLabels}
                 >
-                    {isCameraMode ? "Cam On" : "FaceTime"}
+                    {isCameraMode ? t("act.cam_on") : "FaceTime"}
                 </Button>
             )}
 
-            {/* ─── Call / End Call button (always visible if agent exists) ─── */}
-            {agentElevenlabsId && (
-                <View>
-                    <Button
-                        variant={isInCall ? "solid" : "liquid"}
-                        colorScheme={isInCall ? "error" : undefined}
-                        size="sm"
-                        tintColor={surface.glass}
-                        borderColor={surface.border}
-                        startIcon={isInCall ? IconPhoneOff : IconPhoneCall}
-                        startIconColor={isInCall ? surface.danger : iconColor}
-                        textColor={isInCall ? surface.danger : iconColor}
-                        onPress={onToggleCall}
-                        isIconOnly={!showLabels}
-                    >
-                        {isInCall ? "End Call" : "Call"}
-                    </Button>
-                    {/* {!isPro && !isInCall && <View style={[styles.proBadgeMini, { backgroundColor: surface.gold }]}><Text style={styles.proBadgeMiniText}>PRO</Text></View>} */}
-                </View>
-            )}
-
-            {/* ─── PRO badge (hidden during call) ─── */}
-            {!isPro && !isInCall && (
+            {/* ─── Show / hide the chat, so the scene can be seen clean ─── */}
+            {!isInCall && (
                 <Button
                     variant="liquid"
                     size="sm"
                     tintColor={surface.glass}
                     borderColor={surface.border}
-                    startIcon={IconCrown}
-                    startIconColor={surface.gold}
-                    textColor={surface.gold}
-                    onPress={onOpenSubscription}
+                    startIcon={chatVisible ? IconMessageOff : IconMessage}
+                    startIconColor={iconColor}
+                    textColor={iconColor}
+                    onPress={onToggleChat}
                     isIconOnly={!showLabels}
                 >
-                    PRO
+                    {chatVisible ? t("play.hide_chat") : t("play.show_chat")}
                 </Button>
             )}
+            {/* ─── Labels on/off ───
+                Last in the rail, not first: it is the one control that is
+                about the rail rather than about her, and it opens sideways,
+                so a left chevron says where the labels will appear. */}
+            <Button
+                variant="liquid"
+                size="sm"
+                tintColor={surface.glass}
+                borderColor={surface.border}
+                isIconOnly
+                startIcon={showLabels ? IconChevronRight : IconChevronLeft}
+                startIconColor={iconColor}
+                textColor={iconColor}
+                onPress={() => setShowLabels(!showLabels)}
+            />
         </View>
     );
 }
@@ -287,6 +294,11 @@ const styles = StyleSheet.create({
         gap: 12,
         zIndex: 50,
         alignItems: "flex-end",
+    },
+    adBadgeMini: {
+        position: 'absolute',
+        top: -6,
+        right: -6,
     },
     proBadgeMini: {
         position: 'absolute',

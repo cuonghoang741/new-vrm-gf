@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Animated, StyleSheet, View } from "react-native";
+import { Animated, StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import { BannerAd, BannerAdSize } from "react-native-google-mobile-ads";
 import { AdUnits } from "../../config/ads";
 import { useSubscription } from "../../contexts/SubscriptionContext";
 import { analyticsService } from "../../services/AnalyticsService";
-import { surfaceOn } from "../../theme/surface";
+import { track } from "../../services/trackEvents";
 
 /**
  * Anchored adaptive banner, hidden for PRO users.
@@ -25,6 +26,9 @@ import { surfaceOn } from "../../theme/surface";
 
 /** Anchored adaptive resolves to ~50-60dp; reserve the top of that range. */
 const SLOT_HEIGHT = 60;
+/** Yuuki's AdBannerSlot: up to 3 tries, 2 s apart, before giving the space back. */
+const MAX_TRIES = 3;
+const RETRY_MS = 2000;
 
 export function AdBanner({
     placement = "banner",
@@ -34,10 +38,15 @@ export function AdBanner({
     /** Themes the slot + divider against the scene, like the other floating UI. */
     isBackgroundDark?: boolean;
 }) {
+    const { t } = useTranslation();
     const { isPro } = useSubscription();
     const [loaded, setLoaded] = useState(false);
     const [failed, setFailed] = useState(false);
-    const surface = surfaceOn(isBackgroundDark);
+    const [attempt, setAttempt] = useState(0);
+    const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    useEffect(() => () => {
+        if (retryTimer.current) clearTimeout(retryTimer.current);
+    }, []);
 
     if (isPro) return null;
     // Nothing is coming — give the space back instead of holding an empty
@@ -45,14 +54,17 @@ export function AdBanner({
     if (failed) return null;
 
     return (
-        <View
-            style={[
-                styles.container,
-                { backgroundColor: surface.glass, borderTopColor: surface.border },
-            ]}
-        >
-            {!loaded && <BannerSkeleton tint={surface.border} />}
+        // Same frame as Yuuki's banner slot: solid dark plate, 1px light rule
+        // on top, "Loading ad…" in the reserved space until the ad arrives.
+        <View style={styles.container}>
+            {!loaded && (
+                <>
+                    <BannerSkeleton tint="rgba(255,255,255,0.06)" />
+                    <Text style={styles.loadingText}>{t("ads.loading")}</Text>
+                </>
+            )}
             <BannerAd
+                key={attempt}
                 unitId={AdUnits.banner}
                 size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
                 requestOptions={{ requestNonPersonalizedAdsOnly: false }}
@@ -62,9 +74,14 @@ export function AdBanner({
                     // A banner is on screen as soon as it loads; there is no
                     // separate present step to hang an impression off.
                     analyticsService.logAdImpression("banner", placement);
+                    if (placement === "banner_home" || placement === "banner") track.bannerHomeOpen();
                 }}
                 onAdFailedToLoad={(error: any) => {
-                    setFailed(true);
+                    if (attempt + 1 < MAX_TRIES) {
+                        retryTimer.current = setTimeout(() => setAttempt((a) => a + 1), RETRY_MS);
+                    } else {
+                        setFailed(true);
+                    }
                     analyticsService.logAdLoadFailed(
                         "banner",
                         placement,
@@ -103,8 +120,16 @@ const styles = StyleSheet.create({
         minHeight: SLOT_HEIGHT,
         alignItems: "center",
         justifyContent: "center",
+        backgroundColor: "#17102B",
         // Required divider between the ad and app content.
-        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopWidth: 1,
+        borderTopColor: "rgba(255,255,255,0.22)",
+    },
+    loadingText: {
+        position: "absolute",
+        color: "rgba(255,255,255,0.4)",
+        fontSize: 12,
+        fontWeight: "600",
     },
     skeleton: {
         ...StyleSheet.absoluteFillObject,

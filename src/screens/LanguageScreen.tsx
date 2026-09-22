@@ -2,11 +2,14 @@ import React, { useEffect, useState } from "react";
 import {
     View,
     Text,
+    Image,
     StyleSheet,
     Pressable,
     FlatList,
-    SafeAreaView,
 } from "react-native";
+// react-native's own SafeAreaView is an iOS-only no-op; on Android it does
+// nothing at all, which is why this screen ran under the status bar.
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { analyticsService } from "../services/AnalyticsService";
 import {
@@ -16,35 +19,47 @@ import {
     setAppLanguage,
     currentLang,
 } from "../i18n";
+import { FLAGS } from "../i18n/flags";
 import { NativeAdCard } from "../components/ads/NativeAdCard";
 import { AdUnits } from "../config/ads";
 import { preloadNative } from "../components/ads/nativeAdPreload";
+import { track } from "../services/trackEvents";
 
 /**
  * Màn chọn ngôn ngữ — hiện ở lần mở app đầu tiên (trước SignIn), gated bằng
  * `hasChosenLanguage()`. Đổi ngôn ngữ áp dụng ngay (mọi màn dùng useTranslation
  * tự re-render); "Continue" ghi nhận đã chọn và đi tiếp.
  *
- * TODO(P2): chèn native_language ad (trước/sau khi chọn) khi có NativeAd component.
  */
 export default function LanguageScreen({ onDone }: { onDone: () => void }) {
     const { t } = useTranslation();
-    const [sel, setSel] = useState<SupportedLang>(currentLang());
+    // Nothing is preselected: the point of this screen is a deliberate choice,
+    // and a row that is already ticked on arrival reads as "already done".
+    const [sel, setSel] = useState<SupportedLang | null>(null);
     /** Flips once the user has actually chosen, which swaps in a second ad. */
     const [picked, setPicked] = useState(false);
+
+    /**
+     * HAI ô khác nhau, tráo theo LẦN CHỌN NGÔN NGỮ (không theo số lần mở app):
+     * native_language_1 trước khi chọn (CTA xám), native_language_2 sau khi
+     * chọn (CTA hồng). Khớp với bản yuuki.
+     */
 
     // Which language the device suggested before the user touched anything —
     // tells us how often our auto-detection already had it right.
     useEffect(() => {
         analyticsService.logLanguageScreenView(currentLang());
-        // Warm the after-pick unit while the user is still reading the list, so
-        // the swap on their first tap is instant instead of showing a skeleton.
-        preloadNative(AdUnits.nativeLanguageAfterPick);
+        track.languageView();
+        // Hâm sẵn ô SAU (native_language_2) trong lúc người dùng còn đọc danh
+        // sách: ô trước tự request lúc mount (effect con chạy trước, cache còn
+        // trống), ô này chờ sẵn trong cache cho cú tráo khi họ chạm chọn.
+        preloadNative(AdUnits.nativeLanguage2);
     }, []);
 
     const pick = async (l: SupportedLang) => {
         setSel(l);
         setPicked(true);
+        track.languageSelect(l);
         await setAppLanguage(l);
     };
 
@@ -58,7 +73,14 @@ export default function LanguageScreen({ onDone }: { onDone: () => void }) {
                         the primary action at the top, far from the ad in the
                         footer, instead of directly above it. */}
                     {picked && (
-                        <Pressable onPress={onDone} hitSlop={10}>
+                        <Pressable
+                            onPress={() => {
+                                if (sel) track.languageSaveSelect(sel);
+                                onDone();
+                            }}
+                            hitSlop={10}
+                            style={styles.savePill}
+                        >
                             <Text style={styles.saveText}>{t("common.save")}</Text>
                         </Pressable>
                     )}
@@ -78,7 +100,11 @@ export default function LanguageScreen({ onDone }: { onDone: () => void }) {
                             onPress={() => pick(item)}
                             style={[styles.row, active && styles.rowActive]}
                         >
-                            <Text style={styles.flag}>{meta.flag}</Text>
+                            <Image
+                                source={FLAGS[item]}
+                                style={[styles.flag, active && styles.flagActive]}
+                                resizeMode="cover"
+                            />
                             <Text style={[styles.name, active && styles.nameActive]}>
                                 {meta.name}
                             </Text>
@@ -88,12 +114,15 @@ export default function LanguageScreen({ onDone }: { onDone: () => void }) {
                 }}
             />
 
-            {/* Ported from Flutter yuuki's language_screen.dart: two DIFFERENT
-                ad units, swapped on the first tap — neutral grey before the
-                pick, the app's active CTA pink after it, with a full-width CTA
-                (its `isCompact`). The differing keys are load-bearing: they
-                force a fresh card so the old ad is disposed and the new unit is
-                actually requested, rather than one ad being recoloured.
+            {/* Ported from Flutter yuuki's language_screen.dart: the card is
+                swapped on the first tap — neutral grey before the pick, the
+                app's active CTA pink after it, with a full-width CTA (its
+                `isCompact`). The differing keys are load-bearing: they force a
+                fresh card so the old ad is disposed and a new one is actually
+                requested, rather than one ad being recoloured.
+
+                Ô trước dùng native_language_1, ô sau dùng native_language_2 —
+                hai placement riêng, tách rõ trên Inspector.
 
                 The pink full-width CTA lands where a primary button would sit,
                 which is the part reviewers look at — the prominent "Ad" badge
@@ -103,16 +132,16 @@ export default function LanguageScreen({ onDone }: { onDone: () => void }) {
                 {picked ? (
                     <NativeAdCard
                         key="lang-ad-after"
-                        adUnitId={AdUnits.nativeLanguageAfterPick}
-                        placement="native_language_1_2"
+                        adUnitId={AdUnits.nativeLanguage2}
+                        placement="native_language_2"
                         ctaColor={CTA_AFTER}
                         fullWidthCta
                     />
                 ) : (
                     <NativeAdCard
                         key="lang-ad-before"
-                        adUnitId={AdUnits.nativeLanguageBeforePick}
-                        placement="native_language_1_1"
+                        adUnitId={AdUnits.nativeLanguage1}
+                        placement="native_language_1"
                         ctaColor={CTA_BEFORE}
                         fullWidthCta
                     />
@@ -131,11 +160,21 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#0a0a1a" },
     adFooter: { paddingLeft: 20, paddingRight: 20, paddingTop: 8, paddingBottom: 16 },
     headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-    saveText: { color: PINK, fontSize: 16, fontWeight: "800" },
+    // A filled pill, not bare text: as plain pink text next to the title it
+    // read as a label and people did not find the way forward.
+    savePill: {
+        backgroundColor: PINK,
+        paddingHorizontal: 18,
+        height: 36,
+        borderRadius: 18,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    saveText: { color: "#fff", fontSize: 15, fontWeight: "800" },
     header: { paddingHorizontal: 24, paddingTop: 24, paddingBottom: 8 },
     title: { color: "#fff", fontSize: 26, fontWeight: "800" },
     subtitle: { color: "rgba(255,255,255,0.6)", fontSize: 14, marginTop: 8 },
-    list: { paddingHorizontal: 16, paddingVertical: 12, gap: 10 },
+    list: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 24, gap: 10 },
     row: {
         flexDirection: "row",
         alignItems: "center",
@@ -150,7 +189,17 @@ const styles = StyleSheet.create({
         backgroundColor: "rgba(255,111,165,0.14)",
         borderColor: PINK,
     },
-    flag: { fontSize: 24, marginRight: 14 },
+    flag: {
+        width: 40,
+        height: 28,
+        borderRadius: 6,
+        marginRight: 14,
+        borderWidth: 1,
+        // A light hairline keeps the white in the flags (JP, FR, IT) from
+        // bleeding into the dark row behind them.
+        borderColor: "rgba(255,255,255,0.22)",
+    },
+    flagActive: { borderColor: PINK },
     name: { color: "#fff", fontSize: 17, fontWeight: "600", flex: 1 },
     nameActive: { color: PINK },
     check: { color: PINK, fontSize: 18, fontWeight: "800" },

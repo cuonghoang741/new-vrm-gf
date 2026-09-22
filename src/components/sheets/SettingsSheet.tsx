@@ -11,7 +11,6 @@ import {
     Platform,
     ActivityIndicator,
 } from "react-native";
-import { Image } from "expo-image";
 import * as WebBrowser from "expo-web-browser";
 import { openBrowserSafe } from "../../utils/openBrowserSafe";
 import {
@@ -24,16 +23,29 @@ import {
     IconRefresh,
     IconTrash,
     IconCrown,
+    IconShieldCheck,
+    IconLanguage,
+    IconCube,
 } from "@tabler/icons-react-native";
+import { PrivilegeAuthDialog } from "./PrivilegeAuthDialog";
+import { LanguagePickerDialog } from "./LanguagePickerDialog";
+import { LinearGradient } from "expo-linear-gradient";
+import RubyIcon from "../icons/RubyIcon";
+import { useRuby } from "../../services/rubyStore";
+import {
+    DEFAULT_QUALITY, QUALITY_LABELS, loadQuality, setQuality, type RenderQuality,
+} from "../../services/renderQuality";
+import { LANGUAGE_META, currentLang } from "../../i18n";
 import { useSubscription } from "../../contexts/SubscriptionContext";
 import * as Haptics from "expo-haptics";
 import { analyticsService } from "../../services/AnalyticsService";
 import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
 import { supabase } from "../../config/supabase";
 import { authManager } from "../../services";
-import EditProfileSheet from "./EditProfileSheet";
 
 interface SettingsSheetProps {
+    /** Selected character's picture, blurred behind the sheet (Yuuki style). */
+    sceneImage?: string | null;
     isOpened: boolean;
     onIsOpenedChange: (open: boolean) => void;
     userId?: string;
@@ -75,39 +87,32 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
     userEmail,
     onResetOnboarding,
     onOpenSubscription,
+    sceneImage,
 }, ref) => {
     const { t } = useTranslation();
         const sheetRef = useRef<BottomSheetRef>(null);
-    const { isPro } = useSubscription();
-    const [displayName, setDisplayName] = useState<string | null>(null);
-    const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+    const { isPro, isPrivileged, refreshPrivilege, signOutPrivilege } = useSubscription();
+    const [privOpen, setPrivOpen] = useState(false);
+    const [langOpen, setLangOpen] = useState(false);
+    const ruby = useRuby() ?? 0;
+    const [quality, setQualityState] = useState<RenderQuality>(DEFAULT_QUALITY);
+    useEffect(() => { loadQuality().then(setQualityState); }, []);
+    const cycleQuality = useCallback(() => {
+        const next = ((quality + 1) % 3) as RenderQuality;
+        setQualityState(next);
+        void setQuality(next);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }, [quality]);
     const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
     // Edit profile sub-sheet
     const editProfileRef = useRef<BottomSheetRef>(null);
-    const [editProfileOpen, setEditProfileOpen] = useState(false);
 
     useImperativeHandle(ref, () => ({
         present: (index?: number) => sheetRef.current?.present(index),
         dismiss: () => sheetRef.current?.dismiss(),
     }));
 
-    // Load profile
-    useEffect(() => {
-        if (!userId || !isOpened) return;
-        const loadProfile = async () => {
-            const { data } = await supabase
-                .from("profiles")
-                .select("display_name, avatar_url")
-                .eq("id", userId)
-                .maybeSingle();
-            if (data) {
-                setDisplayName(data.display_name);
-                setAvatarUrl(data.avatar_url);
-            }
-        };
-        loadProfile();
-    }, [userId, isOpened]);
 
     const handleSignOut = useCallback(() => {
         Alert.alert(t("set.sign_out"), t("set.signout_confirm"), [
@@ -220,17 +225,10 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
         );
     }, [userId]);
 
-    const handleOpenEditProfile = useCallback(() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        setEditProfileOpen(true);
-    }, []);
 
-    const handleProfileUpdated = useCallback((name: string, avatar: string | null) => {
-        setDisplayName(name);
-        setAvatarUrl(avatar);
-    }, []);
 
-    const initial = displayName?.charAt(0)?.toUpperCase() ?? userEmail?.charAt(0)?.toUpperCase() ?? "?";
+    // The account card shows the email, so the avatar initial comes from it.
+    const initial = userEmail?.charAt(0)?.toUpperCase() ?? "?";
 
     return (
         <>
@@ -239,6 +237,7 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                 isOpened={isOpened}
                 onIsOpenedChange={onIsOpenedChange}
                 title={t("set.title")}
+                sceneImage={sceneImage ?? null}
                 isDarkBackground
                 detents={[0.85, 0.95]}
                 backgroundBlur="system-thick-material-dark"
@@ -249,29 +248,26 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                         contentContainerStyle={styles.scrollContent}
                         showsVerticalScrollIndicator={false}
                     >
-                        {/* ─── Profile Card ─── */}
-                        <TouchableOpacity
-                            style={styles.profileCard}
-                            onPress={handleOpenEditProfile}
-                            activeOpacity={0.7}
-                        >
+                        {/* ─── Account card: plan, email, ruby ───
+                            No longer tappable — editing the profile is gone, and
+                            a chevron on a card that does nothing is a dead end.
+                            The name row now carries the plan, which is the thing
+                            people open settings to check. */}
+                        <View style={styles.profileCard}>
                             <View style={styles.profileLeft}>
-                                {avatarUrl ? (
-                                    <Image source={{ uri: avatarUrl }} style={styles.profileAvatar} />
-                                ) : (
-                                    <View style={styles.profileAvatarFallback}>
-                                        <Text style={styles.profileAvatarText}>{initial}</Text>
-                                    </View>
-                                )}
+                                <View style={styles.profileAvatarFallback}>
+                                    <Text style={styles.profileAvatarText}>{initial}</Text>
+                                </View>
                                 <View style={styles.profileInfo}>
                                     <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                                        <Text style={styles.profileName} numberOfLines={1}>
-                                            {displayName ?? t("set.set_name")}
-                                        </Text>
-                                        {isPro && (
+                                        {isPro ? (
                                             <View style={styles.proBadgeInline}>
                                                 <IconCrown size={12} color="#F59E0B" fill="#F59E0B" />
                                                 <Text style={styles.proBadgeInlineText}>PRO</Text>
+                                            </View>
+                                        ) : (
+                                            <View style={styles.freeBadge}>
+                                                <Text style={styles.freeBadgeText}>{t("set.plan_free")}</Text>
                                             </View>
                                         )}
                                     </View>
@@ -280,8 +276,38 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                                     </Text>
                                 </View>
                             </View>
-                            <IconChevronRight size={20} color="rgba(255,255,255,0.3)" />
-                        </TouchableOpacity>
+                            <View style={styles.rubyPill}>
+                                <RubyIcon size={14} color="#FF4D6D" />
+                                <Text style={styles.rubyPillText}>{ruby.toLocaleString()}</Text>
+                            </View>
+                        </View>
+
+                        {/* Upgrade card, only while they are on Free. */}
+                        {!isPro && (
+                            <TouchableOpacity
+                                activeOpacity={0.85}
+                                onPress={() => {
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                    onOpenSubscription?.();
+                                }}
+                            >
+                                <LinearGradient
+                                    colors={["#FF4D8D", "#9B4DFF"]}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                    style={styles.upgradeCard}
+                                >
+                                    <View style={styles.upgradeIcon}>
+                                        <IconCrown size={22} color="#FFD700" fill="#FFD700" />
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.upgradeTitle}>{t("set.upgrade_pro")}</Text>
+                                        <Text style={styles.upgradeBody}>{t("set.pro_desc")}</Text>
+                                    </View>
+                                    <IconChevronRight size={20} color="rgba(255,255,255,0.9)" />
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        )}
 
                         {/* ─── General ─── */}
                         <View style={styles.section}>
@@ -297,6 +323,25 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                                     }}
                                 />
                                 <View style={styles.separator} />
+                                {/* Tapping cycles high → balanced → saver. Three
+                                    options do not deserve a modal. */}
+                                <SettingItem
+                                    icon={<IconCube size={20} color="#34D399" />}
+                                    label={t("set.quality")}
+                                    subtitle={t(QUALITY_LABELS[quality])}
+                                    onPress={cycleQuality}
+                                />
+                                <View style={styles.separator} />
+                                {/* The first-run language screen promises this row exists. */}
+                                <SettingItem
+                                    icon={<IconLanguage size={20} color="#60A5FA" />}
+                                    label={t("set.language")}
+                                    subtitle={LANGUAGE_META[currentLang()].name}
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        setLangOpen(true);
+                                    }}
+                                />
                                 {/* <SettingItem
                                     icon={<IconRefresh size={20} color="#60A5FA" />}
                                     label={t("set.reset_onboarding")}
@@ -355,6 +400,37 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                             </View>
                         </View>
 
+                        {/* ─── Security: Privilege Authenticator (reviewer login) ─── */}
+                        <View style={styles.section}>
+                            <Text style={styles.sectionTitle}>{t("priv.section")}</Text>
+                            <View style={styles.sectionCard}>
+                                <SettingItem
+                                    icon={<IconShieldCheck size={20} color="#4DD0A0" />}
+                                    label="Privilege Authenticator"
+                                    subtitle={isPrivileged ? t("priv.active") : undefined}
+                                    onPress={isPrivileged ? () => { } : () => setPrivOpen(true)}
+                                    showChevron={!isPrivileged}
+                                />
+                                {isPrivileged && (
+                                    <>
+                                        <View style={styles.separator} />
+                                        <SettingItem
+                                            icon={<IconLogout size={20} color="#FF4D4D" />}
+                                            label={t("priv.logout")}
+                                            onPress={() => {
+                                                Alert.alert(t("priv.logout"), t("priv.logout_confirm"), [
+                                                    { text: t("common.cancel"), style: "cancel" },
+                                                    { text: t("priv.logout"), style: "destructive", onPress: () => signOutPrivilege() },
+                                                ]);
+                                            }}
+                                            danger
+                                            showChevron={false}
+                                        />
+                                    </>
+                                )}
+                            </View>
+                        </View>
+
                         {/* ─── Account ─── */}
                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>{t("set.account")}</Text>
@@ -380,17 +456,23 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                         {/* <Text style={styles.footer}>Made with ❤️ </Text> */}
                     </ScrollView>
                 </View>
+                {/* Inside the sheet: on iOS a Modal rendered outside it cannot be
+                    presented while the (natively presented) sheet is up. */}
+                <LanguagePickerDialog visible={langOpen} onClose={() => setLangOpen(false)} />
+                <PrivilegeAuthDialog
+                    visible={privOpen}
+                    onClose={() => setPrivOpen(false)}
+                    onSuccess={async () => {
+                        setPrivOpen(false);
+                        await refreshPrivilege();
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                        Alert.alert("✅", t("priv.success"));
+                    }}
+                />
             </BottomSheet>
 
+
             {/* ─── Edit Profile sub-sheet ─── */}
-            <EditProfileSheet
-                isOpened={editProfileOpen}
-                onIsOpenedChange={setEditProfileOpen}
-                userId={userId}
-                currentName={displayName}
-                currentAvatar={avatarUrl}
-                onProfileUpdated={handleProfileUpdated}
-            />
         </>
     );
 });
@@ -418,6 +500,30 @@ const styles = StyleSheet.create({
     profileAvatarText: { fontSize: 22, fontWeight: "800", color: "#FFFFFF" },
     profileInfo: { flex: 1 },
     profileName: { fontSize: 18, fontWeight: "700", color: "#FFFFFF", marginBottom: 2 },
+    freeBadge: {
+        backgroundColor: "rgba(255,255,255,0.12)",
+        paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10,
+    },
+    freeBadgeText: { color: "rgba(255,255,255,0.85)", fontSize: 12, fontWeight: "800", letterSpacing: 0.4 },
+    rubyPill: {
+        flexDirection: "row", alignItems: "center", gap: 5,
+        backgroundColor: "rgba(255,77,109,0.14)",
+        borderWidth: 1, borderColor: "rgba(255,77,109,0.3)",
+        paddingHorizontal: 12, height: 32, borderRadius: 16,
+    },
+    rubyPillText: { color: "#FFFFFF", fontSize: 14, fontWeight: "800" },
+    upgradeCard: {
+        flexDirection: "row", alignItems: "center", gap: 12,
+        paddingHorizontal: 16, paddingVertical: 14,
+        borderRadius: 18, marginTop: 12,
+    },
+    upgradeIcon: {
+        width: 40, height: 40, borderRadius: 20,
+        backgroundColor: "rgba(0,0,0,0.22)",
+        alignItems: "center", justifyContent: "center",
+    },
+    upgradeTitle: { color: "#FFFFFF", fontSize: 16, fontWeight: "800" },
+    upgradeBody: { color: "rgba(255,255,255,0.85)", fontSize: 12.5, marginTop: 2 },
     profileEmail: { fontSize: 13, color: "rgba(255,255,255,0.45)" },
 
     // Sections

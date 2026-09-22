@@ -16,7 +16,11 @@ export interface ChatMessage {
 export interface SuggestedAction {
     action: string;
     confidence: number;
-    parameters: { animationName?: string };
+    parameters: {
+        animationName?: string;
+        /** One of the character's `medias.keywords` tags, when she named a subject. */
+        mediaTag?: string;
+    };
     reasoning: string;
 }
 
@@ -25,6 +29,43 @@ interface ConversationRow {
     message: string;
     is_agent: boolean;
     created_at: string;
+}
+
+type MediaHit = { id: string; url: string; type: "image" | "video"; tier: string };
+
+/** characterId → its media tag vocabulary. Cleared only by restarting the app. */
+const mediaTagCache = new Map<string, string[]>();
+
+const pickOne = <T,>(rows: T[]): T => rows[Math.floor(Math.random() * rows.length)];
+
+/** Media for this character carrying `tag` in `keywords`, or null. */
+async function fetchByTag(
+    characterId: string,
+    type: "image" | "video" | "nude",
+    isPro: boolean,
+    tag: string
+): Promise<MediaHit | null> {
+    let q = supabase
+        .from("medias")
+        .select("id, url, media_type, tier")
+        .eq("character_id", characterId)
+        .eq("available", true)
+        .ilike("keywords", `%${tag}%`);
+    // "nude" means "whatever is tagged that way", at whichever tier; the other
+    // two are ordinary gallery kinds and stay tier-gated for free users.
+    if (type !== "nude") {
+        q = q.eq("media_type", type === "image" ? "photo" : "video");
+        if (!isPro) q = q.eq("tier", "free");
+    }
+    const { data, error } = await q;
+    if (error || !data?.length) return null;
+    const row = pickOne(data as { id: string; url: string; media_type: string; tier: string }[]);
+    return {
+        id: row.id,
+        url: row.url,
+        type: row.media_type === "video" ? "video" : "image",
+        tier: row.tier,
+    };
 }
 
 export const chatService = {
@@ -157,11 +198,11 @@ export const chatService = {
     /**
      * Call gemini-suggest-action to determine what VRM action to perform
      */
-    async suggestAction(message: string): Promise<SuggestedAction> {
+    async suggestAction(message: string, mediaTags: string[] = []): Promise<SuggestedAction> {
         try {
             const { data, error } = await supabase.functions.invoke(
                 "gemini-suggest-action",
-                { body: { message } }
+                { body: { message, mediaTags } }
             );
 
             if (error || !data) {
@@ -198,10 +239,47 @@ export const chatService = {
     },
 
     /**
-     * Fetch a random media asset for a character
+     * The tags this character actually has media for, e.g. ["beach", "nude"].
+     *
+     * Cached per character for the session: the vocabulary only changes when the
+     * CMS adds media, and this is on the path of every message the user sends.
      */
-    async fetchRandomMedia(characterId: string, type: "image" | "video" | "nude", isPro: boolean): Promise<{ id: string; url: string; type: "image" | "video"; tier: string } | null> {
+    async getMediaTags(characterId: string): Promise<string[]> {
+        if (!characterId) return [];
+        const cached = mediaTagCache.get(characterId);
+        if (cached) return cached;
+        const { data, error } = await supabase
+            .from("medias")
+            .select("keywords")
+            .eq("character_id", characterId)
+            .eq("available", true)
+            .not("keywords", "is", null);
+        if (error || !data) return [];
+        const tags = [
+            ...new Set(
+                data
+                    .flatMap((r: { keywords: string | null }) => (r.keywords ?? "").split(","))
+                    .map((t) => t.trim().toLowerCase())
+                    .filter(Boolean)
+            ),
+        ];
+        mediaTagCache.set(characterId, tags);
+        return tags;
+    },
+
+    /**
+     * Fetch a media asset for a character, preferring one tagged `tag`.
+     *
+     * Falls back to the untagged behaviour when the tag matches nothing, so a
+     * bad guess from the model costs a picture that is merely random, never no
+     * picture at all.
+     */
+    async fetchRandomMedia(characterId: string, type: "image" | "video" | "nude", isPro: boolean, tag?: string): Promise<{ id: string; url: string; type: "image" | "video"; tier: string } | null> {
         try {
+            if (tag) {
+                const tagged = await fetchByTag(characterId, type, isPro, tag);
+                if (tagged) return tagged;
+            }
             let query = supabase
                 .from("medias")
                 .select("id, url, media_type, tier")
@@ -209,11 +287,17 @@ export const chatService = {
                 .eq("available", true);
 
             if (type === "nude") {
-                // Filter for specific keywords in content_type or url
-                const keywords = ["uncensored", "nude", "masturbate", "show boobs", "show_boobs", "sexy", "hentai", "xxx"];
-                const orFilter = keywords.map(k => `content_type.ilike.%${k}%,url.ilike.%${k}%`).join(",");
+                // The tags live in `keywords` ("nude", "take a shower, show boobs"…).
+                // This used to search `content_type` and `url` instead, which are
+                // 'normal' and a CDN uuid on every row, so it never matched and
+                // every request fell through to the "any pro photo" fallback.
+                const keywords = ["uncensored", "nude", "masturbate", "show boobs", "show_boobs",
+                    "show pussy", "sexy", "hentai", "xxx"];
+                const orFilter = keywords
+                    .map((k) => `keywords.ilike.%${k}%,content_type.ilike.%${k}%,url.ilike.%${k}%`)
+                    .join(",");
                 query = query.or(orFilter);
-                
+
                 // If no special keywords match, we'll try to find any pro photo as fallback in the return logic
             } else {
                 const dbType = type === "image" ? "photo" : "video";

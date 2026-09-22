@@ -1,76 +1,85 @@
 {
-    "cli": {
-        "version": ">= 13.2.0",
-        "appVersionSource": "local"
+  "cli": {
+    "version": ">= 13.2.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT": "120",
+        "FASTLANE_XCODEBUILD_SETTINGS_RETRIES": "5",
+        "EAS_BUILD_DISABLE_EXPO_DOCTOR_STEP": "1"
+      },
+      "ios": {
+        "simulator": true,
+        "resourceClass": "m-medium"
+      },
+      "android": {
+        "buildType": "apk"
+      },
+      "channel": "development",
+      "autoIncrement": true
     },
-    "build": {
-        "development": {
-            "developmentClient": true,
-            "distribution": "internal",
-            "env": {
-                "FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT": "120",
-                "FASTLANE_XCODEBUILD_SETTINGS_RETRIES": "5",
-                "EAS_BUILD_DISABLE_EXPO_DOCTOR_STEP": "1"
-            },
-            "ios": {
-                "simulator": true,
-                "resourceClass": "m-medium"
-            },
-            "android": {
-                "buildType": "apk"
-            },
-            "channel": "development",
-            "autoIncrement": true
-        },
-        "preview": {
-            "distribution": "internal",
-            "env": {
-                "FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT": "120",
-                "FASTLANE_XCODEBUILD_SETTINGS_RETRIES": "5",
-                "EAS_BUILD_DISABLE_EXPO_DOCTOR_STEP": "1"
-            },
-            "ios": {
-                "simulator": false,
-                "resourceClass": "m-medium"
-            },
-            "android": {
-                "buildType": "app-bundle"
-            },
-            "channel": "preview",
-            "autoIncrement": true
-        },
-        "apk": {
-            "extends": "preview",
-            "android": {
-                "buildType": "apk"
-            }
-        },
-        "production": {
-            "credentialsSource": "local",
-            "env": {
-                "FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT": "120",
-                "FASTLANE_XCODEBUILD_SETTINGS_RETRIES": "5",
-                "EAS_BUILD_DISABLE_EXPO_DOCTOR_STEP": "1"
-            },
-            "ios": {
-                "simulator": false,
-                "resourceClass": "m-medium"
-            },
-            "android": {
-                "buildType": "app-bundle"
-            },
-            "channel": "production",
-            "autoIncrement": false
-        }
+    "preview": {
+      "distribution": "internal",
+      "env": {
+        "FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT": "120",
+        "FASTLANE_XCODEBUILD_SETTINGS_RETRIES": "5",
+        "EAS_BUILD_DISABLE_EXPO_DOCTOR_STEP": "1"
+      },
+      "ios": {
+        "simulator": false,
+        "resourceClass": "m-medium"
+      },
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "channel": "preview",
+      "autoIncrement": true
     },
-    "submit": {
-        "production": {
-            "ios": {
-                "ascAppId": "6760695348"
-            },
-            "android": {
-                "releaseStatus": "draft"
-            }
-        }
+    "apk": {
+      "extends": "preview",
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "production": {
+      "credentialsSource": "local",
+      "env": {
+        "FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT": "120",
+        "FASTLANE_XCODEBUILD_SETTINGS_RETRIES": "5",
+        "EAS_BUILD_DISABLE_EXPO_DOCTOR_STEP": "1"
+      },
+      "ios": {
+        "simulator": false,
+        "resourceClass": "m-medium"
+      },
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "channel": "production",
+      "autoIncrement": false
+    },
+    "qa-apk": {
+      "extends": "preview",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_FORCE_TEST_ADS": "1"
+      }
     }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "ascAppId": "6760695348"
+      },
+      "android": {
+        "releaseStatus": "draft"
+      }
+    }
+  }
 }

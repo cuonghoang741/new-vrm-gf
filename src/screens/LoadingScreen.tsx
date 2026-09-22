@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { useTranslation } from "react-i18next";
 import { AdBanner } from "../components/ads/AdBanner";
+import { track } from "../services/trackEvents";
 
 /**
  * Boot gate. Replaces the bare logo that used to sit here.
@@ -28,6 +29,7 @@ export function LoadingScreen() {
     const pulse = useRef(new Animated.Value(0.85)).current;
 
     useEffect(() => {
+        track.splashView();
         Animated.timing(progress, {
             toValue: 1,
             duration: 2600,

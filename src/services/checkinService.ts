@@ -31,6 +31,31 @@ export async function getRewardSchedule(): Promise<DayReward[]> {
 
 export type CheckinProgress = { currentDay: number; claimedToday: boolean };
 
+/** Everything the check-in sheet shows, in one call (server decides PRO ×2). */
+export type CheckinState = {
+    currentDay: number;
+    totalDays: number;
+    claimedToday: boolean;
+    multiplier: number;
+    isPro: boolean;
+    ruby: number;
+    schedule: DayReward[];
+};
+
+export async function getCheckinState(): Promise<CheckinState | null> {
+    const { data, error } = await supabase.rpc("app_checkin_state");
+    if (error || !data || data.error) return null;
+    return {
+        currentDay: data.current_day ?? 0,
+        totalDays: data.total_days ?? 0,
+        claimedToday: !!data.claimed_today,
+        multiplier: data.multiplier ?? 1,
+        isPro: !!data.is_pro,
+        ruby: data.ruby ?? 0,
+        schedule: (data.schedule ?? []).map((r: any) => ({ day: r.day, ruby: r.ruby ?? 0 })),
+    };
+}
+
 export async function getCheckinProgress(userId: string): Promise<CheckinProgress> {
     const { data } = await supabase
         .from("user_login_rewards")

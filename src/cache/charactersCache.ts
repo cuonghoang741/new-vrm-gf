@@ -68,6 +68,32 @@ async function queryPublicCharacters(): Promise<Characters[]> {
     })) as Characters[];
 }
 
+/**
+ * Apply the current language's character_translates rows to any list of
+ * characters. The pickers query `characters` themselves (they need columns the
+ * roster cache does not carry), so they need this to show localised text too —
+ * otherwise the name and bio stayed English everywhere but onboarding.
+ */
+export async function localizeCharacters<T extends { id: string; name: string; description: string | null }>(
+    rows: T[]
+): Promise<T[]> {
+    const lang = currentLang();
+    if (!lang || lang === "en" || rows.length === 0) return rows;
+    const { data } = await supabase
+        .from("character_translates")
+        .select("character_id, name, description")
+        .eq("language_code", lang)
+        .in("character_id", rows.map((r) => r.id));
+    if (!data?.length) return rows;
+    const map: Record<string, { name?: string; description?: string }> = {};
+    for (const r of data as any[]) map[r.character_id] = r;
+    return rows.map((r) => ({
+        ...r,
+        name: map[r.id]?.name || r.name,
+        description: map[r.id]?.description || r.description,
+    }));
+}
+
 /** Fetch characters and store in cache. Called by SignInScreen. */
 export async function fetchAndCacheCharacters(): Promise<Characters[]> {
     const chars = await queryPublicCharacters();

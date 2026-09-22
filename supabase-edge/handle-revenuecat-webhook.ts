@@ -5,13 +5,15 @@ const REVENUECAT_WEBHOOK_SECRET = Deno.env.get("REVENUECAT_WEBHOOK_SECRET");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const TELEGRAM_BOT_TOKEN = '8626302744:AAG_mIQj8pu3g9thuE7kC7fd0Jq1abA0UjE';
+// Kept in the function's secrets (dashboard → Edge Functions → Secrets), not in git.
+const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
 const TELEGRAM_CHAT_ID = '-1003649975869';
 const TELEGRAM_MESSAGE_THREAD_ID = ''; // Removed thread id as per new chat structure if needed
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 async function sendTelegramNotification(message: string) {
+    if (!TELEGRAM_BOT_TOKEN) return;
     try {
         const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
             method: 'POST',
@@ -62,6 +64,36 @@ serve(async (req) => {
         console.log(`Received Event: ${event.type} for User: ${event.app_user_id}`);
 
         const userId = event.app_user_id;
+
+        // ── Ruby packs (consumables truemate.ruby.1 … .6) ─────────────────────
+        // Never touch the subscription row for these. Fulfilment is idempotent
+        // on the store transaction id (grant_ruby_pack dedups in ruby_ledger),
+        // so RevenueCat's retries cannot pay twice.
+        const productId: string = event.product_id || "";
+        if (productId.startsWith("truemate.ruby.")) {
+            const txId = event.transaction_id || event.original_transaction_id || event.id;
+            if (!userId || !txId) return new Response("Missing user or transaction", { status: 400 });
+            const refund = event.type === "CANCELLATION" || event.type === "REFUND";
+            const { data, error } = await supabase.rpc(refund ? "revoke_ruby_pack" : "grant_ruby_pack", {
+                p_user_id: userId,
+                p_product_id: productId,
+                p_transaction_id: String(txId),
+            });
+            if (error) {
+                console.error("Ruby pack fulfilment failed:", error);
+                // 500 → RevenueCat retries the webhook.
+                return new Response("Database error", { status: 500 });
+            }
+            console.log(`Ruby pack ${refund ? "revoked" : "granted"}: ${productId} ${txId}`, data);
+            if (!refund && data?.granted) {
+                const price = event.price_in_purchased_currency || 0;
+                const currency = event.currency || "USD";
+                await sendTelegramNotification(`💎 <b>MUA RUBY</b>\n\n📦 Gói: ${productId} (+${data.granted} ruby)\n👤 User: <code>${userId}</code>\n💵 Giá: ${price} ${currency}`);
+            }
+            return new Response(JSON.stringify({ received: true, ruby: data }), {
+                headers: { "Content-Type": "application/json" },
+            });
+        }
 
         // RevenueCat event types: https://www.revenuecat.com/docs/webhooks/event-types
         let updateData: any = {};

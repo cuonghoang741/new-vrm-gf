@@ -6,6 +6,7 @@ import Purchases, {
 import { Platform } from "react-native";
 import { analyticsService } from "../services/AnalyticsService";
 import { AdsManager } from "../services/AdsManager";
+import { isPrivileged, leavePrivilege } from "../services/economyService";
 
 Purchases.setLogLevel(Purchases.LOG_LEVEL.ERROR);
 
@@ -34,6 +35,10 @@ interface SubscriptionContextData {
     refreshStatus: () => Promise<void>;
     /** Local test-only PRO unlock (hidden 7-tap on the paywall title). */
     enableTestPro: () => void;
+    /** PRO granted server-side by the Privilege Authenticator (reviewer login). */
+    isPrivileged: boolean;
+    refreshPrivilege: () => Promise<void>;
+    signOutPrivilege: () => Promise<void>;
 }
 
 const SubscriptionContext = createContext<SubscriptionContextData>({
@@ -45,6 +50,9 @@ const SubscriptionContext = createContext<SubscriptionContextData>({
     restorePurchases: async () => ({ isPro: false }),
     refreshStatus: async () => { },
     enableTestPro: () => { },
+    isPrivileged: false,
+    refreshPrivilege: async () => { },
+    signOutPrivilege: async () => { },
 });
 
 export const useSubscription = () => useContext(SubscriptionContext);
@@ -52,6 +60,7 @@ export const useSubscription = () => useContext(SubscriptionContext);
 export function SubscriptionProvider({ children, userId }: { children: ReactNode; userId?: string }) {
     const [isPro, setIsPro] = useState(false);
     const [testPro, setTestPro] = useState(false);
+    const [privileged, setPrivileged] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [packages, setPackages] = useState<PurchasesPackage[]>([]);
     const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
@@ -97,6 +106,21 @@ export function SubscriptionProvider({ children, userId }: { children: ReactNode
 
         // RevenueCat v9 addCustomerInfoUpdateListener returns void; no cleanup needed
     }, [updateFromInfo]);
+
+    const refreshPrivilege = useCallback(async () => {
+        if (!userId) return setPrivileged(false);
+        setPrivileged(await isPrivileged());
+    }, [userId]);
+
+    const signOutPrivilege = useCallback(async () => {
+        await leavePrivilege();
+        setPrivileged(false);
+    }, []);
+
+    // Server-side PRO (reviewer accounts) follows the signed-in user.
+    useEffect(() => {
+        refreshPrivilege();
+    }, [refreshPrivilege]);
 
     // Log in / identify user separately so re-renders on userId change don't re-configure
     useEffect(() => {
@@ -175,7 +199,19 @@ export function SubscriptionProvider({ children, userId }: { children: ReactNode
 
     return (
         <SubscriptionContext.Provider
-            value={{ isPro: isPro || testPro, isLoading, packages, customerInfo, purchasePackage, restorePurchases, refreshStatus, enableTestPro: () => setTestPro(true) }}
+            value={{
+                isPro: isPro || testPro || privileged,
+                isLoading,
+                packages,
+                customerInfo,
+                purchasePackage,
+                restorePurchases,
+                refreshStatus,
+                enableTestPro: () => setTestPro(true),
+                isPrivileged: privileged,
+                refreshPrivilege,
+                signOutPrivilege,
+            }}
         >
             {children}
         </SubscriptionContext.Provider>

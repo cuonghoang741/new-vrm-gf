@@ -1,4 +1,5 @@
 import { Platform } from "react-native";
+import { FacebookService } from "./FacebookService";
 import mobileAds, {
     MaxAdContentRating,
 } from "react-native-google-mobile-ads";
@@ -9,19 +10,24 @@ import {
 import * as SecureStore from "expo-secure-store";
 
 /**
- * Frequency caps / timeouts — same numbers as girlx's AdCaps defaults, so the
- * two apps behave identically for a reviewer comparing them.
+ * Frequency caps / timeouts.
+ *
+ * Deliberately below the industry defaults these started from (30s gap, 5 per
+ * session, 15 per day): full-screen ads were landing on top of each other and
+ * the app felt like an ad with a companion attached. Banners and the opt-in
+ * rewarded videos are not capped here — those are the surfaces the user either
+ * ignores or chooses.
  */
-const COLD_START_GRACE_MS = 20_000; // no interstitial in the first 20s after launch
-const MIN_FULLSCREEN_GAP_MS = 30_000; // min gap between ANY two full-screen ads
-const MAX_INTERSTITIALS_PER_SESSION = 5;
-const MAX_INTERSTITIALS_PER_DAY = 15;
+const COLD_START_GRACE_MS = 45_000; // nothing full-screen in the first 45s after launch
+const MIN_FULLSCREEN_GAP_MS = 120_000; // 2 minutes between ANY two full-screen ads
+const MAX_INTERSTITIALS_PER_SESSION = 2;
+const MAX_INTERSTITIALS_PER_DAY = 6;
 /**
  * The app must have been backgrounded at least this long before coming back
  * counts as a "resume" worth an App Open ad. Without it, a two-second app
  * switch — or returning from a permission dialog — earns a full-screen ad.
  */
-export const RESUME_THRESHOLD_MS = 45_000;
+export const RESUME_THRESHOLD_MS = 240_000; // 4 minutes away before a resume ad
 /** Load-failure backoff: attempt N waits retryBaseDelay * N (matches Yuuki). */
 export const AD_RETRY_BASE_DELAY_MS = 5_000;
 export const AD_MAX_LOAD_RETRIES = 3;
@@ -88,6 +94,10 @@ class AdsManagerClass {
                     if (status === "undetermined") {
                         await requestTrackingPermissionsAsync();
                     }
+                    // Meta's SDK is normally initialised before the user has
+                    // answered, so re-apply their answer now — otherwise it
+                    // keeps whatever it guessed and attribution stays off.
+                    await FacebookService.refreshTrackingConsent();
                 }
 
                 await mobileAds().setRequestConfiguration({

@@ -24,13 +24,27 @@ import { analyticsService } from "../../services/AnalyticsService";
 import * as WebBrowser from "expo-web-browser";
 import { openBrowserSafe } from "../../utils/openBrowserSafe";
 import { AdsManager } from "../../services/AdsManager";
-import { IconX, IconCube3dSphere, IconVideo, IconUsers, IconSparkles, IconHeart, IconMusic, IconChevronLeft, IconChevronRight, IconCrown, IconAdOff, IconMessageHeart } from "@tabler/icons-react-native";
+import { IconX, IconCube3dSphere, IconVideo, IconUsers, IconSparkles, IconHeart, IconMusic, IconChevronLeft, IconChevronRight, IconCrown, IconAdOff, IconMessageHeart, IconBolt } from "@tabler/icons-react-native";
 import { useSubscription } from "../../contexts/SubscriptionContext";
 import VRMViewer, { VRMViewerHandle } from "../VRMViewer";
 import { getCharacters } from "../../cache/charactersCache";
+import { useVrmPreviewLoader } from "../../hooks/useVrmPreviewLoader";
 import { supabase } from "../../config/supabase";
+import { styles } from "./SubscriptionSheet.styles";
+import { track } from "../../services/trackEvents";
+
+/**
+ * When the hidden paywall preview is created. Just after
+ * usePrefetchPaywallModel (15 s) has started downloading the model, so the
+ * warm load waits for that download and reads it from disk rather than
+ * streaming a second copy; and well clear of the main scene's own start-up.
+ */
+const WARM_DELAY_MS = 16_000;
 
 const FEATURES = [
+    // First and highlighted: doubling what the user already earns is the
+    // benefit they can price, and it is easy to miss in a flat list.
+    { icon: IconBolt, text: "sub.b6_x2", color: "#F2C14E", highlight: true },
     { icon: IconAdOff, text: "sub.b1", color: "#FF6FA5" },
     { icon: IconMessageHeart, text: "sub.b2", color: "#FF8FB8" },
     { icon: IconCube3dSphere, text: "sub.b3", color: "#C8A8F0" },
@@ -83,6 +97,7 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
         (pkg: PurchasesPackage | null | undefined, planName: string) => {
             if (!pkg) return;
             setSelectedPackage(pkg);
+            track.proPlanSelect(pkg.packageType?.toLowerCase() ?? pkg.product.identifier);
             analyticsService.logSubscriptionSelectPlan(
                 pkg.product.identifier,
                 planName
@@ -94,6 +109,27 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
     const [activeProductId, setActiveProductId] = useState<string | null>(null);
     const vrmRef = useRef<VRMViewerHandle>(null);
     const [vrmReady, setVrmReady] = useState(false);
+    /**
+     * Pre-warm: for free users the preview WebView is created WARM_DELAY_MS
+     * after launch, hidden and with rendering paused, and loads the model the
+     * paywall opens on. Opening the paywall then only un-pauses it — the
+     * character is already on screen instead of booting three.js and parsing
+     * a 17 MB model in front of the user. It stays mounted (paused) after a
+     * close so the next open is instant too.
+     */
+    const [warm, setWarm] = useState(false);
+    useEffect(() => {
+        if (isPro) {
+            setWarm(false);
+            return;
+        }
+        const t = setTimeout(() => setWarm(true), WARM_DELAY_MS);
+        return () => clearTimeout(t);
+    }, [isPro]);
+    const viewerMounted = isOpened || warm;
+    const preview = useVrmPreviewLoader(vrmRef, viewerMounted, vrmReady);
+    /** The first model after opening skips the carousel debounce. */
+    const firstLoadRef = useRef(true);
     const fadeAnim = useRef(new Animated.Value(0)).current;
     useEffect(() => {
         Animated.timing(fadeAnim, {
@@ -106,16 +142,26 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
     // Paywall impression — the denominator for every subscription conversion
     // rate. Only counts a real open, not the initial mount while closed.
     useEffect(() => {
-        if (isOpened) analyticsService.logSubscriptionView();
+        if (isOpened) {
+            analyticsService.logSubscriptionView();
+            track.proPaywallView("home");
+        }
     }, [isOpened]);
 
     useEffect(() => {
-        if (!isOpened) {
-            // Unmounting the preview WebView when closed; reset readiness so it
-            // re-initializes (and reloads the model) on next open.
+        if (!viewerMounted) {
+            // The preview WebView is gone; reset readiness so it re-initializes
+            // (and reloads the model) when it is mounted again.
             setVrmReady(false);
+            firstLoadRef.current = true;
         }
-    }, [isOpened]);
+    }, [viewerMounted]);
+
+    // Draw only while visible. A paused viewer keeps its model in memory but
+    // costs no GPU, so a pre-warmed paywall does not slow the main scene.
+    useEffect(() => {
+        if (vrmReady) vrmRef.current?.setRenderPaused(!isOpened);
+    }, [isOpened, vrmReady]);
 
     // Test controls state
     const [characters, setCharacters] = useState<any[]>([]);
@@ -216,7 +262,7 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
         const modelUrl = selectedCostume?.model_url || selectedChar?.base_model_url || currentModelUrl;
         if (modelUrl) {
             console.log("[SubscriptionSheet] Loading model:", modelUrl);
-            vrmRef.current.loadModelByURL(modelUrl);
+            preview.showModel(modelUrl);
         } else if (!currentModelUrl) {
             vrmRef.current.loadModelByName("001/001_vrm/001_01.vrm");
         }
@@ -225,10 +271,16 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
         if (bgImage) {
             vrmRef.current.setBackgroundImage(bgImage);
         }
-    }, [selectedChar, selectedCostume, vrmReady, currentModelUrl, currentBackgroundUrl]);
+    }, [selectedChar, selectedCostume, vrmReady, currentModelUrl, currentBackgroundUrl, preview.showModel]);
 
     useEffect(() => {
         if (!vrmReady) return;
+        // Nothing to debounce on open — the user has not swiped yet.
+        if (firstLoadRef.current) {
+            firstLoadRef.current = false;
+            loadActiveModel();
+            return;
+        }
         // Debounce rapid carousel switching so only the final selection loads.
         const t = setTimeout(() => loadActiveModel(), 250);
         return () => clearTimeout(t);
@@ -248,11 +300,12 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
         // Add a slight delay to ensure the VRM is fully visible and the internal WebGL loader
         // has finished its 500ms idle animation fallback inside index.html.
         setTimeout(() => {
+            // Standing poses only. "Making a snow angel" lies the model on the
+            // floor, and the paywall camera then frames her shins.
             const pool = [
                 "Dance - Give Your Soul.fbx",
                 "Feminine - Exaggerated 2.fbx",
                 "Heart-Flutter Pose.fbx",
-                "Making a snow angel.fbx",
                 "Sly - Finger gun gesture.fbx"
             ];
 
@@ -265,11 +318,17 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
 
     const handleModelLoaded = useCallback(() => {
         handleDanceTest();
+        // Warm the carousel neighbours so the next swipe opens from disk.
+        const n = characters.length;
+        preview.onShown(n > 1 ? [
+            characters[(selectedIndex + 1) % n]?.base_model_url,
+            characters[(selectedIndex - 1 + n) % n]?.base_model_url,
+        ] : []);
         // If no costume is selected (e.g. after a character change), remove the blur
         if (!selectedCostume) {
             setShouldBlurPreview(false);
         }
-    }, [selectedCostume, handleDanceTest]);
+    }, [selectedCostume, handleDanceTest, characters, selectedIndex, preview.onShown]);
 
     // Real blur on the 3D canvas while previewing a costume (tease the locked look).
     useEffect(() => {
@@ -297,7 +356,8 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
         const yearly = yearlyPackage.product.price;
         if (monthly <= 0) return null;
         const pct = Math.round(((monthly * 12 - yearly) / (monthly * 12)) * 100);
-        return pct > 0 ? `${pct}% OFF` : null;
+        // The label around it already says "save", so no "OFF" suffix here.
+        return pct > 0 ? `${pct}%` : null;
     }, [yearlyPackage, monthlyPackage]);
 
     // Default selection
@@ -335,19 +395,30 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
             Alert.alert(t("common.error"), t("sub.no_plan"));
             return;
         }
+        const plan = selectedPackage.packageType?.toLowerCase() ?? selectedPackage.product.identifier;
         setIsProcessing(true);
+        track.proSubscribeSelect(plan);
         const result = await purchasePackage(selectedPackage);
         setIsProcessing(false);
 
         if (result.success) {
+            track.proSubscribeSuccess(
+                plan,
+                selectedPackage.product.price,
+                selectedPackage.product.currencyCode
+            );
             onPurchaseSuccess?.();
             onClose();
-        } else if (result.error && result.error !== "cancelled") {
-            Alert.alert(t("sub.purchase_failed_title"), result.error);
+        } else {
+            track.proSubscribeFailed(plan, result.error ?? "error");
+            if (result.error && result.error !== "cancelled") {
+                Alert.alert(t("sub.purchase_failed_title"), result.error);
+            }
         }
     };
 
     const handleRestore = async () => {
+        track.proRestoreSelect();
         setIsProcessing(true);
         const result = await restorePurchases();
         setIsProcessing(false);
@@ -377,15 +448,16 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
             <View style={styles.contentWrap}>
                 <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-                {/* Only run the 3D preview WebView while the sheet is open —
-                    a second live WebGL context behind the screen tanks perf. */}
-                {isOpened && (
+                {/* Mounted while open or pre-warmed (see `warm`); rendering is
+                    paused whenever the paywall is hidden. */}
+                {viewerMounted && (
                     <VRMViewer
                         ref={vrmRef}
                         transparent={false}
                         style={StyleSheet.absoluteFillObject}
                         onReady={() => setVrmReady(true)}
                         onModelLoaded={handleModelLoaded}
+                        {...preview.viewerSource}
                     />
                 )}
 
@@ -408,7 +480,10 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                 {/* Header */}
                 <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
                     <Pressable
-                        onPress={onClose}
+                        onPress={() => {
+                            track.proPaywallClose(selectedPackage?.packageType?.toLowerCase());
+                            onClose();
+                        }}
                         style={({ pressed }) => [styles.closeBtn, pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] }]}
                     >
                         <BlurView intensity={40} tint="dark" style={styles.closeBtnInner}>
@@ -433,10 +508,7 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                                 </Pressable>
                             </LinearGradient>
 
-                            <Text style={styles.heroTitle}>{"Unlock Your\nUltimate Experience"}</Text>
-                            <Text style={styles.heroSubtitle}>
-                                Access premium characters, unlimited calls, exclusive content, and more.
-                            </Text>
+                            <Text style={styles.heroTitle}>{t("sub.hero_title")}</Text>
 
                             {/* Demo Controls Area */}
                             {characters.length > 0 && (
@@ -488,7 +560,7 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                                     <View style={styles.actionsRow}>
                                         {(isCostumesLoading || costumes.length > 0) && (
                                             <View style={[styles.actionGroup, { alignItems: "flex-start" }]}>
-                                                <Text style={styles.sectionLabel}>OUTFIT</Text>
+                                                <Text style={styles.sectionLabel}>{t("sub.outfit")}</Text>
                                                 {isCostumesLoading ? (
                                                     <View style={styles.costumesList}>
                                                         {[1, 2, 3].map((key) => (
@@ -521,7 +593,7 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                                         )}
 
                                         <View style={[styles.actionGroup, { flex: 0 }]}>
-                                            <Text style={styles.sectionLabel}>VIBE</Text>
+                                            <Text style={styles.sectionLabel}>{t("sub.vibe")}</Text>
                                             <TouchableOpacity style={styles.danceBtn} onPress={handleDanceTest} activeOpacity={0.7}>
                                                 <IconMusic size={20} color="#fff" />
                                             </TouchableOpacity>
@@ -534,13 +606,25 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                         {/* Features */}
                         <View style={styles.featuresContainer}>
                             {FEATURES.map((f, i) => (
-                                <View key={i} style={styles.featureItem}>
+                                <View key={i} style={[styles.featureItem, f.highlight && styles.featureItemHighlight]}>
                                     <View style={[styles.featureIcon, { backgroundColor: f.color + "20" }]}>
                                         <f.icon size={20} color={f.color} />
                                     </View>
-                                    <Text style={styles.featureText}>{t(f.text)}</Text>
+                                    <Text style={[styles.featureText, f.highlight && styles.featureTextHighlight]}>
+                                        {t(f.text)}
+                                    </Text>
+                                    {f.highlight && (
+                                        <View style={styles.x2Pill}>
+                                            <Text style={styles.x2PillText}>×2</Text>
+                                        </View>
+                                    )}
                                 </View>
                             ))}
+
+                            {/* PRO opens the PRO-only catalogue; it does not
+                                hand over the ruby-priced items inside it. Say
+                                so here rather than let the purchase say it. */}
+                            <Text style={styles.finePrint}>{t("sub.fine_print")}</Text>
                         </View>
                         <View style={{ height: 350 }} />
                     </ScrollView>
@@ -568,7 +652,7 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                                 >
                                     {isPro && activeProductId === monthlyPackage.product.identifier && (
                                         <View style={styles.activeBadge}>
-                                            <Text style={styles.activeText}>ACTIVE</Text>
+                                            <Text style={styles.activeText}>{t("sub.active")}</Text>
                                         </View>
                                     )}
                                     <View style={styles.planInfo}>
@@ -607,12 +691,12 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                                 >
                                     {isPro && activeProductId === yearlyPackage.product.identifier ? (
                                         <View style={styles.activeBadge}>
-                                            <Text style={styles.activeText}>ACTIVE</Text>
+                                            <Text style={styles.activeText}>{t("sub.active")}</Text>
                                         </View>
                                     ) : (
                                         discountPercentage && !isPro && (
                                             <View style={styles.discountBadge}>
-                                                <Text style={styles.discountText}>SAVE {discountPercentage}</Text>
+                                                <Text style={styles.discountText}>{t("sub.save", { percent: discountPercentage })}</Text>
                                             </View>
                                         )
                                     )}
@@ -656,7 +740,7 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                                 style={styles.ctaButtonManage}
                                 onPress={() => { AdsManager.suppressNextResumeAd(); Linking.openURL("https://apps.apple.com/account/subscriptions"); }}
                             >
-                                <Text style={styles.ctaTextManage}>Manage Subscription</Text>
+                                <Text style={styles.ctaTextManage}>{t("sub.manage")}</Text>
                             </Pressable>
                         ) : (
                             <Pressable
@@ -672,7 +756,7 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                                     {isProcessing ? (
                                         <ActivityIndicator color="#fff" />
                                     ) : (
-                                        <Text style={styles.ctaText}>Unlock Pro</Text>
+                                        <Text style={styles.ctaText}>{t("sub.cta")}</Text>
                                     )}
                                 </LinearGradient>
                             </Pressable>
@@ -702,276 +786,3 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
         </Animated.View>
     );
 }
-
-const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: "#000" },
-    contentWrap: { flex: 1 },
-    header: {
-        position: "absolute",
-        top: 0,
-        left: 0,
-        right: 0,
-        zIndex: 20,
-        flexDirection: "row",
-        justifyContent: "flex-end",
-        paddingHorizontal: 20,
-    },
-    closeBtn: { overflow: "hidden", borderRadius: 20 },
-    closeBtnInner: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
-    mainContent: { flex: 1, zIndex: 10 },
-    scrollContent: { paddingTop: 100, paddingHorizontal: 24, paddingBottom: 40 },
-
-    // Hero
-    heroSection: { marginBottom: 32, alignItems: "flex-start" },
-    proBadge: {
-        paddingHorizontal: 14,
-        paddingVertical: 6,
-        borderRadius: 12,
-        marginBottom: 16,
-    },
-    proBadgeText: { color: "#fff", fontSize: 12, fontWeight: "800", letterSpacing: 1 },
-    heroTitle: {
-        color: "#fff",
-        fontSize: 38,
-        fontWeight: "900",
-        lineHeight: 44,
-        marginBottom: 12,
-        textShadowColor: "rgba(0,0,0,0.5)",
-        textShadowOffset: { width: 0, height: 2 },
-        textShadowRadius: 10,
-    },
-    heroSubtitle: { color: "rgba(255,255,255,0.8)", fontSize: 16, lineHeight: 24, fontWeight: "500", marginBottom: 16 },
-
-    // Demo Controls
-    demoControls: {
-        width: "100%",
-        alignItems: "stretch",
-        marginBottom: 24,
-        gap: 16,
-    },
-    avatarGlassPill: {
-        flexDirection: "row",
-        alignItems: "center",
-        backgroundColor: "rgba(255,255,255,0.06)",
-        borderRadius: 40,
-        paddingVertical: 6,
-        paddingHorizontal: 8,
-        borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.08)",
-    },
-    carouselList: { flexGrow: 0 },
-    arrowBtn: { padding: 8 },
-    thumbnailList: { flexGrow: 1, gap: 10, paddingHorizontal: 4, alignItems: "center", justifyContent: "center" },
-    thumbnailWrap: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
-        justifyContent: "center",
-        alignItems: "center",
-        overflow: "hidden",
-        borderWidth: 2,
-        borderColor: "rgba(150, 100, 255, 0.2)",
-    },
-    thumbnailWrapActive: {
-        borderColor: "#9B59FF",
-        borderWidth: 2.5,
-        shadowColor: "#9B59FF",
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.7,
-        shadowRadius: 12,
-        elevation: 8,
-    },
-    thumbnail: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
-    },
-
-    actionsRow: {
-        flexDirection: "row",
-        justifyContent: "center",
-        alignItems: "center",
-        gap: 20,
-    },
-    actionGroup: {
-        alignItems: "center",
-        flex: 1,
-    },
-    sectionLabel: {
-        fontSize: 10,
-        color: "rgba(255,255,255,0.5)",
-        fontWeight: "700",
-        letterSpacing: 1.5,
-        marginBottom: 8,
-    },
-    costumesList: {
-        gap: 10,
-        alignItems: "center",
-        justifyContent: "flex-start",
-        flexDirection: "row",
-    },
-    costumeItemSkeleton: {
-        width: 42,
-        height: 42,
-        borderRadius: 21,
-        backgroundColor: "rgba(255,255,255,0.2)",
-    },
-    costumeItem: {
-        width: 42,
-        height: 42,
-        borderRadius: 21,
-        padding: 2,
-        borderWidth: 2,
-        borderColor: "transparent",
-        backgroundColor: "rgba(255,255,255,0.05)",
-    },
-    costumeItemActive: { borderColor: "#FF6FA5", backgroundColor: "rgba(255, 111, 165, 0.15)" },
-    costumeThumb: { width: 34, height: 34, borderRadius: 17 },
-    danceBtn: {
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: "rgba(255, 255, 255, 0.1)",
-        width: 42,
-        height: 42,
-        borderRadius: 21,
-        borderWidth: 1,
-        borderColor: "rgba(255, 255, 255, 0.15)",
-    },
-
-    // Features
-    featuresContainer: { gap: 14 },
-    featureItem: {
-        flexDirection: "row",
-        alignItems: "center",
-        backgroundColor: "rgba(255,255,255,0.05)",
-        padding: 12,
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.05)",
-    },
-    featureIcon: {
-        width: 36,
-        height: 36,
-        borderRadius: 12,
-        alignItems: "center",
-        justifyContent: "center",
-        marginRight: 14,
-    },
-    featureText: { color: "#fff", fontSize: 15, fontWeight: "600", flex: 1 },
-
-    // Bottom panel
-    bottomPanel: {
-        position: "absolute",
-        bottom: 0,
-        left: 0,
-        right: 0,
-        borderTopLeftRadius: 32,
-        borderTopRightRadius: 32,
-        paddingTop: 24,
-        paddingHorizontal: 24,
-        overflow: "hidden",
-        backgroundColor: "rgba(12,7,22,0.97)",
-    },
-    bottomFade: {
-        position: "absolute",
-        left: 0,
-        right: 0,
-        bottom: 0,
-        height: 480,
-    },
-    plansRow: { flexDirection: "row", gap: 12, marginBottom: 20 },
-    planCard: {
-        flex: 1,
-        backgroundColor: "rgba(255,255,255,0.08)",
-        borderRadius: 20,
-        padding: 16,
-        borderWidth: 1.5,
-        borderColor: "rgba(255,255,255,0.1)",
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        position: "relative",
-    },
-    planCardSelected: { borderColor: "#FF6FA5", backgroundColor: "rgba(255, 111, 165,0.1)" },
-    planInfo: { flex: 1 },
-    planName: {
-        color: "rgba(255,255,255,0.6)",
-        fontSize: 12,
-        fontWeight: "700",
-        marginBottom: 4,
-    },
-    textHL: { color: "#a78bfa" },
-    planPrice: { color: "#fff", fontSize: 18, fontWeight: "700" },
-    perMonth: { color: "rgba(255,255,255,0.5)", fontSize: 12, marginTop: 2 },
-    radio: {
-        width: 20,
-        height: 20,
-        borderRadius: 10,
-        borderWidth: 2,
-        borderColor: "rgba(255,255,255,0.3)",
-    },
-    radioSelected: { borderColor: "#FF6FA5", backgroundColor: "#FF6FA5" },
-    discountBadge: {
-        position: "absolute",
-        top: -10,
-        right: 12,
-        backgroundColor: "#4CAF50",
-        paddingHorizontal: 8,
-        paddingVertical: 3,
-        borderRadius: 8,
-    },
-    discountText: { color: "#fff", fontSize: 10, fontWeight: "800" },
-
-    // CTA
-    ctaButton: {
-        borderRadius: 28,
-        overflow: "hidden",
-        marginBottom: 16,
-        shadowColor: "#FF6FA5",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 12,
-        elevation: 8,
-    },
-    ctaGradient: { paddingVertical: 18, alignItems: "center", justifyContent: "center" },
-    ctaText: { color: "#fff", fontSize: 18, fontWeight: "bold", letterSpacing: 0.5 },
-
-    // Footer
-    footerLinks: {
-        flexDirection: "row",
-        justifyContent: "center",
-        alignItems: "center",
-        opacity: 0.7,
-    },
-    footerLink: { color: "#fff", fontSize: 12, fontWeight: "500" },
-    footerDot: { color: "#fff", marginHorizontal: 10, fontSize: 10 },
-
-    // Active plan states
-    planCardActive: {
-        borderColor: "rgba(245, 158, 11, 0.5)",
-        backgroundColor: "rgba(245, 158, 11, 0.08)",
-    },
-    activeBadge: {
-        position: "absolute",
-        top: -10,
-        right: 12,
-        backgroundColor: "#F59E0B",
-        paddingHorizontal: 8,
-        paddingVertical: 3,
-        borderRadius: 8,
-    },
-    activeText: { color: "#fff", fontSize: 10, fontWeight: "800" },
-    textActive: { color: "#F59E0B" },
-
-    // Manage subscription CTA
-    ctaButtonManage: {
-        borderRadius: 28,
-        borderWidth: 1.5,
-        borderColor: "rgba(255,255,255,0.15)",
-        paddingVertical: 18,
-        alignItems: "center",
-        justifyContent: "center",
-        marginBottom: 16,
-    },
-    ctaTextManage: { color: "rgba(255,255,255,0.7)", fontSize: 16, fontWeight: "600" },
-});

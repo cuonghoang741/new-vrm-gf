@@ -7,6 +7,7 @@ import { analyticsService } from '../services/AnalyticsService';
 import { useVoiceConversation } from './useVoiceConversation';
 import { callQuotaService, CallQuotaService } from '../services/CallQuotaService';
 import { AdsManager } from '../services/AdsManager';
+import { track } from '../services/economyService';
 
 type UseAppVoiceCallOptions = {
     activeCharacterId: string | undefined;
@@ -343,6 +344,7 @@ export const useAppVoiceCall = ({
 
             // Start voice call
             const connected = await ensureVoiceConnected();
+            if (connected) track('voice_call');
             if (connected) {
                 setIsVoiceMode(true);
                 setIsCameraMode(false);

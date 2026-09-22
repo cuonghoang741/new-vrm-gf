@@ -14,8 +14,15 @@ export interface VRMViewerHandle {
     loadModelByName: (name: string) => void;
     /** Load a VRM model by full URL */
     loadModelByURL: (url: string, displayName?: string) => void;
+    /**
+     * Load a VRM from a local file:// copy (see services/vrmCache), falling back
+     * to `remoteUrl` if the page cannot read the file.
+     */
+    loadModelFromCache: (localUri: string, remoteUrl: string, displayName?: string) => void;
     /** Load an FBX animation by name, e.g. "Hip Hop Dancing.fbx" */
     loadAnimationByName: (name: string) => void;
+    /** Play an FBX from an absolute URL (dance catalogue). */
+    loadAnimationByURL: (url: string, name?: string) => void;
     /** Play the next random animation */
     loadNextAnimation: () => void;
     /** Stop the current animation and return back to idle */
@@ -31,6 +38,10 @@ export interface VRMViewerHandle {
     setControlsEnabled: (enabled: boolean) => void;
     /** Blur the rendered 3D canvas (e.g. to tease a locked costume preview). */
     setPreviewBlur: (on: boolean) => void;
+    /** 0 = high (default), 1 = balanced, 2 = battery saver. */
+    setRenderQuality: (q: number) => void;
+    /** Stop drawing frames (pre-warmed, hidden viewer) without unloading anything. */
+    setRenderPaused: (paused: boolean) => void;
     /** Enable / disable call mode (head tracking, close-up camera) */
     setCallMode: (enabled: boolean) => void;
     /** Reset camera to default position */
@@ -65,6 +76,13 @@ export interface VRMViewerProps {
     transparent?: boolean;
     /** Container style override */
     style?: any;
+    /**
+     * Serve the page from this file:// URL instead of the bundled index.html.
+     * iOS uses it so the page sits next to the cached models it must read.
+     */
+    sourceUri?: string;
+    /** iOS: directory the page may read local files from (pairs with sourceUri). */
+    allowingReadAccessToURL?: string;
 }
 
 const VRMViewer = forwardRef<VRMViewerHandle, VRMViewerProps>(
@@ -78,6 +96,8 @@ const VRMViewer = forwardRef<VRMViewerHandle, VRMViewerProps>(
             onMessage,
             transparent = true,
             style,
+            sourceUri,
+            allowingReadAccessToURL,
         },
         ref
     ) => {
@@ -98,12 +118,66 @@ const VRMViewer = forwardRef<VRMViewerHandle, VRMViewerProps>(
                 },
                 loadModelByURL: (url: string, displayName = "Remote Model") => {
                     injectJS(
-                        `window.loadModelByURL && window.loadModelByURL('${url}', '${displayName}')`
+                        `window.__vrmLocalSrc = null; window.loadModelByURL && window.loadModelByURL('${url}', '${displayName}')`
                     );
+                },
+                loadModelFromCache: (localUri: string, remoteUrl: string, displayName = "Remote Model") => {
+                    // three.js loads through fetch(), and Chromium's fetch refuses
+                    // file:// outright — so read the file with XHR (which the
+                    // WebView's file-access flags do allow), hand the page a blob:
+                    // URL, and let the existing loader take it from there. Any
+                    // failure falls back to the network URL, so a cache problem
+                    // can cost speed but never the preview itself.
+                    const L = JSON.stringify(localUri);
+                    const R = JSON.stringify(remoteUrl);
+                    const N = JSON.stringify(displayName);
+                    injectJS(`
+                        var local = ${L}, remote = ${R}, name = ${N};
+                        if (!window.loadModelByURL) return;
+                        // Same file already on screen: blob URLs differ per read,
+                        // so the page's own same-URL check cannot catch this.
+                        if (window.__vrmLocalSrc === local) return;
+                        var report = function (m) {
+                            window.ReactNativeWebView && window.ReactNativeWebView.postMessage(m);
+                        };
+                        var fallback = function () {
+                            window.__vrmLocalSrc = null;
+                            report('vrmCache:fallback');
+                            window.loadModelByURL(remote, name);
+                        };
+                        try {
+                            var x = new XMLHttpRequest();
+                            x.open('GET', local, true);
+                            x.responseType = 'blob';
+                            x.onload = function () {
+                                // file:// reports status 0 on success.
+                                if ((x.status === 200 || x.status === 0) && x.response && x.response.size > 0) {
+                                    var prev = window.__vrmBlobUrl;
+                                    window.__vrmBlobUrl = URL.createObjectURL(x.response);
+                                    window.__vrmLocalSrc = local;
+                                    report('vrmCache:hit');
+                                    window.loadModelByURL(window.__vrmBlobUrl, name);
+                                    // Free the previous model's 17 MB once it can no longer be in use.
+                                    if (prev) setTimeout(function () { URL.revokeObjectURL(prev); }, 30000);
+                                } else {
+                                    fallback();
+                                }
+                            };
+                            x.onerror = fallback;
+                            x.send();
+                        } catch (e) {
+                            fallback();
+                        }
+                    `);
                 },
                 loadAnimationByName: (name: string) => {
                     injectJS(
                         `window.loadAnimationByName && window.loadAnimationByName('${name}')`
+                    );
+                },
+                loadAnimationByURL: (url: string, name?: string) => {
+                    injectJS(
+                        `window.loadAnimationByURL && window.loadAnimationByURL(${JSON.stringify(url)}, ${JSON.stringify(name ?? "")})`
                     );
                 },
                 loadNextAnimation: () => {
@@ -127,8 +201,14 @@ const VRMViewer = forwardRef<VRMViewerHandle, VRMViewerProps>(
                 setControlsEnabled: (enabled: boolean) => {
                     injectJS(`window.setControlsEnabled && window.setControlsEnabled(${enabled})`);
                 },
+                setRenderPaused: (paused: boolean) => {
+                    injectJS(`window.setRenderPaused && window.setRenderPaused(${paused})`);
+                },
                 setPreviewBlur: (on: boolean) => {
                     injectJS(`window.setPreviewBlur && window.setPreviewBlur(${on})`);
+                },
+                setRenderQuality: (q: number) => {
+                    injectJS(`window.setRenderQuality && window.setRenderQuality(${q | 0})`);
                 },
                 setCallMode: (enabled: boolean) => {
                     injectJS(`window.setCallMode && window.setCallMode(${enabled})`);
@@ -164,6 +244,13 @@ const VRMViewer = forwardRef<VRMViewerHandle, VRMViewerProps>(
                     onReady?.();
                 } else if (msg === "modelLoaded") {
                     onModelLoaded?.();
+                } else if (__DEV__ && msg.startsWith("pageError:")) {
+                    console.warn(`[VRMViewer] ${msg}`);
+                } else if (msg.startsWith("vrmCache:")) {
+                    // "hit" = read from disk; "fallback" = the page could not read
+                    // the file and streamed it instead. A steady run of fallbacks
+                    // on a device means local reads are blocked there.
+                    console.log(`[VRMViewer] ${msg}`);
                 }
             },
             [onReady, onModelLoaded, onMessage]
@@ -173,6 +260,9 @@ const VRMViewer = forwardRef<VRMViewerHandle, VRMViewerProps>(
         // Sets native-selected model/background so the HTML picks them up on DOMContentLoaded
         const injectedJSBeforeLoad = `
       window.__isReactNativeShell = true;
+      ${__DEV__ ? `(function(){function p(m){try{window.ReactNativeWebView.postMessage('pageError:'+m)}catch(e){}}
+        window.addEventListener('error',function(e){p((e.message||'')+' @'+(e.filename||(e.target&&(e.target.src||e.target.href))||'')+':'+(e.lineno||''))},true);
+        window.addEventListener('unhandledrejection',function(e){p('rejection '+(e.reason&&(e.reason.stack||e.reason.message)||e.reason))});})();` : ""}
       ${initialModelName ? `window.nativeSelectedModelName = '${initialModelName}';` : ""}
       ${initialModelURL ? `window.nativeSelectedModelURL = '${initialModelURL}';` : ""}
       ${initialBackgroundUrl ? `window.initialBackgroundUrl = '${initialBackgroundUrl}';` : ""}
@@ -187,10 +277,13 @@ const VRMViewer = forwardRef<VRMViewerHandle, VRMViewerProps>(
                     // withCopyIndexHtml plugin) — file:// avoids the http/DNS issues
                     // of require()'d assets. iOS: the bundled require() source works.
                     source={
-                        Platform.OS === "android"
-                            ? { uri: "file:///android_asset/index.html" }
-                            : require("../../assets/index.html")
+                        sourceUri
+                            ? { uri: sourceUri }
+                            : Platform.OS === "android"
+                                ? { uri: "file:///android_asset/index.html" }
+                                : require("../../assets/index.html")
                     }
+                    allowingReadAccessToURL={allowingReadAccessToURL}
                     style={[styles.webview, transparent ? styles.transparent : styles.opaque]}
                     originWhitelist={["*"]}
                     javaScriptEnabled={true}

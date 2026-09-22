@@ -134,7 +134,7 @@ const EditProfileSheet = forwardRef<EditProfileSheetRef, EditProfileSheetProps>(
 
                         {/* Name */}
                         <View style={styles.fieldGroup}>
-                            <Text style={styles.fieldLabel}>DISPLAY NAME</Text>
+                            <Text style={styles.fieldLabel}>{t("edit.name_label")}</Text>
                             <View style={styles.inputContainer}>
                                 <TextInput
                                     style={styles.input}
@@ -150,7 +150,7 @@ const EditProfileSheet = forwardRef<EditProfileSheetRef, EditProfileSheetProps>(
 
                         {/* Bio */}
                         <View style={styles.fieldGroup}>
-                            <Text style={styles.fieldLabel}>BIO</Text>
+                            <Text style={styles.fieldLabel}>{t("edit.bio_label")}</Text>
                             <View style={[styles.inputContainer, styles.bioContainer]}>
                                 <TextInput
                                     style={[styles.input, styles.bioInput]}

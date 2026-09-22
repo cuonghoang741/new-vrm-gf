@@ -14,6 +14,8 @@ import { initI18n, hasChosenLanguage, setAppLanguage, currentLang } from "../i18
 import { markAppOpened, isReturningSession } from "../services/session";
 import { analyticsService } from "../services/AnalyticsService";
 import { LoadingScreen } from "../screens/LoadingScreen";
+import { useSplashAd } from "../hooks/useSplashAd";
+import { clearResume, isResumePending, subscribeResume } from "../services/resumeGate";
 
 export type RootStackParamList = {
     Splash: undefined;
@@ -35,6 +37,8 @@ const SPLASH_MIN_MS = 2800;
 
 export default function AppNavigator() {
     const { isLoggedIn, isLoading, isOnboarded, setIsOnboarded } = useAuth();
+    /** open_splash / inter_splash — holds the boot screen until the ad closes. */
+    const { splashAdDone } = useSplashAd();
 
     // Boot: session tracking + i18n init (device-locale / saved) + first-launch
     // language gate. i18n is bootstrapped synchronously at module load, so
@@ -45,6 +49,22 @@ export default function AppNavigator() {
     const [minDwellDone, setMinDwellDone] = useState(false);
     const [needsLanguage, setNeedsLanguage] = useState(false);
     const [welcomeBackDone, setWelcomeBackDone] = useState(false);
+    /**
+     * Returning from the background shows the welcome-back screen again, and
+     * its CTA is what plays the App Open ad. Kept separate from
+     * `welcomeBackDone` (which is about the cold-start case) so a resume later
+     * in the session still gets the screen.
+     */
+    const [resumePending, setResumePending] = useState(false);
+    useEffect(() => subscribeResume(() => setResumePending(isResumePending())), []);
+    /**
+     * Someone who just finished onboarding has not "come back" — they are
+     * still in their first minute. Without this they landed on
+     * "Welcome back, your companion missed you" the second they picked a
+     * character, whenever the app had been opened before (e.g. they quit
+     * during onboarding and restarted).
+     */
+    const [justOnboarded, setJustOnboarded] = useState(false);
 
     useEffect(() => {
         const t = setTimeout(() => setMinDwellDone(true), SPLASH_MIN_MS);
@@ -66,6 +86,7 @@ export default function AppNavigator() {
     }, []);
 
     const handleOnboardingComplete = useCallback(() => {
+        setJustOnboarded(true);
         setIsOnboarded(true);
     }, [setIsOnboarded]);
 
@@ -110,7 +131,7 @@ export default function AppNavigator() {
                     contentStyle: { backgroundColor: "#0a0a1a" },
                 }}
             >
-                {!booted || isLoading || !minDwellDone ? (
+                {!booted || isLoading || !minDwellDone || !splashAdDone ? (
                     <Stack.Screen name="Splash" component={LoadingScreen} />
                 ) : needsLanguage ? (
                     <Stack.Screen name="Language">
@@ -124,7 +145,19 @@ export default function AppNavigator() {
                             <OnboardingScreen onComplete={handleOnboardingComplete} />
                         )}
                     </Stack.Screen>
-                ) : isReturningSession() && !welcomeBackDone ? (
+                ) : resumePending ? (
+                    <Stack.Screen name="WelcomeBack">
+                        {() => (
+                            <WelcomeBackScreen
+                                playAdOnContinue
+                                onContinue={() => {
+                                    clearResume();
+                                    setResumePending(false);
+                                }}
+                            />
+                        )}
+                    </Stack.Screen>
+                ) : isReturningSession() && !welcomeBackDone && !justOnboarded ? (
                     <Stack.Screen name="WelcomeBack">
                         {() => (
                             <WelcomeBackScreen

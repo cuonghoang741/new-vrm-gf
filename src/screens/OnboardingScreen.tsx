@@ -23,13 +23,23 @@ import {
     IconCheck,
     IconSparkles,
     IconGift,
+    // Chip icons. These used to be emoji, which draw as "?" boxes on any device
+    // whose font lacks the glyph — the same failure the language flags hit.
+    IconMoodLookDown, IconStars, IconHeart, IconMoodWink, IconBrain,
+    IconMountain, IconHandLoveYou, IconMoon,
+    IconDeviceGamepad2, IconMusic, IconBallFootball, IconChefHat,
+    IconPlane, IconBook, IconPalette, IconMovie, IconBarbell, IconLeaf,
+    IconShirt, IconFlag,
 } from "@tabler/icons-react-native";
 import { supabase } from "../config/supabase";
 import { useAuth } from "../hooks/useAuth";
 import { Characters } from "../types/database";
 import { getCharacters } from "../cache/charactersCache";
 import { NativeAdCard } from "../components/ads/NativeAdCard";
+import { preloadNative } from "../components/ads/nativeAdPreload";
+import { AdUnits } from "../config/ads";
 import * as SecureStore from "expo-secure-store";
+import { track } from "../services/trackEvents";
 
 const { width, height } = Dimensions.get("window");
 
@@ -37,34 +47,44 @@ const { width, height } = Dimensions.get("window");
 const AGE_RANGES = ["16-18", "18-24", "25-34", "35-44", "45+"];
 
 const PERSONALITIES = [
-    { key: "shy", emoji: "🥺", label: "Shy" },
-    { key: "outgoing", emoji: "🤩", label: "Outgoing" },
-    { key: "romantic", emoji: "💕", label: "Romantic" },
-    { key: "playful", emoji: "😜", label: "Playful" },
-    { key: "intellectual", emoji: "🧠", label: "Intellectual" },
-    { key: "adventurous", emoji: "🏔️", label: "Adventurous" },
-    { key: "caring", emoji: "🤗", label: "Caring" },
-    { key: "mysterious", emoji: "🌙", label: "Mysterious" },
+    { key: "shy", Icon: IconMoodLookDown, label: "Shy" },
+    { key: "outgoing", Icon: IconStars, label: "Outgoing" },
+    { key: "romantic", Icon: IconHeart, label: "Romantic" },
+    { key: "playful", Icon: IconMoodWink, label: "Playful" },
+    { key: "intellectual", Icon: IconBrain, label: "Intellectual" },
+    { key: "adventurous", Icon: IconMountain, label: "Adventurous" },
+    { key: "caring", Icon: IconHandLoveYou, label: "Caring" },
+    { key: "mysterious", Icon: IconMoon, label: "Mysterious" },
 ];
 
 const INTERESTS = [
-    { key: "anime", emoji: "🎌", label: "Anime" },
-    { key: "gaming", emoji: "🎮", label: "Gaming" },
-    { key: "music", emoji: "🎵", label: "Music" },
-    { key: "sports", emoji: "⚽", label: "Sports" },
-    { key: "cooking", emoji: "🍳", label: "Cooking" },
-    { key: "travel", emoji: "✈️", label: "Travel" },
-    { key: "reading", emoji: "📚", label: "Reading" },
-    { key: "art", emoji: "🎨", label: "Art" },
-    { key: "movies", emoji: "🎬", label: "Movies" },
-    { key: "fitness", emoji: "💪", label: "Fitness" },
-    { key: "nature", emoji: "🌿", label: "Nature" },
-    { key: "fashion", emoji: "👗", label: "Fashion" },
+    { key: "anime", Icon: IconFlag, label: "Anime" },
+    { key: "gaming", Icon: IconDeviceGamepad2, label: "Gaming" },
+    { key: "music", Icon: IconMusic, label: "Music" },
+    { key: "sports", Icon: IconBallFootball, label: "Sports" },
+    { key: "cooking", Icon: IconChefHat, label: "Cooking" },
+    { key: "travel", Icon: IconPlane, label: "Travel" },
+    { key: "reading", Icon: IconBook, label: "Reading" },
+    { key: "art", Icon: IconPalette, label: "Art" },
+    { key: "movies", Icon: IconMovie, label: "Movies" },
+    { key: "fitness", Icon: IconBarbell, label: "Fitness" },
+    { key: "nature", Icon: IconLeaf, label: "Nature" },
+    { key: "fashion", Icon: IconShirt, label: "Fashion" },
 ];
 
 interface OnboardingScreenProps {
     onComplete: () => void;
 }
+
+/**
+ * Ad slot per onboarding slide, keyed by `step` (0 = slide 1). Slide 2
+ * (`step === 1`) is intentionally absent.
+ */
+const ONBOARDING_AD_SLOTS: Record<number, { unitId: string; placement: string }> = {
+    0: { unitId: AdUnits.nativeOnboarding1, placement: "native_onboarding_1_1" },
+    2: { unitId: AdUnits.nativeOnboarding2, placement: "native_onboarding_1_2" },
+    3: { unitId: AdUnits.nativeOnboarding3, placement: "native_onboarding_1_3" },
+};
 
 export default function OnboardingScreen({
     onComplete,
@@ -86,22 +106,15 @@ export default function OnboardingScreen({
 
     useEffect(() => {
         if (!user || hasNotifiedRef.current) return;
-        
+
+        // The "new user" Telegram notification is sent server-side now: a
+        // trigger on auth.users creates the profile and the profiles trigger
+        // calls handle-new-user. The app only fills in the country.
         const notify = async () => {
             try {
                 hasNotifiedRef.current = true;
-                const { TelegramService } = await import("../services/TelegramService");
                 const { authManager } = await import("../services/AuthManager");
-                
-                const detectedCountry = await authManager.updateCountryIfMissing(user.id);
-                const { data: profile } = await supabase.from('profiles').select('display_name, country').eq('id', user.id).maybeSingle();
-
-                await TelegramService.notifyNewUser({
-                    id: user.id,
-                    email: user.email,
-                    name: profile?.display_name || user.user_metadata?.full_name || user.email?.split('@')[0],
-                    country: detectedCountry || profile?.country || 'N/A'
-                });
+                await authManager.updateCountryIfMissing(user.id);
             } catch (e) {
                 hasNotifiedRef.current = false;
             }
@@ -116,6 +129,7 @@ export default function OnboardingScreen({
     useEffect(() => {
         analyticsService.logOnboardingStart();
         analyticsService.logOnboardingStep(STEP_NAMES[0], 0);
+        track.onboardingStepView(1);
     }, []);
 
     const animateTransition = useCallback(
@@ -124,6 +138,9 @@ export default function OnboardingScreen({
                 STEP_NAMES[nextStep] ?? String(nextStep),
                 nextStep
             );
+            // Sheet's onboarding rows: the four steps here are its four slides.
+            track.onboardingStepView(((nextStep + 1) as 1 | 2 | 3 | 4));
+            if (nextStep <= 3) track.onboardingNextSelect(nextStep);
             Animated.timing(fadeAnim, {
                 toValue: 0,
                 duration: 200,
@@ -281,6 +298,8 @@ export default function OnboardingScreen({
 
         setIsClaiming(false);
         analyticsService.logOnboardingComplete(matchedCharacter.id);
+        track.onboardingGetStarted();
+        track.characterStartChat(matchedCharacter.id);
         onComplete();
     }, [
         matchedCharacter,
@@ -300,6 +319,21 @@ export default function OnboardingScreen({
             matchCharacter();
         }
     };
+
+    /**
+     * Which native unit each slide carries. `null` = no ad on that slide.
+     * Indexed by `step`, so the mapping is one thing to read rather than a
+     * condition spread across the tree.
+     */
+    const onboardingAd = ONBOARDING_AD_SLOTS[step] ?? null;
+
+    // Warm the next slide's unit while the user is answering this one — each
+    // slot is a different unit, so without this every slide opens on a
+    // skeleton.
+    useEffect(() => {
+        const next = ONBOARDING_AD_SLOTS[step + 1];
+        if (next) preloadNative(next.unitId);
+    }, [step]);
 
     const stepTitles = [
         t("onb.step1_title"),
@@ -391,7 +425,7 @@ export default function OnboardingScreen({
                                             onPress={() => togglePersonality(p.key)}
                                             activeOpacity={0.7}
                                         >
-                                            <Text style={chipStyles.chipEmoji}>{p.emoji}</Text>
+                                            <p.Icon size={17} color={selectedPersonalities.includes(p.key) ? "#fff" : "rgba(255,255,255,0.75)"} />
                                             <Text
                                                 style={[
                                                     chipStyles.chipLabel,
@@ -421,7 +455,10 @@ export default function OnboardingScreen({
                             <Text style={styles.stepSubtitle}>{stepSubtitles[2]}</Text>
                             <ScrollView
                                 showsVerticalScrollIndicator={false}
-                                contentContainerStyle={chipStyles.chipGrid}
+                                // The CTA floats over the bottom of this list;
+                                // without the padding the last row of chips sat
+                                // under it and could not be tapped.
+                                contentContainerStyle={[chipStyles.chipGrid, { paddingBottom: 96 }]}
                             >
                                 {INTERESTS.map((i) => {
                                     const isSelected = selectedInterests.includes(i.key);
@@ -435,7 +472,7 @@ export default function OnboardingScreen({
                                             onPress={() => toggleInterest(i.key)}
                                             activeOpacity={0.7}
                                         >
-                                            <Text style={chipStyles.chipEmoji}>{i.emoji}</Text>
+                                            <i.Icon size={17} color={selectedInterests.includes(i.key) ? "#fff" : "rgba(255,255,255,0.75)"} />
                                             <Text
                                                 style={[
                                                     chipStyles.chipLabel,
@@ -487,7 +524,7 @@ export default function OnboardingScreen({
                                         <View style={styles.giftIcon}>
                                             <IconGift size={32} color="#FFD700" />
                                         </View>
-                                        <Text style={styles.resultTitle}>Your match!</Text>
+                                        <Text style={styles.resultTitle}>{t("onb.your_match")}</Text>
 
                                         <View style={styles.characterCard}>
                                             {matchedCharacter.thumbnail_url && (
@@ -526,13 +563,13 @@ export default function OnboardingScreen({
                                                     <>
                                                         <ActivityIndicator size="small" color="#FFFFFF" style={{ marginRight: 10 }} />
                                                         <Text style={styles.startButtonText}>
-                                                            Setting up...
+                                                            {t("onb.setting_up")}
                                                         </Text>
                                                     </>
                                                 ) : (
                                                     <>
                                                         <Text style={styles.startButtonText}>
-                                                            Start chatting with {matchedCharacter.name}
+                                                            {t("onb.start_chatting_with", { name: matchedCharacter.name })}
                                                         </Text>
                                                         <IconArrowRight
                                                             size={20}
@@ -550,12 +587,18 @@ export default function OnboardingScreen({
                     )}
                 </Animated.View>
 
-                {/* native_onboarding — only on the personality/interests steps
-                    (users dwell here), never on the age or the emotional match
-                    result. Collapses for PRO / no-fill. */}
-                {(step === 1 || step === 2) && (
-                    <View style={{ paddingHorizontal: 20, marginBottom: 10 }}>
-                        <NativeAdCard placement="native_onboarding" />
+                {/* native_onboarding_1.1 / 1.2 / 1.3 — slides 1, 3 and 4, each
+                    on its own ad unit so the three read separately in AdMob.
+                    Slide 2 is deliberately left clear: three ads across four
+                    slides is already the ceiling before onboarding reads as an
+                    ad funnel. The slot collapses for PRO / no-fill. */}
+                {onboardingAd && (
+                    <View style={styles.adSlot}>
+                        <NativeAdCard
+                            key={onboardingAd.placement}
+                            adUnitId={onboardingAd.unitId}
+                            placement={onboardingAd.placement}
+                        />
                     </View>
                 )}
 
@@ -686,6 +729,22 @@ const styles = StyleSheet.create({
     },
     optionTextActive: {
         color: "#FFFFFF",
+    },
+    /**
+     * The ad always lands next to a primary button — under "Start chatting" on
+     * the result slide, above "Continue" on the others. The top gap is the
+     * accidental-click margin that separation is there to buy: a native card
+     * flush against a CTA is both a policy finding and a tap the user did not
+     * mean to make.
+     */
+    adSlot: {
+        paddingHorizontal: 20,
+        // Margin on BOTH sides, because which side the button lands on changes
+        // per slide: "Continue" sits below the card on slides 1 and 3, while on
+        // the result slide the card sits below "Start chatting". A gap on one
+        // side only leaves the card flush against the button on the other.
+        marginTop: 24,
+        marginBottom: 22,
     },
     matchContainer: {
         flex: 1,

@@ -1,0 +1,234 @@
+import React, { useEffect } from "react";
+import type { User } from "@supabase/supabase-js";
+import CharacterSheet from "../../components/sheets/CharacterSheet";
+import CostumeSheet from "../../components/sheets/CostumeSheet";
+import BackgroundSheet from "../../components/sheets/BackgroundSheet";
+import SettingsSheet from "../../components/sheets/SettingsSheet";
+import SubscriptionSheet from "../../components/sheets/SubscriptionSheet";
+import MediaSheet from "../../components/sheets/MediaSheet";
+import CheckinSheet from "../../components/sheets/CheckinSheet";
+import DanceSheet from "../../components/sheets/DanceSheet";
+import { QuestPage, type QuestTarget } from "../quest/QuestPage";
+import { BondPage } from "../bond/BondPage";
+import { trackBond } from "../../services/bondService";
+import { track } from "../../services/economyService";
+import type { useDance } from "./useDance";
+
+/**
+ * Every bottom sheet PlayScreen can open, in one place.
+ *
+ * This is a pass-through: no logic of its own, and deliberately so. The value
+ * is that the screen's render now ends at one `<PlaySheets .../>` instead of
+ * ninety lines of sheet wiring, and that the props below are an explicit list
+ * of what the sheets are allowed to touch — previously that list existed only
+ * as closure captures you had to read the whole file to find.
+ *
+ * The prop count is wide because the screen holds ~40 pieces of state, not
+ * because the split is wrong. Narrowing it means consolidating that state
+ * first, which is a bigger change than moving lines between files.
+ */
+export interface PlaySheetsProps {
+    user: User | null;
+
+    // open/close state, one pair per sheet
+    charSheetOpen: boolean;
+    setCharSheetOpen: (open: boolean) => void;
+    costumeSheetOpen: boolean;
+    setCostumeSheetOpen: (open: boolean) => void;
+    bgSheetOpen: boolean;
+    setBgSheetOpen: (open: boolean) => void;
+    settingsSheetOpen: boolean;
+    setSettingsSheetOpen: (open: boolean) => void;
+    subscriptionOpen: boolean;
+    setSubscriptionOpen: (open: boolean) => void;
+    mediaSheetOpen: boolean;
+    setMediaSheetOpen: (open: boolean) => void;
+    checkinOpen: boolean;
+    setCheckinOpen: (open: boolean) => void;
+    questOpen: boolean;
+    setQuestOpen: (open: boolean) => void;
+    bondOpen: boolean;
+    bondLevel: number | null;
+    bondProgress: number | null;
+    setBondOpen: (open: boolean) => void;
+    characterName: string;
+    dance: ReturnType<typeof useDance>;
+    /** Selected character's picture, blurred behind the picker sheets. */
+    sceneImage: string | null;
+
+    // what the sheets need to know about the current scene
+    isPro: boolean;
+    characterId: string | null;
+    characterModelUrl: string | null;
+    backgroundId: string | null;
+    backgroundUrl: string | null;
+
+    // actions
+    onCharacterSelect: (char: any) => void;
+    onCostumeSelect: (costume: any) => void;
+    onBackgroundSelect: (bg: any) => void;
+    onRubyClaimed: (balance: number) => void;
+    onPurchaseSuccess: () => void;
+    onResetOnboarding: () => void;
+    /** Fired when the character sheet closes — the interstitial moment. */
+    onCharacterSheetClosed: () => void;
+}
+
+export function PlaySheets(p: PlaySheetsProps) {
+    const openSubscription = () => p.setSubscriptionOpen(true);
+    const openQuests = () => p.setQuestOpen(true);
+
+    // Quest progress for "open the gallery".
+    useEffect(() => {
+        if (p.mediaSheetOpen) {
+            track("open_gallery");
+            void trackBond(p.characterId ?? "", "open_gallery");
+        }
+    }, [p.mediaSheetOpen]);
+
+    /** A quest's "Go" button: close the Quest page, open where the quest happens. */
+    const goToQuest = (target: QuestTarget) => {
+        p.setQuestOpen(false);
+        const open = {
+            checkin: () => p.setCheckinOpen(true),
+            chat: () => { },
+            costume: () => p.setCostumeSheetOpen(true),
+            background: () => p.setBgSheetOpen(true),
+            dance: () => p.dance.setDanceSheetOpen(true),
+            gallery: () => p.setMediaSheetOpen(true),
+        }[target];
+        setTimeout(open, 350);
+    };
+
+    return (
+        <>
+            <CharacterSheet
+                isOpened={p.charSheetOpen}
+                onIsOpenedChange={(open) => {
+                    p.setCharSheetOpen(open);
+                    // Show an interstitial when leaving the character sheet
+                    // (frequency-capped & skipped for PRO inside the hook).
+                    if (!open) p.onCharacterSheetClosed();
+                }}
+                currentCharacterId={p.characterId}
+                onSelect={p.onCharacterSelect}
+                isPro={p.isPro}
+                onOpenSubscription={openSubscription}
+                userId={p.user?.id}
+            />
+            <CostumeSheet
+                bondLevel={p.bondLevel ?? 1}
+                bondProgress={p.bondProgress}
+                characterName={p.characterName}
+                onOpenBond={() => p.setBondOpen(true)}
+                isOpened={p.costumeSheetOpen}
+                onIsOpenedChange={p.setCostumeSheetOpen}
+                characterId={p.characterId}
+                currentCostumeUrl={p.characterModelUrl}
+                onSelect={(c) => {
+                    track("change_outfit");
+                    void trackBond(p.characterId ?? "", "change_outfit");
+                    p.onCostumeSelect(c);
+                }}
+                isPro={p.isPro}
+                onOpenSubscription={openSubscription}
+                onOpenQuests={openQuests}
+                userId={p.user?.id}
+                sceneImage={p.sceneImage}
+            />
+            <BackgroundSheet
+                bondLevel={p.bondLevel ?? 1}
+                bondProgress={p.bondProgress}
+                characterName={p.characterName}
+                onOpenBond={() => p.setBondOpen(true)}
+                isOpened={p.bgSheetOpen}
+                onIsOpenedChange={p.setBgSheetOpen}
+                currentBackgroundId={p.backgroundId}
+                onSelect={(bg) => {
+                    track("change_background");
+                    void trackBond(p.characterId ?? "", "change_background");
+                    p.onBackgroundSelect(bg);
+                }}
+                isPro={p.isPro}
+                onOpenSubscription={openSubscription}
+                onOpenQuests={openQuests}
+                userId={p.user?.id}
+                sceneImage={p.sceneImage}
+            />
+            <SettingsSheet
+                isOpened={p.settingsSheetOpen}
+                onIsOpenedChange={p.setSettingsSheetOpen}
+                userId={p.user?.id}
+                userEmail={p.user?.email}
+                onOpenSubscription={() => {
+                    p.setSettingsSheetOpen(false);
+                    setTimeout(openSubscription, 400);
+                }}
+                onResetOnboarding={p.onResetOnboarding}
+                sceneImage={p.sceneImage}
+            />
+            <SubscriptionSheet
+                isOpened={p.subscriptionOpen}
+                onClose={() => p.setSubscriptionOpen(false)}
+                onPurchaseSuccess={p.onPurchaseSuccess}
+                currentModelUrl={p.characterModelUrl}
+                currentBackgroundUrl={p.backgroundUrl}
+                currentCharacterId={p.characterId}
+            />
+            <MediaSheet
+                isOpened={p.mediaSheetOpen}
+                onIsOpenedChange={p.setMediaSheetOpen}
+                characterId={p.characterId}
+                sceneImage={p.sceneImage}
+                onOpenSubscription={() => {
+                    p.setMediaSheetOpen(false);
+                    openSubscription();
+                }}
+            />
+            <DanceSheet
+                bondLevel={p.bondLevel ?? 1}
+                bondProgress={p.bondProgress}
+                characterName={p.characterName}
+                onOpenBond={() => p.setBondOpen(true)}
+                isOpened={p.dance.danceSheetOpen}
+                onIsOpenedChange={p.dance.setDanceSheetOpen}
+                currentDanceId={p.dance.currentDanceId}
+                onSelect={p.dance.playDance}
+                isPro={p.isPro}
+                userId={p.user?.id}
+                onOpenSubscription={openSubscription}
+                onOpenQuests={openQuests}
+                sceneImage={p.sceneImage}
+            />
+            <QuestPage
+                visible={p.questOpen}
+                onClose={() => p.setQuestOpen(false)}
+                isPro={p.isPro}
+                sceneImage={p.sceneImage}
+                onOpenSubscription={() => {
+                    p.setQuestOpen(false);
+                    setTimeout(openSubscription, 350);
+                }}
+                onGo={goToQuest}
+            />
+            <BondPage
+                visible={p.bondOpen}
+                onClose={() => p.setBondOpen(false)}
+                characterId={p.characterId}
+                characterName={p.characterName}
+                characterArt={p.sceneImage}
+            />
+            <CheckinSheet
+                isOpened={p.checkinOpen}
+                onIsOpenedChange={p.setCheckinOpen}
+                userId={p.user?.id}
+                onClaimed={p.onRubyClaimed}
+                sceneImage={p.sceneImage}
+                onOpenSubscription={() => {
+                    p.setCheckinOpen(false);
+                    setTimeout(openSubscription, 350);
+                }}
+            />
+        </>
+    );
+}

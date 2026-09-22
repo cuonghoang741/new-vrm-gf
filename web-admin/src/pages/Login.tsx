@@ -6,7 +6,7 @@ import { useAuth } from '../lib/auth';
 export default function Login() {
   const nav = useNavigate();
   const { session, isAdmin, loading } = useAuth();
-  const [email, setEmail] = useState('admin@gmail.com');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
@@ -28,7 +28,7 @@ export default function Login() {
       <form className="login-card" onSubmit={onSubmit}>
         <div className="brand">
           <div className="brand-dot" />
-          <h1>Yuuki Admin</h1>
+          <h1>TrueFeel Admin</h1>
         </div>
         <label>
           <span>Email</span>

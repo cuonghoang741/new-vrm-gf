@@ -21,6 +21,7 @@ import { supabase } from "../../config/supabase";
 import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
 import { useSubscription } from "../../contexts/SubscriptionContext";
 import { analyticsService } from "../../services/AnalyticsService";
+import { track } from "../../services/trackEvents";
 import LockIcon from "../icons/LockIcon";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
@@ -38,6 +39,8 @@ interface MediaItem {
 }
 
 interface MediaSheetProps {
+    /** Selected character's picture, blurred behind the sheet (Yuuki style). */
+    sceneImage?: string | null;
     isOpened: boolean;
     onIsOpenedChange: (open: boolean) => void;
     characterId: string | null;
@@ -49,7 +52,7 @@ export type MediaSheetRef = BottomSheetRef;
 type TabKey = "image" | "video";
 
 const MediaSheet = forwardRef<MediaSheetRef, MediaSheetProps>(
-    ({ isOpened, onIsOpenedChange, characterId, onOpenSubscription }, ref) => {
+    ({ isOpened, onIsOpenedChange, characterId, onOpenSubscription, sceneImage }, ref) => {
         const { t } = useTranslation();
         const sheetRef = useRef<BottomSheetRef>(null);
         const { isPro } = useSubscription();
@@ -90,9 +93,9 @@ const MediaSheet = forwardRef<MediaSheetRef, MediaSheetProps>(
         }, [characterId, loading]);
 
         useEffect(() => {
-            if (isOpened && characterId) {
-                load();
-            }
+            if (!isOpened) return;
+            track.galleryView();
+            if (characterId) load();
         }, [isOpened, characterId]);
 
         useEffect(() => {
@@ -112,8 +115,11 @@ const MediaSheet = forwardRef<MediaSheetRef, MediaSheetProps>(
         const handleMediaPress = useCallback(
             (item: MediaItem) => {
                 const isLocked = item.tier === "pro" && !isPro;
+                track.itemSelect("gallery", item.id, isLocked);
                 if (isLocked) {
                     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                    // Gallery media has no ruby price: PRO is the only unlock.
+                    track.unlockSelect("gallery", item.id, 0, "pro");
                     onOpenSubscription?.();
                     return;
                 }
@@ -223,6 +229,7 @@ const MediaSheet = forwardRef<MediaSheetRef, MediaSheetProps>(
                 onIsOpenedChange={onIsOpenedChange}
                 backgroundBlur="system-thick-material-dark"
                 title={t("media.title")}
+                sceneImage={sceneImage ?? null}
                 isDarkBackground
                 detents={[0.7, 0.95]}
             >
@@ -238,7 +245,7 @@ const MediaSheet = forwardRef<MediaSheetRef, MediaSheetProps>(
                         >
                             <IconPhoto size={18} color={activeTab === "image" ? "#FF6FA5" : "rgba(255,255,255,0.4)"} />
                             <Text style={[styles.tabText, activeTab === "image" && styles.tabTextActive]}>
-                                Images ({images.length})
+                                {t("media.images")} ({images.length})
                             </Text>
                         </Pressable>
                         <Pressable
@@ -250,7 +257,7 @@ const MediaSheet = forwardRef<MediaSheetRef, MediaSheetProps>(
                         >
                             <IconVideo size={18} color={activeTab === "video" ? "#FF6FA5" : "rgba(255,255,255,0.4)"} />
                             <Text style={[styles.tabText, activeTab === "video" && styles.tabTextActive]}>
-                                Videos ({videos.length})
+                                {t("media.videos")} ({videos.length})
                             </Text>
                         </Pressable>
                     </View>

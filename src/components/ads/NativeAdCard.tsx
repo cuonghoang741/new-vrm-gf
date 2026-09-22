@@ -10,6 +10,25 @@ import { AdUnits } from "../../config/ads";
 import { analyticsService } from "../../services/AnalyticsService";
 import { takePreloadedNative } from "./nativeAdPreload";
 import { useSubscription } from "../../contexts/SubscriptionContext";
+import { track } from "../../services/trackEvents";
+
+/**
+ * The tracking sheet names one event per native slot; the placement string we
+ * already pass around is the key.
+ */
+const trackNativeOpen = (placement: string) => {
+    const event = NATIVE_OPEN_EVENT[placement];
+    if (event) track.raw(event);
+};
+
+const NATIVE_OPEN_EVENT: Record<string, string> = {
+    native_language_1: "language_native_1_1_open",
+    native_language_2: "language_native_1_2_open",
+    native_onboarding_1_1: "onboarding1_native_open",
+    native_onboarding_1_2: "onboarding3_native_open",
+    native_onboarding_1_3: "onboarding4_native_open",
+    native_welcome_back: "welcome_back_native_open",
+};
 
 /**
  * Compact native advertising card (icon + headline + body + CTA) with the
@@ -61,6 +80,7 @@ export function NativeAdCard({
         if (ready) {
             setAd(ready);
             analyticsService.logAdLoaded("native", placement);
+            trackNativeOpen(placement);
             return () => ready.destroy();
         }
 
@@ -76,6 +96,7 @@ export function NativeAdCard({
                     loaded = a;
                     setAd(a);
                     analyticsService.logAdLoaded("native", placement);
+                    trackNativeOpen(placement);
                 }
             })
             .catch(() => {
@@ -100,10 +121,16 @@ export function NativeAdCard({
             style={[styles.card, cornerRadius !== undefined && { borderRadius: cornerRadius }]}
         >
             <View style={styles.row}>
+                {/* The spacing lives on these wrappers, never on the asset
+                    view itself: RN implements `gap` as margins on the direct
+                    children, and a margin on a registered asset is what makes
+                    AdMob's validator report assets outside the ad view. */}
                 {ad.icon?.url ? (
-                    <NativeAsset assetType={NativeAssetType.ICON}>
-                        <Image source={{ uri: ad.icon.url }} style={styles.icon} />
-                    </NativeAsset>
+                    <View style={styles.iconSlot}>
+                        <NativeAsset assetType={NativeAssetType.ICON}>
+                            <Image source={{ uri: ad.icon.url }} style={styles.icon} />
+                        </NativeAsset>
+                    </View>
                 ) : null}
                 <View style={styles.middle}>
                     <View style={styles.headlineRow}>
@@ -115,25 +142,30 @@ export function NativeAdCard({
                         </NativeAsset>
                     </View>
                     {ad.body ? (
+                        <View style={styles.bodySlot}>
                         <NativeAsset assetType={NativeAssetType.BODY}>
                             <Text style={styles.body} numberOfLines={1}>
                                 {ad.body}
                             </Text>
                         </NativeAsset>
+                        </View>
                     ) : null}
                 </View>
                 {ad.callToAction && !fullWidthCta ? (
-                    <NativeAsset assetType={NativeAssetType.CALL_TO_ACTION}>
-                        <View style={[styles.cta, ctaColor ? { backgroundColor: ctaColor } : null]}>
-                            <Text style={styles.ctaText} numberOfLines={1}>
-                                {ad.callToAction}
-                            </Text>
-                        </View>
-                    </NativeAsset>
+                    <View style={styles.ctaSlot}>
+                        <NativeAsset assetType={NativeAssetType.CALL_TO_ACTION}>
+                            <View style={[styles.cta, ctaColor ? { backgroundColor: ctaColor } : null]}>
+                                <Text style={styles.ctaText} numberOfLines={1}>
+                                    {ad.callToAction}
+                                </Text>
+                            </View>
+                        </NativeAsset>
+                    </View>
                 ) : null}
             </View>
 
             {ad.callToAction && fullWidthCta ? (
+                <View style={styles.ctaWideSlot}>
                 <NativeAsset assetType={NativeAssetType.CALL_TO_ACTION}>
                     <View
                         style={[
@@ -146,6 +178,7 @@ export function NativeAdCard({
                         </Text>
                     </View>
                 </NativeAsset>
+                </View>
             ) : null}
         </NativeAdView>
     );
@@ -188,11 +221,25 @@ const PINK = "#FF6FA5";
 
 const styles = StyleSheet.create({
     card: {
+        // NativeAdView is a native view and measures itself against the window,
+        // not the parent's content box — so without this it ignored the
+        // screen's 20pt side padding and hung 20pt off the right edge.
+        alignSelf: "stretch",
+        width: "100%",
         backgroundColor: "rgba(255,255,255,0.06)",
         borderRadius: 16,
         borderWidth: 1,
         borderColor: "rgba(255,255,255,0.10)",
-        padding: 12,
+        // NO horizontal padding on the ad view itself.
+        //
+        // `NativeAsset` hands its child to the native ad view, which positions
+        // registered assets inside the view's own content box — on top of the
+        // position RN already gave them. Any padding here is therefore applied
+        // twice: the icon and the CTA sat 28pt from the left edge instead of
+        // 14, and the CTA's right edge ran flush into the border. The inset
+        // now lives on the plain wrapper views below, which the native side
+        // does not know about.
+        paddingVertical: 14,
         // Tall enough for the 44px icon row plus padding, so the card never
         // has to grow past what NativeAdView measured. Clipping with
         // overflow:hidden was the wrong tool — it hid the overflow instead of
@@ -200,7 +247,12 @@ const styles = StyleSheet.create({
         // policy finding ("content must be fully visible").
         minHeight: 76,
     },
-    row: { flexDirection: "row", alignItems: "center", gap: 12 },
+    row: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14 },
+    iconSlot: { marginRight: 12 },
+    // The button keeps its size; the headline column (minWidth:0) is what
+    // gives way when the text is long.
+    ctaSlot: { marginLeft: 12, flexShrink: 0 },
+    ctaWideSlot: { marginTop: 12, paddingHorizontal: 14 },
     // No margins on an asset view: spacing comes from the row's gap. A margin
     // on the registered asset is a common trigger for AdMob's "advertiser
     // assets outside native ad view" finding.
@@ -223,18 +275,18 @@ const styles = StyleSheet.create({
         overflow: "hidden",
     },
     headline: { color: "#fff", fontSize: 15, fontWeight: "700", flexShrink: 1 },
-    body: { color: "rgba(255,255,255,0.6)", fontSize: 12.5, marginTop: 3 },
+    bodySlot: { marginTop: 3 },
+    body: { color: "rgba(255,255,255,0.6)", fontSize: 12.5 },
     cta: {
         backgroundColor: PINK,
         borderRadius: 12,
         paddingHorizontal: 14,
         paddingVertical: 9,
-        flexShrink: 0,
-        maxWidth: 128,
+        maxWidth: 140,
     },
     ctaText: { color: "#fff", fontSize: 13, fontWeight: "800" },
     ctaWide: {
-        marginTop: 10,
+        // No margin here: the wrapper (ctaWideSlot) carries the spacing.
         borderRadius: 12,
         paddingVertical: 12,
         alignItems: "center",

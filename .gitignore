@@ -54,3 +54,7 @@ credentials.json
 # Real credential values (never commit — this repo is public)
 SECRETS.local.md
 *.local.md
+
+# Local Netlify folder
+.netlify
+supabase/.temp/

@@ -23,6 +23,9 @@ const ADAPTERS = [
   'com.google.ads.mediation:pangle:6.4.0.6.0',
   'com.google.ads.mediation:unity:4.16.6.0',
   'com.google.ads.mediation:vungle:7.5.1.0',
+  // Unity's adapter does not pull the Unity Ads SDK in by itself — Yuuki
+  // declares it explicitly too, or Unity never fills.
+  'com.unity3d.ads:unity-ads:4.16.6',
 ];
 
 /**

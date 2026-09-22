@@ -1,7 +1,8 @@
 import { supabase } from "../config/supabase";
+import { unlockWithAd } from "./economyService";
 
 /** Asset families a one-time rewarded unlock applies to. */
-export type UnlockType = "character" | "costume" | "background";
+export type UnlockType = "character" | "costume" | "background" | "dance";
 
 const TABLE = "user_unlocks";
 
@@ -157,16 +158,28 @@ export async function markUnlocked(
         return;
     }
     try {
-        const { error } = await supabase
-            .from(TABLE)
-            .upsert([{ user_id: userId, asset_type: type, asset_id: id }], {
-                onConflict: "user_id,asset_type,asset_id",
-                ignoreDuplicates: true,
-            });
-        if (error) throw error;
+        // Server checks the item really is an "ads" item and applies a daily cap.
+        const res = await unlockWithAd(type, id);
+        if (!res.ok && res.error !== "not_ad_item") throw new Error(res.error);
     } catch {
         pending.add(key);
     }
+}
+
+/**
+ * Record something the server already granted (a ruby purchase), so every open
+ * picker shows it unlocked without a reload.
+ */
+export function markOwned(type: UnlockType, id: string): void {
+    const key = k(type, id);
+    if (cache.has(key)) return;
+    cache.add(key);
+    notify();
+}
+
+/** Force the next loadUnlocks() to re-read the server (after a purchase elsewhere). */
+export function invalidateUnlocks(): void {
+    loadedForUser = null;
 }
 
 /**

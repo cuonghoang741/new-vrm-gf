@@ -37,6 +37,18 @@ export type SurfaceTokens = {
     veil: string;
     /** Shadow colour that lifts the control off busy imagery. */
     shadow: string;
+
+    /**
+     * Her chat bubble. Rose in both palettes — the conversation is the app's
+     * warm centre and the bubble should read as hers at a glance, while the
+     * neutral `glass` stays for controls. Tinted dark over dark scenes and
+     * pale pink over light ones, so the text contrast holds either way.
+     */
+    bubble: string;
+    bubbleBorder: string;
+    bubbleText: string;
+    /** The character's name above her text. */
+    bubbleName: string;
 };
 
 const OVER_DARK: SurfaceTokens = {
@@ -49,6 +61,10 @@ const OVER_DARK: SurfaceTokens = {
     danger: '#FF5C7A',
     veil: 'rgba(255, 255, 255, 0.10)',
     shadow: 'rgba(0, 0, 0, 0.55)',
+    bubble: 'rgba(58, 18, 44, 0.72)',
+    bubbleBorder: 'rgba(255, 122, 173, 0.38)',
+    bubbleText: '#FFEAF3',
+    bubbleName: '#FF9CC4',
 };
 
 const OVER_LIGHT: SurfaceTokens = {
@@ -63,6 +79,10 @@ const OVER_LIGHT: SurfaceTokens = {
     danger: '#D6224A',
     veil: 'rgba(15, 5, 30, 0.08)',
     shadow: 'rgba(38, 16, 60, 0.28)',
+    bubble: 'rgba(255, 232, 242, 0.92)',
+    bubbleBorder: 'rgba(224, 27, 96, 0.30)',
+    bubbleText: '#3A1026',
+    bubbleName: '#D01A5C',
 };
 
 /** Pick the token set for whatever scene is currently behind the UI. */

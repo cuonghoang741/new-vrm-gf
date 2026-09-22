@@ -1,33 +1,16 @@
 import { useTranslation } from "react-i18next";
-import React, { useEffect, useState, useCallback, useRef, forwardRef, useImperativeHandle } from "react";
-import {
-    View,
-    Text,
-    StyleSheet,
-    Pressable,
-    FlatList,
-    Animated,
-    Dimensions,
-    Alert,
-} from "react-native";
-import { Image } from "expo-image";
+import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { StyleSheet, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { IconMoon, IconSun } from "@tabler/icons-react-native";
 import * as Haptics from "expo-haptics";
 import { supabase } from "../../config/supabase";
 import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
-import { IconSun, IconMoon } from "@tabler/icons-react-native";
-import { purchaseItem } from "../../services/checkinService";
-import RubyIcon from "../icons/RubyIcon";
-import { AdGateDialog } from "../AdGateDialog";
-import { AdUnlockBadge } from "../ads/AdUnlockBadge";
-import { useRewardedAd } from "../../hooks/useRewardedAd";
-import { AdUnits } from "../../config/ads";
-import { consumeNoFillGrant, loadUnlocks, markUnlocked, requiresAd, subscribeUnlocks } from "../../services/unlockService";
-
-const { width } = Dimensions.get("window");
-const GRID_PADDING = 20;
-const GRID_GAP = 10;
-const ITEM_WIDTH = (width - (GRID_PADDING * 2) - (GRID_GAP * 2)) / 3;
+import { PickerGrid } from "../shop/PickerGrid";
+import { ItemTile } from "../shop/ItemTile";
+import { useItemUnlock, type UnlockableItem } from "../../hooks/useItemUnlock";
+import { track } from "../../services/trackEvents";
+import type { UnlockKind } from "../../services/economyService";
 
 interface Background {
     id: string;
@@ -35,9 +18,11 @@ interface Background {
     thumbnail: string | null;
     image: string;
     tier: string | null;
+    unlock_at_level?: number | null;
     video_url: string | null;
     is_dark?: boolean;
     price_ruby?: number | null;
+    unlock_type?: UnlockKind | null;
 }
 
 interface BackgroundSheetProps {
@@ -46,509 +31,180 @@ interface BackgroundSheetProps {
     currentBackgroundId: string | null;
     onSelect: (bg: Background) => void;
     isPro?: boolean;
+    /** Bond with the character on screen: gates `unlock_at_level`. */
+    bondLevel?: number;
+    bondProgress?: number | null;
+    characterName?: string;
+    onOpenBond?: () => void;
     onOpenSubscription?: () => void;
+    onOpenQuests?: () => void;
     userId?: string;
+    /** Selected character's picture — blurred behind the sheet. */
+    sceneImage?: string | null;
 }
 
 export type BackgroundSheetRef = BottomSheetRef;
 
-const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(({
-    isOpened,
-    onIsOpenedChange,
-    currentBackgroundId,
-    onSelect,
-    isPro = false,
-    onOpenSubscription,
-    userId,
-}, ref) => {
-    const { t } = useTranslation();
+/** Free things first, then what costs something — Yuuki's picker order. */
+const RANK: Record<string, number> = { default: 0, ads: 1, ruby: 2, pro: 3 };
+
+const BackgroundSheet = forwardRef<BackgroundSheetRef, BackgroundSheetProps>(
+    ({ isOpened, onIsOpenedChange, currentBackgroundId, onSelect, isPro = false, bondLevel, bondProgress, characterName, onOpenBond, onOpenSubscription, onOpenQuests, userId, sceneImage }, ref) => {
+        const { t } = useTranslation();
         const sheetRef = useRef<BottomSheetRef>(null);
-    const [backgrounds, setBackgrounds] = useState<Background[]>([]);
-    const [ownedIds, setOwnedIds] = useState<Set<string>>(new Set());
-    // Backgrounds unlocked by buying with ruby this session (shown unlocked immediately).
-    const [tempUnlocked, setTempUnlocked] = useState<Set<string>>(new Set());
-    const [loading, setLoading] = useState(false);
-    const [errorMessage, setErrorMessage] = useState<string | null>(null);
-    const listRef = useRef<FlatList>(null);
-    const shimmerOpacity = useRef(new Animated.Value(0.3)).current;
+        const [backgrounds, setBackgrounds] = useState<Background[]>([]);
+        const [loading, setLoading] = useState(false);
+        const [error, setError] = useState<string | null>(null);
 
-    useImperativeHandle(ref, () => ({
-        present: (index?: number) => sheetRef.current?.present(index),
-        dismiss: () => sheetRef.current?.dismiss(),
-    }));
+        useImperativeHandle(ref, () => ({
+            present: (index?: number) => sheetRef.current?.present(index),
+            dismiss: () => sheetRef.current?.dismiss(),
+        }));
 
-    const load = useCallback(async () => {
-        if (loading) return;
-        setLoading(true);
-        setErrorMessage(null);
-        try {
-            const { data, error } = await supabase
-                .from("backgrounds")
-                .select("id, name, thumbnail, image, tier, video_url, is_dark, price_ruby")
-                .eq("available", true)
-                .eq("public", true)
-                .order("created_at", { ascending: true });
-            if (error) throw error;
-            if (data) setBackgrounds(data);
-
-            // Fetch owned background IDs
-            if (userId) {
-                const { data: owned } = await supabase
-                    .from("user_assets")
-                    .select("item_id")
-                    .eq("user_id", userId)
-                    .eq("item_type", "background");
-                if (owned) setOwnedIds(new Set(owned.map(o => o.item_id)));
+        const load = useCallback(async () => {
+            setLoading(true);
+            setError(null);
+            try {
+                const { data, error: err } = await supabase
+                    .from("backgrounds")
+                    .select("id, name, thumbnail, image, tier, video_url, is_dark, price_ruby, unlock_type, unlock_at_level")
+                    .eq("available", true)
+                    .eq("public", true)
+                    .order("created_at", { ascending: true });
+                if (err) throw err;
+                const rows = (data ?? []) as Background[];
+                rows.sort((a, b) => (RANK[a.unlock_type ?? "ads"] ?? 1) - (RANK[b.unlock_type ?? "ads"] ?? 1));
+                setBackgrounds(rows);
+            } catch (e: any) {
+                setError(e?.message ?? "load failed");
+            } finally {
+                setLoading(false);
             }
-        } catch (e: any) {
-            console.error("[BackgroundSheet] Failed to load:", e);
-            setErrorMessage(e.message || t("common.failed_load"));
-        } finally {
-            setLoading(false);
-        }
-    }, [loading, userId]);
+        }, []);
 
-    useEffect(() => {
-        if (isOpened && backgrounds.length === 0) {
-            load();
-        }
-    }, [isOpened]);
+        useEffect(() => {
+            if (!isOpened) return;
+            track.sceneSheetView();
+            if (backgrounds.length === 0 && !loading) load();
+        }, [isOpened]);
 
-    useEffect(() => {
-        if (loading) {
-            Animated.loop(
-                Animated.sequence([
-                    Animated.timing(shimmerOpacity, { toValue: 1, duration: 800, useNativeDriver: true }),
-                    Animated.timing(shimmerOpacity, { toValue: 0.3, duration: 800, useNativeDriver: true }),
-                ])
-            ).start();
-        } else {
-            shimmerOpacity.stopAnimation();
-            shimmerOpacity.setValue(0.3);
-        }
-    }, [loading]);
-
-    // Auto-scroll to active item
-    useEffect(() => {
-        if (!isOpened || backgrounds.length === 0 || !currentBackgroundId) return;
-
-        const index = backgrounds.findIndex(bg => bg.id === currentBackgroundId);
-        if (index === -1) return;
-
-        const timer = setTimeout(() => {
-            if (listRef.current && index < backgrounds.length) {
-                try {
-                    listRef.current.scrollToIndex({
-                        index,
-                        animated: true,
-                        viewPosition: 0.5
-                    });
-                } catch (e) {
-                    console.warn("[BackgroundSheet] Auto-scroll failed:", e);
-                }
-            }
-        }, 300);
-
-        return () => clearTimeout(timer);
-    }, [isOpened, currentBackgroundId, backgrounds.length]);
-
-    const applySelection = useCallback(
-        (bg: Background) => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        const close = useCallback(() => {
             onIsOpenedChange(false);
             sheetRef.current?.dismiss();
-            onSelect(bg);
-        },
-        [onSelect, onIsOpenedChange]
-    );
+        }, [onIsOpenedChange]);
 
-    const { showForGate } = useRewardedAd(AdUnits.rewarded, "change_background");
-    /** Scene awaiting the user's answer in the ad-gate dialog. */
-    const [gateFor, setGateFor] = useState<Background | null>(null);
-    /** Bumped whenever something unlocks, so the badges disappear immediately. */
-    const [, setUnlockTick] = useState(0);
-    useEffect(() => {
-        loadUnlocks(userId);
-        return subscribeUnlocks(() => setUnlockTick((n) => n + 1));
-    }, []);
+        const unlock = useItemUnlock({
+            isPro,
+            userId,
+            bondLevel,
+            bondProgress,
+            characterName,
+            onOpenBond,
+            placement: "change_background",
+            adBody: t("ads.gate_body_bg"),
+            onOpenPaywall: () => {
+                close();
+                setTimeout(() => onOpenSubscription?.(), 300);
+            },
+            onOpenQuests: () => {
+                close();
+                setTimeout(() => onOpenQuests?.(), 450);
+            },
+            closeSheet: close,
+            kind: "scene_bg",
+        });
 
-    const goPro = useCallback(() => {
-        onIsOpenedChange(false);
-        sheetRef.current?.dismiss();
-        setTimeout(() => onOpenSubscription?.(), 300);
-    }, [onIsOpenedChange, onOpenSubscription]);
+        const toItem = (bg: Background): UnlockableItem => ({
+            type: "background",
+            id: bg.id,
+            unlock: bg.unlock_type,
+            tier: bg.tier,
+        unlockAtLevel: bg.unlock_at_level,
+            price: bg.price_ruby,
+            name: bg.name,
+            image: bg.thumbnail ?? bg.image,
+        });
 
-    const doBuy = useCallback(
-        async (bg: Background, price: number) => {
-            if (!userId) return;
-            const res = await purchaseItem(userId, "background", bg.id);
-            if (res.ok) {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                setTempUnlocked((prev) => new Set(prev).add(bg.id));
-                applySelection(bg);
-            } else if (res.error === "insufficient") {
-                Alert.alert(
-                    t("common.not_enough_ruby"),
-                    `You need ${res.need} ruby but have ${res.have}. Check in daily to earn more!`,
-                    [{ text: "OK" }, { text: t("common.upgrade_pro"), onPress: goPro }]
-                );
-            } else {
-                Alert.alert(t("common.purchase_failed"), res.error || t("common.try_again"));
-            }
-        },
-        [userId, applySelection, goPro]
-    );
-
-    const handleSelect = useCallback(
-        (bg: Background) => {
-            const isProItem = bg.tier === "pro";
-            const isOwned = ownedIds.has(bg.id) || tempUnlocked.has(bg.id);
-            if (isProItem && !isPro && !isOwned) {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-                const price = bg.price_ruby ?? 0;
-                const buttons: any[] = [{ text: t("common.cancel"), style: "cancel" }];
-                buttons.push({ text: t("common.upgrade_pro"), onPress: goPro });
-                if (price > 0 && userId) {
-                    buttons.push({ text: `Buy • ${price} 💎`, onPress: () => doBuy(bg, price) });
-                }
-                Alert.alert(
-                    t("bg.locked"),
-                    price > 0
-                        ? `Unlock with ${price} 💎 ruby, or upgrade PRO to unlock everything.`
-                        : t("bg.locked_body"),
-                    buttons
-                );
-                return;
-            }
-
-            // Already on it — no ad for a no-op.
-            if (bg.id === currentBackgroundId) return applySelection(bg);
-
-            // One ad per scene, ever.
-            if (!requiresAd("background", bg.id, !!isPro)) return applySelection(bg);
-
-            Haptics.selectionAsync();
-            setGateFor(bg);
-        },
-        [isPro, ownedIds, tempUnlocked, userId, goPro, doBuy, applySelection, currentBackgroundId]
-    );
-
-    const gateWithRewardedAd = useCallback(
-        async (bg: Background) => {
-            if (isPro) return applySelection(bg);
-            const outcome = await showForGate();
-            if (outcome === "dismissed") return; // saw it, backed out
-            if (outcome === "unavailable" && !consumeNoFillGrant()) {
-                // No ad could be served. One asset per run is forgiven so our
-                // own no-fill does not block a feature; past that we stop,
-                // rather than handing over the whole catalogue for free.
-                Alert.alert(t("common.error"), t("ads.no_fill"));
-                return;
-            }
-            await markUnlocked("background", bg.id, userId);
-            applySelection(bg);
-        },
-        [isPro, showForGate, applySelection]
-    );
-
-    const renderItem = useCallback(
-        ({ item }: { item: Background }) => {
-            const isSelected = item.id === currentBackgroundId;
-            const isOwned = ownedIds.has(item.id) || tempUnlocked.has(item.id);
-            const isProItem = item.tier === "pro";
-            const isLocked = isProItem && !isPro && !isOwned;
-
-            return (
-                <Pressable
-                    onPress={() => handleSelect(item)}
-                    style={({ pressed }) => [
-                        styles.gridItem,
-                        pressed && styles.pressed,
-                    ]}
-                >
-                    <View style={[
-                        styles.previewContainer,
-                        isSelected && { borderColor: "#FF6FA5", backgroundColor: "rgba(255, 111, 165, 0.1)" }
-                    ]}>
-                        <Image
-                            source={{ uri: item.thumbnail ?? item.image }}
-                            style={styles.preview}
-                            contentFit="cover"
-                            transition={200}
-                        />
-                        {isLocked && !isSelected && (
-                            <View style={styles.lockOverlay}>
-                                <View style={styles.lockIconBadge}>
-                                    <Ionicons name="lock-closed" size={12} color="#FFF" />
-                                </View>
-                            </View>
-                        )}
-                        {isLocked && (item.price_ruby ?? 0) > 0 && (
-                            <View style={styles.priceBadge}>
-                                <RubyIcon size={10} color="#FF6FA5" />
-                                <Text style={styles.priceBadgeText}>{item.price_ruby}</Text>
-                            </View>
-                        )}
-                        {isSelected && !isLocked && (
-                            <View style={styles.selectedBadge}>
-                                <Ionicons name="checkmark" size={10} color="#fff" />
-                            </View>
-                        )}
-                        {!isLocked && !isSelected && requiresAd("background", item.id, !!isPro) && (
-                            <View style={styles.tileAdBadge}>
-                                <AdUnlockBadge compact />
-                            </View>
-                        )}
-                        {!!item.video_url && (
-                            <View style={styles.videoBadge}>
-                                <Ionicons name="play" size={8} color="#fff" />
-                            </View>
-                        )}
-
-                        <View style={[item.is_dark ? styles.darkBadge : styles.lightBadge, styles.badgeAbsolute]}>
-                            {item.is_dark ? (
-                                <IconMoon size={12} color="#fff" />
-                            ) : (
-                                <IconSun size={12} color="#FFB800" strokeWidth={3} />
-                            )}
-                        </View>
-                    </View>
-
-                    <Text style={styles.bgName} numberOfLines={1}>
-                        {item.name}
-                    </Text>
-                </Pressable>
-            );
-        },
-        [currentBackgroundId, handleSelect, isPro, ownedIds, tempUnlocked]
-    );
-
-    const renderSkeleton = () => (
-        <View style={styles.skeletonGrid}>
-            {Array.from({ length: 9 }).map((_, i) => (
-                <Animated.View key={i} style={[styles.skeletonItem, { opacity: shimmerOpacity }]} />
-            ))}
-        </View>
-    );
-
-    const renderContent = () => {
-        if (loading && backgrounds.length === 0) {
-            return <View style={{ flex: 1 }}>{renderSkeleton()}</View>;
-        }
-        if (errorMessage) {
-            return (
-                <View style={styles.centerContainer}>
-                    <Text style={styles.errorText}>{t("common.failed_load")}</Text>
-                    <Pressable onPress={load}>
-                        <Text style={styles.retryText}>{t("common.retry")}</Text>
-                    </Pressable>
-                </View>
-            );
-        }
-        if (backgrounds.length === 0) {
-            return (
-                <View style={styles.centerContainer}>
-                    <Text style={{ color: "rgba(255,255,255,0.5)" }}>{t("bg.none")}</Text>
-                </View>
-            );
-        }
-        return (
-            <View style={{ flex: 1 }}>
-                <FlatList
-                    ref={listRef}
-                    data={backgrounds}
-                    renderItem={renderItem}
-                    keyExtractor={(item) => item.id}
-                    contentContainerStyle={styles.listContent}
-                    showsVerticalScrollIndicator={false}
-                    numColumns={3}
-                    columnWrapperStyle={styles.columnWrapper}
-                    getItemLayout={(data, index) => {
-                        // Approximate height: (ITEM_WIDTH / 0.72) + name label + vertical gaps/margins
-                        const itemHeight = (ITEM_WIDTH / 0.72) + 20 + GRID_GAP + 6;
-                        const rowHeight = itemHeight; 
-                        return { length: rowHeight, offset: rowHeight * Math.floor(index / 3), index };
-                    }}
-                    onScrollToIndexFailed={(info) => {
-                        console.warn("[BackgroundSheet] Scroll to index failed:", info);
-                    }}
-                />
-            </View>
+        const apply = useCallback(
+            (bg: Background) => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                close();
+                onSelect(bg);
+            },
+            [close, onSelect]
         );
-    };
 
-    return (
-        <BottomSheet
-            ref={sheetRef}
-            isOpened={isOpened}
-            onIsOpenedChange={onIsOpenedChange}
-            backgroundBlur="system-thick-material-dark"
-            title={t("bg.title")}
-            isDarkBackground
-            detents={[0.7, 0.95]}
-        >
-            {renderContent()}
-            <AdGateDialog
-                visible={gateFor !== null}
-                body={t("ads.gate_body_bg")}
-                onWatch={() => {
-                    const b = gateFor;
-                    setGateFor(null);
-                    if (b) gateWithRewardedAd(b);
-                }}
-                onUpgrade={() => {
-                    setGateFor(null);
-                    goPro();
-                }}
-                onCancel={() => setGateFor(null)}
-            />
-        </BottomSheet>
-    );
-});
+        const onPress = useCallback(
+            (bg: Background) => {
+                if (bg.id === currentBackgroundId) return apply(bg);
+                unlock.request(toItem(bg), () => apply(bg));
+            },
+            [currentBackgroundId, apply, unlock.request]
+        );
+
+        const grid = useMemo(
+            () => (
+                <PickerGrid
+                    items={backgrounds}
+                    loading={loading}
+                    error={error}
+                    onRetry={load}
+                    emptyText={t("bg.none")}
+                    selectedId={currentBackgroundId}
+                    visible={isOpened}
+                    renderTile={(bg, width) => (
+                        <ItemTile
+                            width={width}
+                            name={bg.name}
+                            image={bg.thumbnail ?? bg.image}
+                            lock={unlock.lockOf(toItem(bg))}
+                            price={bg.price_ruby ?? 0}
+                            requiredLevel={bg.unlock_at_level ?? 1}
+                            proTier={(bg.tier ?? "free") === "pro"}
+                            selected={bg.id === currentBackgroundId}
+                            onPress={() => onPress(bg)}
+                            topLeft={
+                                <>
+                                    <View style={[styles.glyph, bg.is_dark ? styles.dark : styles.light]}>
+                                        {bg.is_dark ? <IconMoon size={11} color="#fff" /> : <IconSun size={11} color="#FFB800" strokeWidth={3} />}
+                                    </View>
+                                    {!!bg.video_url && (
+                                        <View style={[styles.glyph, styles.video]}>
+                                            <Ionicons name="play" size={9} color="#fff" />
+                                        </View>
+                                    )}
+                                </>
+                            }
+                        />
+                    )}
+                />
+            ),
+            // unlock.lockOf reads the unlock cache; the hook re-renders us when it changes.
+            [backgrounds, loading, error, currentBackgroundId, isOpened, isPro, onPress, unlock]
+        );
+
+        return (
+            <BottomSheet
+                ref={sheetRef}
+                isOpened={isOpened}
+                onIsOpenedChange={onIsOpenedChange}
+                title={t("bg.title")}
+                subtitle={t("shop.bg_subtitle")}
+                sceneImage={sceneImage ?? null}
+                detents={[0.85, 0.95]}
+            >
+                {grid}
+                {unlock.dialogs}
+            </BottomSheet>
+        );
+    }
+);
 
 export default BackgroundSheet;
 
 const styles = StyleSheet.create({
-    centerContainer: {
-        flex: 1, alignItems: "center", justifyContent: "center",
-        padding: 20, minHeight: 200,
-    },
-    errorText: { fontSize: 16, color: "#fff", marginBottom: 8 },
-    retryText: { fontSize: 16, fontWeight: "600", color: "#FF6FA5" },
-    listContent: { paddingHorizontal: 20, paddingBottom: 40, paddingTop: 8 },
-
-    gridItem: {
-        width: ITEM_WIDTH,
-        alignItems: "center",
-        marginBottom: GRID_GAP + 6,
-    },
-    pressed: {
-        transform: [{ scale: 0.95 }],
-    },
-    previewContainer: {
-        width: "100%",
-        aspectRatio: 0.72,
-        borderRadius: 18,
-        overflow: "hidden",
-        position: "relative",
-        marginBottom: 6,
-        backgroundColor: "rgba(255,255,255,0.05)",
-        borderWidth: 2,
-        borderColor: "transparent",
-    },
-    preview: {
-        width: "100%",
-        height: "100%",
-    },
-    lockOverlay: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: "rgba(0,0,0,0.35)",
-    },
-    priceBadge: {
-        position: "absolute",
-        top: 6,
-        left: 6,
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 3,
-        backgroundColor: "rgba(0,0,0,0.65)",
-        paddingHorizontal: 6,
-        paddingVertical: 3,
-        borderRadius: 9,
-    },
-    priceBadgeText: {
-        color: "#fff",
-        fontSize: 11,
-        fontWeight: "700",
-    },
-    lockIconBadge: {
-        position: "absolute",
-        top: 6,
-        right: 6,
-        backgroundColor: "rgba(0,0,0,0.6)",
-        width: 22,
-        height: 22,
-        borderRadius: 11,
-        alignItems: "center",
-        justifyContent: "center",
-        borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.2)",
-    },
-    tileAdBadge: { position: "absolute", top: 6, right: 6, zIndex: 4 },
-    videoBadge: {
-        position: "absolute",
-        top: 6,
-        left: 6,
-        width: 18,
-        height: 18,
-        borderRadius: 9,
-        backgroundColor: "rgba(0,0,0,0.6)",
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    selectedBadge: {
-        position: "absolute",
-        bottom: 6,
-        right: 6,
-        backgroundColor: "#FF6FA5",
-        width: 18,
-        height: 18,
-        borderRadius: 9,
-        alignItems: "center",
-        justifyContent: "center",
-        borderWidth: 1.5,
-        borderColor: "rgba(255,255,255,0.3)",
-    },
-    bgName: {
-        fontSize: 11,
-        fontWeight: "600",
-        color: "#FFFFFF",
-        textAlign: "center",
-        width: "100%",
-    },
-    columnWrapper: {
-        justifyContent: "flex-start",
-        gap: GRID_GAP,
-    },
-    skeletonGrid: {
-        flexDirection: "row",
-        flexWrap: "wrap",
-        paddingHorizontal: GRID_PADDING,
-        gap: GRID_GAP,
-    },
-    skeletonItem: {
-        width: ITEM_WIDTH,
-        aspectRatio: 0.72,
-        borderRadius: 18,
-        backgroundColor: "rgba(255,255,255,0.06)",
-        marginBottom: GRID_GAP,
-    },
-    badgeAbsolute: {
-        position: 'absolute',
-        bottom: 6,
-        left: 6,
-        width: 22,
-        height: 22,
-        borderRadius: 8,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    darkBadge: {
-        backgroundColor: 'rgba(0,0,0,0.6)',
-    },
-    lightBadge: {
-        backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    },
-    modeText: {
-        fontSize: 9,
-        fontWeight: '700',
-        color: '#FFF',
-        textTransform: 'uppercase',
-    },
-    modeTextLight: {
-        fontSize: 9,
-        fontWeight: '800',
-        color: '#000',
-        textTransform: 'uppercase',
-    },
+    glyph: { width: 20, height: 20, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+    dark: { backgroundColor: "rgba(20,12,40,0.75)" },
+    light: { backgroundColor: "rgba(255,255,255,0.9)" },
+    video: { backgroundColor: "#FF4D8D" },
 });

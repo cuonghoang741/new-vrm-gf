@@ -3,6 +3,7 @@ import { AppState, AppStateStatus } from "react-native";
 import { AppOpenAd, AdEventType } from "react-native-google-mobile-ads";
 import { AdUnits } from "../config/ads";
 import { AdsManager, RESUME_THRESHOLD_MS } from "../services/AdsManager";
+import { markResumed, setResumeAdShower } from "../services/resumeGate";
 import { useSubscription } from "../contexts/SubscriptionContext";
 
 /**
@@ -57,21 +58,20 @@ export function AdsProvider({ children }: { children: ReactNode }) {
             };
         };
 
-        const showIfPossible = () => {
-            if (isProRef.current) return;
-            if (AdsManager.isFullscreenAdShowing) return;
-            // Skip if a prior action (IAP / browser / permission) suppressed it.
-            if (AdsManager.consumeResumeSuppression()) return;
+        /** Resolves once the ad has closed, or immediately if none can show. */
+        const showIfPossible = (): Promise<void> => new Promise<void>((resolve) => {
+            if (isProRef.current) return resolve();
+            if (AdsManager.isFullscreenAdShowing) return resolve();
 
             const ad = adRef.current;
             if (!ad || !loadedRef.current) {
                 load(); // not ready — preload for next time
-                return;
+                return resolve();
             }
             // Expired (loaded > 4h ago) → discard and reload, don't show a stale ad.
             if (Date.now() - loadedAtRef.current > APP_OPEN_EXPIRY_MS) {
                 load();
-                return;
+                return resolve();
             }
 
             let settled = false;
@@ -83,6 +83,7 @@ export function AdsProvider({ children }: { children: ReactNode }) {
                 AdsManager.setFullscreenAdShowing(false);
                 AdsManager.hideOpaqueOverlay();
                 load(); // preload next
+                resolve();
             };
             const unsubClosed = ad.addAdEventListener(AdEventType.CLOSED, finish);
             const unsubError = ad.addAdEventListener(AdEventType.ERROR, finish);
@@ -95,7 +96,7 @@ export function AdsProvider({ children }: { children: ReactNode }) {
             } catch {
                 finish();
             }
-        };
+        });
 
         const init = async () => {
             await AdsManager.init();
@@ -103,6 +104,7 @@ export function AdsProvider({ children }: { children: ReactNode }) {
             load();
         };
         init();
+        setResumeAdShower(showIfPossible);
 
         const sub = AppState.addEventListener("change", (next) => {
             const prev = appStateRef.current;
@@ -122,14 +124,24 @@ export function AdsProvider({ children }: { children: ReactNode }) {
             const away = Date.now() - backgroundedAtRef.current;
             if (away < RESUME_THRESHOLD_MS) return;
 
-            // Show on every genuine background -> foreground resume. (Cold start
-            // does not emit this transition, and showIfPossible() no-ops until the
-            // ad is preloaded, so there's no pre-splash ad.)
-            showIfPossible();
+            // PRO sees no ad, so the screen would be a tap that costs them
+            // something and gives nothing — its own ad card renders empty for
+            // them. Send them straight back in.
+            if (isProRef.current) return;
+            // Coming back from an IAP sheet, a browser or a permission dialog
+            // is not "returning to the app"; the suppression flag marks those,
+            // and interrupting them there is exactly what it exists to stop.
+            if (AdsManager.consumeResumeSuppression()) return;
+
+            // No ad here. Raise the flag and let the navigator put the
+            // welcome-back screen up; its CTA is what plays the ad. Firing one
+            // the instant someone returns is the interruption people quit over.
+            markResumed();
         });
 
         return () => {
             mounted = false;
+            setResumeAdShower(null);
             sub.remove();
         };
     }, []);

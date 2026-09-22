@@ -1,9 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 import { AppState, AppStateStatus, Platform } from 'react-native';
-import { Settings } from 'react-native-fbsdk-next';
 import { useAuth } from '../hooks/useAuth';
 import { analyticsService, AnalyticsEvents } from '../services/AnalyticsService';
 import { AppsFlyerService } from '../services/AppsFlyerService';
+import { FacebookService } from '../services/FacebookService';
 
 interface AnalyticsProviderProps {
   children: React.ReactNode;
@@ -17,9 +17,11 @@ export const AnalyticsProvider: React.FC<AnalyticsProviderProps> = ({ children }
       // 1. Initialize AppsFlyer through Service
       AppsFlyerService.init();
 
-      // 2. Facebook SDK Initialized through Service
-      Settings.setAdvertiserTrackingEnabled(false);
-      Settings.initializeSDK();
+      // 2. Facebook SDK — through the service, which reads the real ATT
+      // answer and fires fb_mobile_activate_app. This used to call Settings
+      // directly with advertiser tracking pinned to `false`, so Meta could not
+      // attribute a single install and no campaign could optimise.
+      await FacebookService.init();
       
       // 3. Log App Open
       await analyticsService.logAppOpen();

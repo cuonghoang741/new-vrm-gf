@@ -194,8 +194,10 @@ export class AuthManager {
   }
 
   /**
-   * Local account deletion by running DELETE queries on all user-related tables.
-   * This is simpler than using an edge function as it runs directly from the client.
+   * "Delete my data": wipe every server row this account owns, drop the local
+   * caches, then sign out. The wipe itself is `app_wipe_my_data`, a
+   * SECURITY DEFINER function — see its migration for why it is not done from
+   * here table by table any more.
    */
   async deleteAccountLocally(onBeforeLogout?: () => void | Promise<void>): Promise<void> {
     if (this._isDeletingAccount) {
@@ -215,70 +217,27 @@ export class AuthManager {
         return;
       }
 
-      const baseHeaders = await getSupabaseAuthHeaders();
-      baseHeaders["Prefer"] = "return=minimal";
-
-      const tablesToDelete = [
-        "relationship_milestones",
-        "character_relationship",
-        "level_up_rewards",
-        "user_daily_quests",
-        "user_level_quests",
-        "user_login_rewards",
-        "user_streaks",
-        "user_medals",
-        "user_character",
-        "user_stats",
-        "user_currency",
-        "user_assets",
-        "transactions",
-        "purchases",
-        "subscriptions",
-        "user_preferences",
-        "api_characters",
-        "conversation",
-        "app_feedback",
-        "calls",
-        "scheduled_notifications",
-        "user_notification_preferences",
-        "spicy_content_notifications",
-        "notification_counters",
-        "user_call_quota",
-      ];
-      const tablesWithoutClientId = new Set(["api_characters", "subscriptions", "user_call_quota"]);
-
-      for (const table of tablesToDelete) {
-        try {
-          const params = new URLSearchParams();
-          if (userId) {
-            params.append("user_id", `eq.${userId}`);
-            if (!tablesWithoutClientId.has(table)) {
-              params.append("client_id", "is.null");
-            }
-          } else if (clientId) {
-            params.append("client_id", `eq.${clientId}`);
-            params.append("user_id", "is.null");
-          }
-
-          const url = `${SUPABASE_URL}/rest/v1/${table}?${params.toString()}`;
-          const headers = { ...baseHeaders };
-          if (!userId && clientId) {
-            headers["X-Client-Id"] = clientId;
-          }
-
-          const response = await fetch(url, {
-            method: "DELETE",
-            headers,
-          });
-
-          if (!response.ok) {
-            console.warn(
-              `[AuthManager] Failed to delete ${table}: ${response.status} ${await response.text()}`
-            );
-          }
-        } catch (error) {
-          console.warn(`[AuthManager] Error deleting ${table}`, error);
+      // One server-side wipe instead of a REST DELETE per table.
+      //
+      // The old loop carried its own list of table names, which had drifted
+      // from the schema — ruby balance, unlocks and quest progress were never
+      // on it — and it also asked for `client_id=is.null`, so any row written
+      // with both ids set was skipped. Both failures were silent: every
+      // request came back 2xx having deleted nothing, and signing back in
+      // (same auth user id) restored everything. `app_wipe_my_data` owns the
+      // list now, next to the schema, and does it in one transaction.
+      // Only a signed-in user has server rows to wipe; a device that never
+      // signed in has nothing there to point at but its client id, which is
+      // not proof of anything, so it just gets its local state cleared.
+      if (userId) {
+        const { data: wiped, error: wipeError } = await supabase.rpc("app_wipe_my_data", {
+          p_client_id: clientId,
+        });
+        if (wipeError || (wiped as any)?.error) {
+          // Surfaced, not swallowed: the user was promised their data is gone.
+          throw new Error(wipeError?.message ?? (wiped as any)?.error ?? "wipe_failed");
         }
+        console.log("[AuthManager] wiped", JSON.stringify((wiped as any)?.deleted ?? {}));
       }
 
       await this.clearLocalStateAfterDeletion();

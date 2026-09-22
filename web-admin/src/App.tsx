@@ -8,6 +8,11 @@ import CharacterEditor from './pages/CharacterEditor';
 import Costumes from './pages/Costumes';
 import Backgrounds from './pages/Backgrounds';
 import Medias from './pages/Medias';
+import Economy from './pages/Economy';
+import RemoteConfig from './pages/RemoteConfig';
+import Dances from './pages/Dances';
+import Quests from './pages/Quests';
+import Privilege from './pages/Privilege';
 
 export default function App() {
   return (
@@ -22,6 +27,11 @@ export default function App() {
               <Route path="/costumes" element={<Costumes />} />
               <Route path="/backgrounds" element={<Backgrounds />} />
               <Route path="/medias" element={<Medias />} />
+              <Route path="/economy" element={<Economy />} />
+              <Route path="/remote-config" element={<RemoteConfig />} />
+              <Route path="/dances" element={<Dances />} />
+              <Route path="/quests" element={<Quests />} />
+              <Route path="/privilege" element={<Privilege />} />
             </Route>
           </Route>
         </Routes>

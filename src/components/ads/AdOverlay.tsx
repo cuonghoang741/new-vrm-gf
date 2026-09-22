@@ -5,6 +5,7 @@ import {
     Text,
     View,
 } from "react-native";
+import { useTranslation } from "react-i18next";
 import { AdsManager } from "../../services/AdsManager";
 
 /**
@@ -17,6 +18,7 @@ import { AdsManager } from "../../services/AdsManager";
  * Render once at the app root, above the navigator.
  */
 export function AdOverlay() {
+    const { t } = useTranslation();
     const [state, setState] = useState(AdsManager.getOverlay());
 
     useEffect(() => AdsManager.subscribe(setState), []);
@@ -28,7 +30,7 @@ export function AdOverlay() {
             {state.loading && (
                 <View style={styles.center}>
                     <ActivityIndicator size="large" color="#FFFFFF" />
-                    <Text style={styles.text}>Loading ad…</Text>
+                    <Text style={styles.text}>{t("ads.loading")}</Text>
                 </View>
             )}
         </View>

@@ -348,6 +348,9 @@ export default function SignInScreen() {
     );
 }
 
+/** Shared so the banner's negative margin can never drift from the padding. */
+const BOTTOM_PAD = Platform.OS === "ios" ? 40 : 24;
+
 const styles = StyleSheet.create({
     container: {
         flex: 1,
@@ -398,10 +401,17 @@ const styles = StyleSheet.create({
     // ─── Bottom ───
     // Cancels bottomArea's side padding so the adaptive banner gets the full
     // screen width it sizes itself against.
-    bannerBleed: { marginHorizontal: -28, marginTop: 14 },
+    // The banner has to cancel BOTH of `bottomArea`'s paddings to reach the
+    // screen edge. Only the horizontal one was cancelled, so it floated a
+    // finger's width above the bottom and read as a misplaced card.
+    bannerBleed: {
+        marginHorizontal: -28,
+        marginTop: 14,
+        marginBottom: -BOTTOM_PAD,
+    },
     bottomArea: {
         paddingHorizontal: 28,
-        paddingBottom: Platform.OS === "ios" ? 40 : 24,
+        paddingBottom: BOTTOM_PAD,
     },
     characterInfo: {
         marginBottom: 14,

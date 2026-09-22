@@ -1,3 +1,4 @@
+import { Platform } from "react-native";
 import { useCallback, useEffect, useRef } from "react";
 import {
     RewardedAd,
@@ -22,6 +23,14 @@ const LOAD_TIMEOUT_MS = 8000;
  * Always preloads; if not ready when the user taps, a short loading screen is
  * shown while it loads (the user chose to wait), capped by LOAD_TIMEOUT_MS.
  */
+/**
+ * Every gated show follows a confirm dialog (an RN Modal). On iOS that Modal
+ * is still animating out when the tap handler runs; presenting the ad in that
+ * window lets the Modal's dismissal take the ad down with it — the user sees
+ * the ad flash and close, with no reward. Wait for it to settle first.
+ */
+const GATE_SETTLE_MS = Platform.OS === "ios" ? 450 : 0;
+
 export function useRewardedAd(
     adUnitId: string = AdUnits.rewarded,
     /** Where in the app the user opted in — shows up on every ad event. */
@@ -125,7 +134,7 @@ export function useRewardedAd(
      * means the user saw it and backed out — that one blocks.
      */
     const showForGate = useCallback((): Promise<RewardedOutcome> => {
-        return new Promise((resolve) => {
+        return new Promise((resolve) => setTimeout(() => {
             if (AdsManager.isFullscreenAdShowing) {
                 analyticsService.logAdSkipped("rewarded", placement, "overlap");
                 return resolve("unavailable");
@@ -169,7 +178,7 @@ export function useRewardedAd(
                     }),
                 LOAD_TIMEOUT_MS
             );
-        });
+        }, GATE_SETTLE_MS));
     }, [present, buildAndLoad, placement]);
 
     /** Show the rewarded ad. Resolves true only if the reward was earned. */

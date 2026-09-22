@@ -2,6 +2,9 @@ import React, { useRef, useCallback, useImperativeHandle, forwardRef, useEffect,
 import { View, Text, Pressable, TouchableOpacity, StyleSheet, ViewStyle, StyleProp, Platform, Modal, PanResponder, Animated, Dimensions } from 'react-native';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
+import { SHEET } from '../../theme/sheet';
 
 export type BottomSheetRef = {
     present: (index?: number) => void;
@@ -31,6 +34,15 @@ type BottomSheetProps = {
     contentContainerStyle?: StyleProp<ViewStyle>;
     backgroundBlur?: 'dark' | 'light' | 'system-thick-material-dark'
     backgroundColor?: string
+
+    /**
+     * Yuuki-style "scene" sheet: the selected character's picture, heavily
+     * blurred and darkened, fills the sheet behind the content; the title is
+     * large and left-aligned with an optional subtitle. `null` still gets the
+     * scene look, just over the plain gradient (picture not known yet).
+     */
+    sceneImage?: string | null;
+    subtitle?: string;
 };
 
 export const BottomSheet = forwardRef<BottomSheetRef, BottomSheetProps>(({
@@ -48,8 +60,11 @@ export const BottomSheet = forwardRef<BottomSheetRef, BottomSheetProps>(({
     children,
     contentContainerStyle,
     backgroundBlur,
-    backgroundColor
+    backgroundColor,
+    sceneImage,
+    subtitle,
 }, ref) => {
+    const isScene = sceneImage !== undefined;
     const sheetRef = useRef<TrueSheet>(null);
 
     const [androidVisible, setAndroidVisible] = React.useState(false);
@@ -185,7 +200,42 @@ export const BottomSheet = forwardRef<BottomSheetRef, BottomSheetProps>(({
         onDismiss?.();
     }, [onIsOpenedChange, onDismiss]);
 
+    const renderSceneBackdrop = () =>
+        isScene ? (
+            <View style={StyleSheet.absoluteFill} pointerEvents="none">
+                <LinearGradient colors={[SHEET.bgTop, SHEET.bgBottom]} style={StyleSheet.absoluteFill} />
+                {!!sceneImage && (
+                    <Image
+                        source={{ uri: sceneImage }}
+                        style={StyleSheet.absoluteFill}
+                        contentFit="cover"
+                        contentPosition="top center"
+                        blurRadius={Platform.OS === 'android' ? 25 : 40}
+                        transition={250}
+                        cachePolicy="memory-disk"
+                    />
+                )}
+                <LinearGradient colors={SHEET.scrim} locations={[0, 0.45, 1]} style={StyleSheet.absoluteFill} />
+            </View>
+        ) : null;
+
+    const renderSceneHeader = () => (
+        <View style={styles.sceneHeader}>
+            <View style={{ flex: 1 }}>
+                {!!title && <Text style={styles.sceneTitle} numberOfLines={1}>{title}</Text>}
+                {!!subtitle && <Text style={styles.sceneSubtitle} numberOfLines={2}>{subtitle}</Text>}
+            </View>
+            {headerRight}
+            {showCloseButton && (
+                <TouchableOpacity style={styles.sceneClose} onPress={handleClose} activeOpacity={0.7} hitSlop={8}>
+                    <Ionicons name="close" size={18} color="#fff" />
+                </TouchableOpacity>
+            )}
+        </View>
+    );
+
     const renderHeader = () => {
+        if (isScene) return renderSceneHeader();
         // If no title and no custom header components and no close button, skip header
         if (!title && !headerLeft && !headerRight && !showCloseButton) {
             return null;
@@ -229,7 +279,7 @@ export const BottomSheet = forwardRef<BottomSheetRef, BottomSheetProps>(({
         // Honour an explicit backgroundColor — the Android path used to ignore
         // it and always paint #1e1e1e, which left a seam against sheets that
         // set their own colour.
-        const bgColor = backgroundColor ?? (isDarkBackground ? '#1e1e1e' : '#ffffff');
+        const bgColor = isScene ? SHEET.bgBottom : backgroundColor ?? (isDarkBackground ? '#1e1e1e' : '#ffffff');
         const grabberColor = isDarkBackground ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)';
         return (
             <Modal
@@ -252,6 +302,7 @@ export const BottomSheet = forwardRef<BottomSheetRef, BottomSheetProps>(({
                             }
                         ]}
                     >
+                        {renderSceneBackdrop()}
                         {/* Grabber for resize */}
                         {grabber && (
                             <View {...panResponder.panHandlers} style={styles.androidGrabberContainer}>
@@ -280,8 +331,8 @@ export const BottomSheet = forwardRef<BottomSheetRef, BottomSheetProps>(({
             detents={detents}
             cornerRadius={cornerRadius}
             grabber={grabber}
-            backgroundColor={backgroundColor ?? 'transparent'}
-            backgroundBlur={backgroundBlur ? backgroundBlur : isDarkBackground ? 'dark' : 'light'}
+            backgroundColor={isScene ? SHEET.bgBottom : backgroundColor ?? 'transparent'}
+            backgroundBlur={isScene ? undefined : backgroundBlur ? backgroundBlur : isDarkBackground ? 'dark' : 'light'}
             onDidDismiss={handleDismiss}
             blurOptions={{
                 intensity: backgroundBlur ? 100 : isDarkBackground ? 90 : 40,
@@ -289,6 +340,7 @@ export const BottomSheet = forwardRef<BottomSheetRef, BottomSheetProps>(({
             }}
         >
             <View style={[styles.container, { minHeight: sheetContentHeight }, contentContainerStyle]}>
+                {renderSceneBackdrop()}
                 {renderHeader()}
                 <View style={{ flex: 1, minHeight: sheetContentHeight - 60 }}>
                     {children}
@@ -336,6 +388,27 @@ const styles = StyleSheet.create({
         borderRadius: 40,
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    sceneHeader: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: 10,
+        paddingHorizontal: 20,
+        paddingTop: 14,
+        paddingBottom: 10,
+    },
+    sceneTitle: { color: '#fff', fontSize: 22, fontWeight: '800', letterSpacing: 0.2 },
+    sceneSubtitle: { color: 'rgba(255,255,255,0.6)', fontSize: 13, marginTop: 3, lineHeight: 18 },
+    sceneClose: {
+        width: 34,
+        height: 34,
+        borderRadius: 17,
+        backgroundColor: 'rgba(0,0,0,0.35)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.18)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 2,
     },
     androidBackdrop: {
         flex: 1,

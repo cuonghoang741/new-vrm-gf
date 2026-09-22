@@ -718,10 +718,32 @@
             });
         }
 
+        /**
+         * Render quality, 0 = high (default) .. 2 = low.
+         *
+         * Pixel ratio is the lever that matters: a retina phone renders ~3x as
+         * many fragments as it shows, so halving it is close to free visually
+         * and enormous for frame time. Antialiasing is fixed at context
+         * creation, so the quality switch cannot touch it without rebuilding
+         * the renderer — it stays on.
+         */
+        window.__quality = 0;
+        const QUALITY_RATIO = [1.0, 0.75, 0.5];
+        const QUALITY_FPS = [0, 45, 30];   // 0 = uncapped
+        window.__frameMinMs = 0;
+
         const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: "high-performance" });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        // Full quality, same as the reference viewer (no pixel-ratio downscale).
+        // Full quality by default, same as the reference viewer.
         renderer.setPixelRatio(window.devicePixelRatio);
+
+        window.setRenderQuality = function (q) {
+            q = Math.max(0, Math.min(2, q | 0));
+            window.__quality = q;
+            renderer.setPixelRatio(window.devicePixelRatio * QUALITY_RATIO[q]);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            window.__frameMinMs = QUALITY_FPS[q] ? 1000 / QUALITY_FPS[q] : 0;
+        };
         renderer.setClearColor(0x000000, 0);
         document.body.appendChild(renderer.domElement);
 
@@ -1367,6 +1389,11 @@
                         // No animation to load, start expressions after a short delay
                         setTimeout(startExpressions, 500);
                     }
+                    // A dance picked while the model was still loading.
+                    try {
+                        const p = window.__pendingAnimationURL;
+                        if (p && p.url) setTimeout(() => window.loadAnimationByURL(p.url, p.name), 300);
+                    } catch { }
                     // Notify Swift that model is loaded and scene attached
                     try { window.webkit?.messageHandlers?.loading?.postMessage('modelLoaded'); } catch { }
                     try { if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage('modelLoaded'); } catch { }
@@ -1549,6 +1576,23 @@
             }
         }
 
+        // Load an animation from an absolute URL — the dance catalogue lives in
+        // the database (table `dances`), so its files are not in fbxFiles.
+        window.loadAnimationByURL = function (url, name) {
+            try {
+                if (!url) return;
+                if (!currentVrm || !currentMixer) {
+                    // Model still loading: play it as soon as it is ready.
+                    window.__pendingAnimationURL = { url, name };
+                    return;
+                }
+                window.__pendingAnimationURL = null;
+                loadFBX(url, name || safeFileNameFromUrl(url) || 'Dance', 0.5);
+            } catch (e) {
+                console.error('Error loading animation by URL:', e);
+            }
+        }
+
         // Load a specific animation by name (exposed to native)
         window.loadAnimationByName = async function (animName) {
             try {
@@ -1648,8 +1692,15 @@
         });
 
         const clock = new THREE.Clock();
+        // Paused while this viewer is pre-warmed behind the screen (the paywall
+        // preview loads its model before it is opened). Draining the clock
+        // keeps the first frame after resuming from getting a huge delta,
+        // which would fling the spring bones.
+        window.__renderPaused = false;
+        window.setRenderPaused = function (paused) { window.__renderPaused = !!paused; };
         function animate() {
             requestAnimationFrame(animate);
+            if (window.__renderPaused) { clock.getDelta(); return; }
             const deltaTime = clock.getDelta();
             if (currentMixer) { currentMixer.update(deltaTime); }
             if (currentVrm) { currentVrm.update(deltaTime); }
