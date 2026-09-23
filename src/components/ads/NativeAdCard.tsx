@@ -233,15 +233,19 @@ function NativeAdSkeleton({ cornerRadius }: { cornerRadius?: number }) {
 }
 
 /**
- * Default CTA fill — slate, not the app's rose.
+ * Default CTA fill — green.
  *
- * Every screen that shows a native card also shows a real primary button in
- * TrueMate's accent, and an ad button wearing the same colour collects the
- * taps meant for it. Those taps are invalid traffic; the account picked up an
- * ad serving limit for that class of accident on 2026-09-23. Placements can
- * still override `ctaColor`, but nothing should set it to the accent.
+ * Two constraints pull against each other here. It has to be visible enough
+ * to be worth showing: slate grey is ignored, and an ad nobody looks at pays
+ * nothing. And it must not be TrueMate's rose, because every screen with a
+ * native card also carries a real primary button in that colour, and an ad
+ * button wearing it collects the taps meant for the app — invalid traffic,
+ * which is what earned the account an ad serving limit on 2026-09-23.
+ *
+ * Green satisfies both: loud, and used nowhere in this app as an action.
+ * Placements may override `ctaColor`; nothing may set it to the accent.
  */
-const PINK = "#4B5563";
+const CTA_GREEN = "#16A34A";
 /** How long a native slot may sit empty before it gives the space back. */
 const LOAD_TIMEOUT_MS = 12_000;
 
@@ -306,7 +310,7 @@ const styles = StyleSheet.create({
     bodySlot: { marginTop: 3 },
     body: { color: "rgba(255,255,255,0.6)", fontSize: 12.5 },
     cta: {
-        backgroundColor: PINK,
+        backgroundColor: CTA_GREEN,
         borderRadius: 12,
         paddingHorizontal: 14,
         paddingVertical: 9,
@@ -319,7 +323,7 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: PINK,
+        backgroundColor: CTA_GREEN,
     },
 
     // ─── Loading skeleton (must match the card's box model) ───

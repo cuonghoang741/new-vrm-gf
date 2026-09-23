@@ -154,16 +154,15 @@ export default function LanguageScreen({ onDone }: { onDone: () => void }) {
 const PINK = "#FF6FA5";
 /** Yuuki's exact CTA colours for the two stages. */
 /**
- * The ad's CTA must not look like this app's own primary button.
+ * The ad's CTA must be obvious, and must not be mistaken for the Save pill.
  *
- * It was `#FF2E74` once a language had been picked — the same rose as the Save
- * pill two thumb-widths above it — so a tap meant for Save landed on the ad.
- * Those taps are counted as invalid traffic, and on 2026-09-23 the account
- * collected an ad serving limit for exactly that class of accident. Both
- * states are now a neutral slate that no button in TrueMate uses.
+ * It was `#FF2E74` once a language had been picked — the same rose as Save,
+ * two thumb-widths above it — so a tap meant for Save landed on the ad, and
+ * AdMob counts those as invalid traffic. Green is as loud as the rose was
+ * without wearing the app's own colour.
  */
-const CTA_BEFORE = "#4B5563";
-const CTA_AFTER = "#4B5563";
+const CTA_BEFORE = "#16A34A";
+const CTA_AFTER = "#16A34A";
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#0a0a1a" },
