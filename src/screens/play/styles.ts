@@ -24,8 +24,12 @@ export const styles = StyleSheet.create({
     },
     pipCameraContainer: {
         position: 'absolute',
-        top: 100,
-        left: 20,
+        // Same side as the call controls. On the left it landed on top of the
+        // 2D/3D toggle, the ruby pill and the streak button, and it read as
+        // belonging to them rather than to the call; the FaceTime toggle that
+        // turns it on is in the right-hand rail.
+        top: 120,
+        right: 20,
         width: 100,
         height: 140,
         borderRadius: 16,
