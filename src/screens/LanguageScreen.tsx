@@ -22,7 +22,6 @@ import {
 import { FLAGS } from "../i18n/flags";
 import { NativeAdCard } from "../components/ads/NativeAdCard";
 import { AdUnits } from "../config/ads";
-import { preloadNative } from "../components/ads/nativeAdPreload";
 import { track } from "../services/trackEvents";
 
 /**
@@ -36,13 +35,17 @@ export default function LanguageScreen({ onDone }: { onDone: () => void }) {
     // Nothing is preselected: the point of this screen is a deliberate choice,
     // and a row that is already ticked on arrival reads as "already done".
     const [sel, setSel] = useState<SupportedLang | null>(null);
-    /** Flips once the user has actually chosen, which swaps in a second ad. */
+    /** Flips once the user has actually chosen; reveals the Save pill. */
     const [picked, setPicked] = useState(false);
 
     /**
-     * HAI ô khác nhau, tráo theo LẦN CHỌN NGÔN NGỮ (không theo số lần mở app):
-     * native_language_1 trước khi chọn (CTA xám), native_language_2 sau khi
-     * chọn (CTA hồng). Khớp với bản yuuki.
+     * MỘT ô quảng cáo duy nhất cho cả màn.
+     *
+     * Trước đây có hai ô tráo nhau khi người dùng chạm chọn ngôn ngữ — tức là
+     * hai request và hai impression trong một lần mở màn, ô thứ hai xuất hiện
+     * ngay tại khoảnh khắc ngón tay vừa chạm. Trong lúc tài khoản AdMob đang
+     * bị giới hạn phân phối vì invalid traffic, đó là đúng thứ cần bỏ.
+     * `key` cố định nên ô này không remount khi `picked` đổi.
      */
 
     // Which language the device suggested before the user touched anything —
@@ -50,10 +53,6 @@ export default function LanguageScreen({ onDone }: { onDone: () => void }) {
     useEffect(() => {
         analyticsService.logLanguageScreenView(currentLang());
         track.languageView();
-        // Hâm sẵn ô SAU (native_language_2) trong lúc người dùng còn đọc danh
-        // sách: ô trước tự request lúc mount (effect con chạy trước, cache còn
-        // trống), ô này chờ sẵn trong cache cho cú tráo khi họ chạm chọn.
-        preloadNative(AdUnits.nativeLanguage2);
     }, []);
 
     const pick = async (l: SupportedLang) => {
@@ -114,38 +113,23 @@ export default function LanguageScreen({ onDone }: { onDone: () => void }) {
                 }}
             />
 
-            {/* Ported from Flutter yuuki's language_screen.dart: the card is
-                swapped on the first tap — neutral grey before the pick, the
-                app's active CTA pink after it, with a full-width CTA (its
-                `isCompact`). The differing keys are load-bearing: they force a
-                fresh card so the old ad is disposed and a new one is actually
-                requested, rather than one ad being recoloured.
-
-                Ô trước dùng native_language_1, ô sau dùng native_language_2 —
-                hai placement riêng, tách rõ trên Inspector.
+            {/* One card, one request, for the whole screen. yuuki swaps in a
+                second card the moment a language is tapped; that is two
+                impressions per visit and the second one appears exactly where
+                the finger already is. `native_language_2` is left unused.
 
                 The CTA sits where a primary button would, so it is deliberately
-                NOT the app's accent colour — see CTA_BEFORE/CTA_AFTER. The
-                prominent "Ad" badge and the card's frame are what keep it
-                readable as an ad; neither should be trimmed. */}
+                NOT the app's accent colour — see CTA_COLOR. The prominent "Ad"
+                badge and the card's frame are what keep it readable as an ad;
+                neither should be trimmed. */}
             <View style={styles.adFooter}>
-                {picked ? (
-                    <NativeAdCard
-                        key="lang-ad-after"
-                        adUnitId={AdUnits.nativeLanguage2}
-                        placement="native_language_2"
-                        ctaColor={CTA_AFTER}
-                        fullWidthCta
-                    />
-                ) : (
-                    <NativeAdCard
-                        key="lang-ad-before"
-                        adUnitId={AdUnits.nativeLanguage1}
-                        placement="native_language_1"
-                        ctaColor={CTA_BEFORE}
-                        fullWidthCta
-                    />
-                )}
+                <NativeAdCard
+                    key="lang-ad"
+                    adUnitId={AdUnits.nativeLanguage1}
+                    placement="native_language_1"
+                    ctaColor={CTA_COLOR}
+                    fullWidthCta
+                />
             </View>
         </SafeAreaView>
     );
@@ -161,8 +145,7 @@ const PINK = "#FF6FA5";
  * AdMob counts those as invalid traffic. Green is as loud as the rose was
  * without wearing the app's own colour.
  */
-const CTA_BEFORE = "#16A34A";
-const CTA_AFTER = "#16A34A";
+const CTA_COLOR = "#16A34A";
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#0a0a1a" },
