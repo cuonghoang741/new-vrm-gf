@@ -75,7 +75,7 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
         enableTestPro,
     } = useSubscription();
 
-    // Hidden: tap the "TRUEFEEL PRO" badge 7x to unlock PRO for on-device testing.
+    // Hidden: tap the "TRUEMATE PRO" badge 7x to unlock PRO for on-device testing.
     const proTapRef = useRef(0);
     const proTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const handleSecretProTap = useCallback(() => {
@@ -504,7 +504,7 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                                 style={styles.proBadge}
                             >
                                 <Pressable onPress={handleSecretProTap} hitSlop={10}>
-                                    <Text style={styles.proBadgeText}>TRUEFEEL PRO</Text>
+                                    <Text style={styles.proBadgeText}>TRUEMATE PRO</Text>
                                 </Pressable>
                             </LinearGradient>
 

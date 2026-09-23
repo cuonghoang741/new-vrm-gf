@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Image } from "expo-image";
@@ -53,13 +53,28 @@ type Props = {
  * One scroll, in the order a free user needs it: PRO, free ruby from videos
  * (5 a day), daily / special quests, then the ruby shop.
  */
+type Section = "daily" | "special" | "shop";
+const SECTIONS: readonly Section[] = ["daily", "special", "shop"] as const;
+
 export function QuestPage({ visible, onClose, isPro, sceneImage, onOpenSubscription, onGo }: Props) {
     const { t } = useTranslation();
     const insets = useSafeAreaInsets();
     const ruby = useRuby();
     const [state, setState] = useState<QuestState | null>(null);
     const [failed, setFailed] = useState(false);
-    const [tab, setTab] = useState<"daily" | "special">("daily");
+    /**
+     * The three pills are not tabs any more: everything is on one page, and
+     * tapping a pill scrolls to that section. Hiding two thirds of the page
+     * behind a tab meant the shop — the only screen here that takes money —
+     * was never on screen unless someone went looking for it.
+     */
+    const [tab, setTab] = useState<Section>("daily");
+    const scrollRef = useRef<ScrollView>(null);
+    const anchors = useRef<Record<Section, number>>({ daily: 0, special: 0, shop: 0 });
+    const goTo = (k: Section) => {
+        setTab(k);
+        scrollRef.current?.scrollTo({ y: Math.max(0, anchors.current[k] - 8), animated: true });
+    };
     const [busyId, setBusyId] = useState<string | null>(null);
     const [adBusy, setAdBusy] = useState(false);
     const [now, setNow] = useState(Date.now());
@@ -91,9 +106,21 @@ export function QuestPage({ visible, onClose, isPro, sceneImage, onOpenSubscript
         return () => clearInterval(id);
     }, [visible, nextAtMs]);
 
-    const quests = useMemo(() => (state?.quests ?? []).filter((q) => q.kind === tab), [state, tab]);
+    const daily = useMemo(() => (state?.quests ?? []).filter((q) => q.kind === "daily"), [state]);
+    const special = useMemo(() => (state?.quests ?? []).filter((q) => q.kind === "special"), [state]);
     const claimable = (kind: "daily" | "special") =>
         (state?.quests ?? []).filter((q) => q.kind === kind && !q.claimed && q.progress >= q.target).length;
+
+    /** What the "Go" button on a quest row should do, if anything. */
+    const goFor = (q: Quest) => {
+        if (q.event === "watch_ad") return adsLeft > 0 && cooldown === 0 ? watchAd : undefined;
+        const target = GO_FOR_EVENT[q.event];
+        if (!target) return undefined;
+        return () => {
+            track.dailyTaskGo(q.id);
+            onGo(target);
+        };
+    };
 
     const onClaim = useCallback(
         async (q: Quest) => {
@@ -180,7 +207,22 @@ export function QuestPage({ visible, onClose, isPro, sceneImage, onOpenSubscript
                     </View>
                 </View>
 
-                <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: insets.bottom + 32 }} showsVerticalScrollIndicator={false}>
+                <ScrollView
+                    ref={scrollRef}
+                    contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: insets.bottom + 32 }}
+                    showsVerticalScrollIndicator={false}
+                    scrollEventThrottle={64}
+                    // The pill follows the content, so it always says where you
+                    // are rather than where you last tapped.
+                    onScroll={(e) => {
+                        const y = e.nativeEvent.contentOffset.y + 90;
+                        const here = SECTIONS.reduce<Section>(
+                            (acc, k) => (anchors.current[k] <= y ? k : acc),
+                            "daily"
+                        );
+                        if (here !== tab) setTab(here);
+                    }}
+                >
                     {/* PRO */}
                     {isPro ? (
                         <View style={[styles.card, styles.proCard]}>
@@ -260,10 +302,10 @@ export function QuestPage({ visible, onClose, isPro, sceneImage, onOpenSubscript
 
                     {/* Quests */}
                     <View style={styles.tabs}>
-                        {(["daily", "special"] as const).map((k) => (
-                            <Pressable key={k} onPress={() => setTab(k)} style={[styles.tab, tab === k && styles.tabOn]}>
+                        {SECTIONS.map((k) => (
+                            <Pressable key={k} onPress={() => goTo(k)} style={[styles.tab, tab === k && styles.tabOn]}>
                                 <Text style={[styles.tabText, tab === k && styles.tabTextOn]}>{t(`quest.${k}`)}</Text>
-                                {claimable(k) > 0 && (
+                                {k !== "shop" && claimable(k) > 0 && (
                                     <View style={styles.tabBadge}>
                                         <Text style={styles.tabBadgeText}>{claimable(k)}</Text>
                                     </View>
@@ -271,7 +313,8 @@ export function QuestPage({ visible, onClose, isPro, sceneImage, onOpenSubscript
                             </Pressable>
                         ))}
                     </View>
-                    {tab === "daily" && <Text style={styles.hint}>{t("quest.reset_hint", { time: resetAt })}</Text>}
+                    <View onLayout={(e) => (anchors.current.daily = e.nativeEvent.layout.y)} />
+                    <Text style={styles.hint}>{t("quest.reset_hint", { time: resetAt })}</Text>
 
                     {!state && !failed && <ActivityIndicator color={SHEET.accent} style={{ marginVertical: 30 }} />}
                     {!state && failed && (
@@ -280,32 +323,37 @@ export function QuestPage({ visible, onClose, isPro, sceneImage, onOpenSubscript
                             <Text style={{ color: SHEET.accent, fontWeight: "700", marginTop: 6 }}>{t("common.retry")}</Text>
                         </Pressable>
                     )}
-                    {quests.map((q) => {
-                        const target = GO_FOR_EVENT[q.event];
-                        return (
-                            <QuestRow
-                                key={q.id}
-                                quest={q}
-                                busy={busyId === q.id}
-                                multiplier={state?.multiplier ?? 1}
-                                onClaim={() => onClaim(q)}
-                                onGo={
-                                    q.event === "watch_ad"
-                                        ? adsLeft > 0 && cooldown === 0
-                                            ? watchAd
-                                            : undefined
-                                        : target
-                                            ? () => {
-                                                track.dailyTaskGo(q.id);
-                                                onGo(target);
-                                            }
-                                            : undefined
-                                }
-                            />
-                        );
-                    })}
+                    {daily.map((q) => (
+                        <QuestRow
+                            key={q.id}
+                            quest={q}
+                            busy={busyId === q.id}
+                            multiplier={state?.multiplier ?? 1}
+                            onClaim={() => onClaim(q)}
+                            onGo={goFor(q)}
+                        />
+                    ))}
+
+                    {/* Special, straight under daily rather than behind a tab */}
+                    {special.length > 0 && (
+                        <>
+                            <View onLayout={(e) => (anchors.current.special = e.nativeEvent.layout.y)} />
+                            <Text style={styles.section}>{t("quest.special")}</Text>
+                            {special.map((q) => (
+                                <QuestRow
+                                    key={q.id}
+                                    quest={q}
+                                    busy={busyId === q.id}
+                                    multiplier={state?.multiplier ?? 1}
+                                    onClaim={() => onClaim(q)}
+                                    onGo={goFor(q)}
+                                />
+                            ))}
+                        </>
+                    )}
 
                     {/* Ruby shop */}
+                    <View onLayout={(e) => (anchors.current.shop = e.nativeEvent.layout.y)} />
                     <Text style={styles.section}>{t("quest.shop")}</Text>
                     <RubyShop packs={state?.packs ?? {}} />
                 </ScrollView>

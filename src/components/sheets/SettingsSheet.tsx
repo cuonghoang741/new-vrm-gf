@@ -42,6 +42,7 @@ import mobileAds from "react-native-google-mobile-ads";
 import { USE_TEST_ADS } from "../../config/ads";
 import { analyticsService } from "../../services/AnalyticsService";
 import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
+import { QualityPickerDialog } from "./QualityPickerDialog";
 import { supabase } from "../../config/supabase";
 import { authManager } from "../../services";
 
@@ -101,12 +102,7 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
     const ruby = useRuby() ?? 0;
     const [quality, setQualityState] = useState<RenderQuality>(DEFAULT_QUALITY);
     useEffect(() => { loadQuality().then(setQualityState); }, []);
-    const cycleQuality = useCallback(() => {
-        const next = ((quality + 1) % 3) as RenderQuality;
-        setQualityState(next);
-        void setQuality(next);
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }, [quality]);
+    const [qualityOpen, setQualityOpen] = useState(false);
     const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
     // Edit profile sub-sheet
@@ -189,6 +185,27 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
             },
         ]);
     }, [onResetOnboarding, onIsOpenedChange]);
+
+    /**
+     * Ask for a rating where the user came looking for it.
+     *
+     * `market://` / `itms-apps://` open the store app directly; the https
+     * fallback is for a device without it (an emulator, a sideloaded build).
+     */
+    const openStoreReview = useCallback(async () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        void analyticsService.logEvent("rate", { source: "settings" });
+        const native = Platform.OS === "ios"
+            ? "itms-apps://apps.apple.com/app/id6760695348?action=write-review"
+            : "market://details?id=com.truemate.girlfriend";
+        const web = Platform.OS === "ios"
+            ? "https://apps.apple.com/app/id6760695348?action=write-review"
+            : "https://play.google.com/store/apps/details?id=com.truemate.girlfriend";
+        try {
+            if (await Linking.canOpenURL(native)) return await Linking.openURL(native);
+        } catch { /* fall through to the browser */ }
+        openBrowserSafe(web);
+    }, []);
 
     const handleReportBug = useCallback(() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -317,23 +334,37 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>{t("set.general")}</Text>
                             <View style={styles.sectionCard}>
-                                <SettingItem
-                                    icon={isPro ? <IconCrown size={20} color="#F59E0B" fill="#F59E0B" /> : <IconStar size={20} color="#F59E0B" />}
-                                    label={isPro ? t("set.pro_active") : t("set.upgrade_pro")}
-                                    subtitle={isPro ? t("set.pro_desc_active") : t("set.pro_desc")}
-                                    onPress={() => {
-                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                        onOpenSubscription?.();
-                                    }}
-                                />
-                                <View style={styles.separator} />
+                                {/* PRO only, as a status line: a free user
+                                    already has the gradient card above saying
+                                    exactly this, one row apart. */}
+                                {isPro && (
+                                    <>
+                                        <SettingItem
+                                            icon={<IconCrown size={20} color="#F59E0B" fill="#F59E0B" />}
+                                            label={t("set.pro_active")}
+                                            subtitle={t("set.pro_desc_active")}
+                                            onPress={() => {
+                                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                                onOpenSubscription?.();
+                                            }}
+                                        />
+                                        <View style={styles.separator} />
+                                    </>
+                                )}
                                 {/* Tapping cycles high → balanced → saver. Three
                                     options do not deserve a modal. */}
                                 <SettingItem
-                                    icon={<IconCube size={20} color="#34D399" />}
+                                    icon={<IconCube size={20} color={isPro ? "#34D399" : "rgba(255,255,255,0.35)"} />}
                                     label={t("set.quality")}
-                                    subtitle={t(QUALITY_LABELS[quality])}
-                                    onPress={cycleQuality}
+                                    // Quality only moves the 3D renderer, and 3D
+                                    // is PRO — a free user tuning it would be
+                                    // tuning something they cannot see.
+                                    subtitle={isPro ? t(QUALITY_LABELS[quality]) : t("set.quality_pro")}
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        if (!isPro) return onOpenSubscription?.();
+                                        setQualityOpen(true);
+                                    }}
                                 />
                                 <View style={styles.separator} />
                                 {/* The first-run language screen promises this row exists. */}
@@ -392,6 +423,16 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                         openBrowserSafe("https://personal-muse-3d.lovable.app/eula");
                                     }}
+                                />
+                                <View style={styles.separator} />
+                                {/* In Settings rather than as a mid-session
+                                    popup: the prompt that interrupts is the one
+                                    that gets one star. */}
+                                <SettingItem
+                                    icon={<IconStar size={20} color="#FBBF24" />}
+                                    label={t("set.rate")}
+                                    subtitle={t("set.rate_desc")}
+                                    onPress={openStoreReview}
                                 />
                                 <View style={styles.separator} />
                                 <SettingItem
@@ -491,6 +532,12 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                 />
             </BottomSheet>
 
+            <QualityPickerDialog
+                visible={qualityOpen}
+                value={quality}
+                onPick={setQualityState}
+                onClose={() => setQualityOpen(false)}
+            />
 
             {/* ─── Edit Profile sub-sheet ─── */}
         </>
@@ -507,7 +554,7 @@ const styles = StyleSheet.create({
     profileCard: {
         flexDirection: "row", alignItems: "center", justifyContent: "space-between",
         backgroundColor: "rgba(255, 111, 165, 0.12)", borderRadius: 20,
-        padding: 16, marginBottom: 24,
+        padding: 16, marginBottom: 16,
         borderWidth: 1, borderColor: "rgba(255, 111, 165, 0.2)",
     },
     profileLeft: { flexDirection: "row", alignItems: "center", flex: 1 },
@@ -535,7 +582,10 @@ const styles = StyleSheet.create({
     upgradeCard: {
         flexDirection: "row", alignItems: "center", gap: 12,
         paddingHorizontal: 16, paddingVertical: 14,
-        borderRadius: 18, marginTop: 12,
+        borderRadius: 18,
+        // It sat 36pt below the account card and 0pt above the "GENERAL"
+        // label — glued to the section it does not belong to.
+        marginBottom: 24,
     },
     upgradeIcon: {
         width: 40, height: 40, borderRadius: 20,

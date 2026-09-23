@@ -218,7 +218,7 @@ export default function SignInScreen() {
             <View style={styles.content} pointerEvents="box-none">
                 {/* Top: Logo */}
                 <View style={styles.topArea} pointerEvents="none">
-                    <Text style={styles.appName}>TrueFeel</Text>
+                    <Text style={styles.appName}>TrueMate</Text>
                     <Text style={styles.tagline}>Your AI Companion</Text>
                 </View>
 

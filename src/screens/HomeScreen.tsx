@@ -79,7 +79,7 @@ export default function HomeScreen() {
             <View style={styles.topBar}>
                 <View>
                     <Text style={styles.greeting}>
-                        {user?.user_metadata?.full_name ?? "TrueFeel"}
+                        {user?.user_metadata?.full_name ?? "TrueMate"}
                     </Text>
                 </View>
                 <TouchableOpacity
