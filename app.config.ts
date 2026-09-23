@@ -114,6 +114,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         "./plugins/withAndroidBackupRulesFix",
         "./plugins/withCopyIndexHtml",
         "./plugins/withAdMediation",
+        "./plugins/withSlimBuild",
         [
             "react-native-google-mobile-ads",
             {
