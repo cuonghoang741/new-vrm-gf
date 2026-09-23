@@ -1,0 +1,13 @@
+-- The $99.99 pack pays 29,999 ruby instead of 17,500.
+--
+-- Ruby per dollar, against the $0.99 pack's 121/$:
+--   .1   120   /  0.99  = 121/$   (baseline)
+--   .2   650   /  4.99  = 130/$   +8%
+--   .3  1400   /  9.99  = 140/$  +16%
+--   .4  3000   / 19.99  = 150/$  +24%
+--   .5  8000   / 49.99  = 160/$  +32%
+--   .6 29999   / 99.99  = 300/$ +148%   ← the whale tier, was 175/$ (+45%)
+--
+-- The shop's bonus badge reads the live store price, so it re-derives this
+-- on its own — no client change needed.
+update public.economy_config set value = 29999 where key = 'pack_truemate.ruby.6';
