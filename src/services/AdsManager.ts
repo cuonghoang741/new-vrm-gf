@@ -18,6 +18,12 @@ import * as SecureStore from "expo-secure-store";
  * rewarded videos are not capped here — those are the surfaces the user either
  * ignores or chooses.
  */
+/**
+ * AdMob device hashes that always receive test ads, even from production unit
+ * ids. Add the team's phones here; `EMULATOR` covers every emulator/simulator.
+ */
+const TEST_DEVICE_IDS: string[] = ["EMULATOR"];
+
 const COLD_START_GRACE_MS = 45_000; // nothing full-screen in the first 45s after launch
 const MIN_FULLSCREEN_GAP_MS = 120_000; // 2 minutes between ANY two full-screen ads
 const MAX_INTERSTITIALS_PER_SESSION = 2;
@@ -104,6 +110,19 @@ class AdsManagerClass {
                     maxAdContentRating: MaxAdContentRating.PG,
                     tagForChildDirectedTreatment: false,
                     tagForUnderAgeOfConsent: false,
+                    // Devices that must NEVER see a real ad.
+                    //
+                    // A tap on a live ad in your own release build is invalid
+                    // traffic, and AdMob answers it with an account-wide ad
+                    // serving limit — which is what happened on 2026-09-23.
+                    // Registering the phones we test on means the real unit
+                    // ids keep working while the creative that comes back is
+                    // Google's test one, so a stray tap costs nothing.
+                    //
+                    // To add a device: run it once, find the line the SDK logs
+                    //   "Use RequestConfiguration.Builder.setTestDeviceIds(...)"
+                    // and paste the hash here.
+                    testDeviceIdentifiers: TEST_DEVICE_IDS,
                 });
 
                 await mobileAds().initialize();

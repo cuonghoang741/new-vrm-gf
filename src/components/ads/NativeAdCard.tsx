@@ -232,7 +232,16 @@ function NativeAdSkeleton({ cornerRadius }: { cornerRadius?: number }) {
     );
 }
 
-const PINK = "#FF6FA5";
+/**
+ * Default CTA fill — slate, not the app's rose.
+ *
+ * Every screen that shows a native card also shows a real primary button in
+ * TrueMate's accent, and an ad button wearing the same colour collects the
+ * taps meant for it. Those taps are invalid traffic; the account picked up an
+ * ad serving limit for that class of accident on 2026-09-23. Placements can
+ * still override `ctaColor`, but nothing should set it to the accent.
+ */
+const PINK = "#4B5563";
 /** How long a native slot may sit empty before it gives the space back. */
 const LOAD_TIMEOUT_MS = 12_000;
 

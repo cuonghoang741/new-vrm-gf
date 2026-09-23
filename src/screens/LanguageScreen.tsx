@@ -124,10 +124,10 @@ export default function LanguageScreen({ onDone }: { onDone: () => void }) {
                 Ô trước dùng native_language_1, ô sau dùng native_language_2 —
                 hai placement riêng, tách rõ trên Inspector.
 
-                The pink full-width CTA lands where a primary button would sit,
-                which is the part reviewers look at — the prominent "Ad" badge
-                and the card's own frame are what keep it readable as an ad, so
-                neither should be trimmed. */}
+                The CTA sits where a primary button would, so it is deliberately
+                NOT the app's accent colour — see CTA_BEFORE/CTA_AFTER. The
+                prominent "Ad" badge and the card's frame are what keep it
+                readable as an ad; neither should be trimmed. */}
             <View style={styles.adFooter}>
                 {picked ? (
                     <NativeAdCard
@@ -153,8 +153,17 @@ export default function LanguageScreen({ onDone }: { onDone: () => void }) {
 
 const PINK = "#FF6FA5";
 /** Yuuki's exact CTA colours for the two stages. */
-const CTA_BEFORE = "#6B7280";
-const CTA_AFTER = "#FF2E74";
+/**
+ * The ad's CTA must not look like this app's own primary button.
+ *
+ * It was `#FF2E74` once a language had been picked — the same rose as the Save
+ * pill two thumb-widths above it — so a tap meant for Save landed on the ad.
+ * Those taps are counted as invalid traffic, and on 2026-09-23 the account
+ * collected an ad serving limit for exactly that class of accident. Both
+ * states are now a neutral slate that no button in TrueMate uses.
+ */
+const CTA_BEFORE = "#4B5563";
+const CTA_AFTER = "#4B5563";
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#0a0a1a" },
