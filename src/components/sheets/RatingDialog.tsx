@@ -32,10 +32,11 @@ async function openStore() {
  * whatever the person wants to tell us. Every star is logged either way, so
  * the score inside the app is the honest one even when the store's is not.
  *
- * ⚠️ Both stores forbid choosing who sees the review page based on a rating
- * collected first, and forbid paying for reviews. See the migration
- * `20260923070000_app_ratings.sql` for the two lines that make this
- * compliant if you want it to be.
+ * The ruby is paid for ANY rating (see `app_submit_rating`), so the reward
+ * buys the feedback rather than the score. What remains is the store gate
+ * itself: both stores dislike choosing who sees the review page from a rating
+ * collected first. Sending everyone there — `v_send := true` in the same
+ * function — is what closes that.
  */
 export function RatingDialog({
     visible,
@@ -138,7 +139,7 @@ export function RatingDialog({
                             >
                                 <LinearGradient colors={SHEET.accentGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.cta}>
                                     <Text style={styles.ctaText}>{busy ? "…" : t("rate.submit")}</Text>
-                                    {!!rewardRuby && stars === 5 && (
+                                    {!!rewardRuby && stars > 0 && (
                                         <View style={styles.reward}>
                                             <RubyIcon size={13} color="#fff" />
                                             <Text style={styles.rewardText}>+{rewardRuby}</Text>
