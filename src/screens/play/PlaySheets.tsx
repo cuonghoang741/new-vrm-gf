@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import type { User } from "@supabase/supabase-js";
 import CharacterSheet from "../../components/sheets/CharacterSheet";
 import CostumeSheet from "../../components/sheets/CostumeSheet";
@@ -70,11 +70,22 @@ export interface PlaySheetsProps {
     onRubyClaimed: (balance: number) => void;
     onPurchaseSuccess: () => void;
     onResetOnboarding: () => void;
-    /** Fired when the character sheet closes — the interstitial moment. */
+    /**
+     * Fired when the character sheet is DISMISSED — never when a character was
+     * picked. See the call site: an ad that lands on the moment someone asked
+     * to see a new character is the "interrupts an action" case AdMob's
+     * placement policy is about, and it is also simply the worst second of the
+     * app to put an ad in.
+     */
     onCharacterSheetClosed: () => void;
 }
 
 export function PlaySheets(p: PlaySheetsProps) {
+    /**
+     * Set by the sheet's own select handler, which runs one tick AFTER it asks
+     * the parent to close — hence the deferred read below.
+     */
+    const pickedRef = useRef(false);
     const openSubscription = () => p.setSubscriptionOpen(true);
     const openQuests = () => p.setQuestOpen(true);
 
@@ -106,12 +117,21 @@ export function PlaySheets(p: PlaySheetsProps) {
                 isOpened={p.charSheetOpen}
                 onIsOpenedChange={(open) => {
                     p.setCharSheetOpen(open);
-                    // Show an interstitial when leaving the character sheet
-                    // (frequency-capped & skipped for PRO inside the hook).
-                    if (!open) p.onCharacterSheetClosed();
+                    if (open) return;
+                    // Read the flag after the sheet's own onSelect has run: it
+                    // closes first and selects second. No ad when a character
+                    // was picked — the user is waiting for her to appear.
+                    setTimeout(() => {
+                        const picked = pickedRef.current;
+                        pickedRef.current = false;
+                        if (!picked) p.onCharacterSheetClosed();
+                    }, 0);
                 }}
                 currentCharacterId={p.characterId}
-                onSelect={p.onCharacterSelect}
+                onSelect={(char: any) => {
+                    pickedRef.current = true;
+                    p.onCharacterSelect(char);
+                }}
                 isPro={p.isPro}
                 onOpenSubscription={openSubscription}
                 userId={p.user?.id}

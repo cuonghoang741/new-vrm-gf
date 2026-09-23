@@ -126,8 +126,26 @@ class AdsManagerClass {
         return this.fullscreenAdShowing;
     }
 
+    /**
+     * The play screen registers its 3D viewer here.
+     *
+     * A full-screen ad covers the scene completely, but three.js keeps
+     * rendering behind it at full rate — fighting the ad's own video for the
+     * GPU, and leaving nothing for the FBX parse that runs the moment the ad
+     * closes. yuuki suspends its viewer for the whole ad flow for exactly this
+     * reason.
+     */
+    private renderPauser: ((paused: boolean) => void) | null = null;
+
+    setRenderPauser(fn: ((paused: boolean) => void) | null) {
+        this.renderPauser = fn;
+    }
+
     setFullscreenAdShowing(value: boolean) {
         this.fullscreenAdShowing = value;
+        try {
+            this.renderPauser?.(value);
+        } catch { /* a dead WebView must never break the ad flow */ }
     }
 
     // ----- Frequency caps ---------------------------------------------------

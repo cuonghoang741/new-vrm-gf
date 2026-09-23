@@ -43,6 +43,7 @@ import { USE_TEST_ADS } from "../../config/ads";
 import { analyticsService } from "../../services/AnalyticsService";
 import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
 import { QualityPickerDialog } from "./QualityPickerDialog";
+import { RatingDialog } from "./RatingDialog";
 import { supabase } from "../../config/supabase";
 import { authManager } from "../../services";
 
@@ -103,6 +104,7 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
     const [quality, setQualityState] = useState<RenderQuality>(DEFAULT_QUALITY);
     useEffect(() => { loadQuality().then(setQualityState); }, []);
     const [qualityOpen, setQualityOpen] = useState(false);
+    const [ratingOpen, setRatingOpen] = useState(false);
     const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
     // Edit profile sub-sheet
@@ -432,7 +434,10 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                                     icon={<IconStar size={20} color="#FBBF24" />}
                                     label={t("set.rate")}
                                     subtitle={t("set.rate_desc")}
-                                    onPress={openStoreReview}
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        setRatingOpen(true);
+                                    }}
                                 />
                                 <View style={styles.separator} />
                                 <SettingItem
@@ -531,6 +536,8 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                     }}
                 />
             </BottomSheet>
+
+            <RatingDialog visible={ratingOpen} onClose={() => setRatingOpen(false)} />
 
             <QualityPickerDialog
                 visible={qualityOpen}

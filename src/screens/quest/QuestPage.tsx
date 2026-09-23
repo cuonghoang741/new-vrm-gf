@@ -11,6 +11,7 @@ import RubyIcon from "../../components/icons/RubyIcon";
 import { SHEET } from "../../theme/sheet";
 import { QuestRow } from "./QuestRow";
 import { RubyShop } from "./RubyShop";
+import { RatingDialog } from "../../components/sheets/RatingDialog";
 import { useRewardedAd } from "../../hooks/useRewardedAd";
 import { AdUnits } from "../../config/ads";
 import {
@@ -69,6 +70,7 @@ export function QuestPage({ visible, onClose, isPro, sceneImage, onOpenSubscript
      * was never on screen unless someone went looking for it.
      */
     const [tab, setTab] = useState<Section>("daily");
+    const [ratingOpen, setRatingOpen] = useState(false);
     const scrollRef = useRef<ScrollView>(null);
     const anchors = useRef<Record<Section, number>>({ daily: 0, special: 0, shop: 0 });
     const goTo = (k: Section) => {
@@ -114,6 +116,8 @@ export function QuestPage({ visible, onClose, isPro, sceneImage, onOpenSubscript
     /** What the "Go" button on a quest row should do, if anything. */
     const goFor = (q: Quest) => {
         if (q.event === "watch_ad") return adsLeft > 0 && cooldown === 0 ? watchAd : undefined;
+        // The rating quest is finished here rather than on another screen.
+        if (q.event === "rate_app") return () => setRatingOpen(true);
         const target = GO_FOR_EVENT[q.event];
         if (!target) return undefined;
         return () => {
@@ -357,6 +361,13 @@ export function QuestPage({ visible, onClose, isPro, sceneImage, onOpenSubscript
                     <Text style={styles.section}>{t("quest.shop")}</Text>
                     <RubyShop packs={state?.packs ?? {}} />
                 </ScrollView>
+
+                <RatingDialog
+                    visible={ratingOpen}
+                    rewardRuby={(state?.quests ?? []).find((q) => q.event === "rate_app")?.reward}
+                    onClose={() => setRatingOpen(false)}
+                    onRated={refresh}
+                />
             </View>
         </Modal>
     );

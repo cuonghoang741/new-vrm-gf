@@ -63,6 +63,7 @@ import { useInterstitialAd } from "../hooks/useInterstitialAd";
 import { useRewardedAd } from "../hooks/useRewardedAd";
 import { usePrefetchPaywallModel } from "../hooks/usePrefetchPaywallModel";
 import { AdUnits } from "../config/ads";
+import { AdsManager } from "../services/AdsManager";
 import { FREE_MESSAGE_LIMIT, REWARD_MESSAGE_BONUS } from "../config/limits";
 import { Alert } from "react-native";
 
@@ -669,6 +670,32 @@ export default function PlayScreen() {
      */
     const [bannerGaveUp, setBannerGaveUp] = useState(false);
     const showPlayBanner = !isPro && !isKeyboardVisible && !bannerGaveUp;
+
+    /**
+     * Stop rendering the scene while something is covering it.
+     *
+     * The viewer stays mounted at opacity 0 in 2D mode and behind every sheet,
+     * and `requestAnimationFrame` does not care about either — so the phone was
+     * drawing a VRM nobody could see, at full rate, right up to the instant a
+     * dance FBX needed the main thread to retarget every track. That is where
+     * the hitch when applying a dance came from.
+     */
+    const sceneCovered =
+        charSheetOpen || costumeSheetOpen || bgSheetOpen || mediaSheetOpen ||
+        settingsSheetOpen || questOpen || bondOpen || checkinOpen ||
+        dance.danceSheetOpen || !is3DMode;
+
+    useEffect(() => {
+        if (!vrmReady) return;
+        // The subscription sheet drives this itself — it has its own preview.
+        if (subscriptionOpen) return;
+        vrmRef.current?.setRenderPaused(sceneCovered);
+    }, [sceneCovered, vrmReady, subscriptionOpen]);
+
+    useEffect(() => {
+        AdsManager.setRenderPauser((paused: boolean) => vrmRef.current?.setRenderPaused(paused));
+        return () => AdsManager.setRenderPauser(null);
+    }, []);
 
     /**
      * One of her opening lines. Two of the five used to be hardcoded English,

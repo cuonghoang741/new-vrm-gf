@@ -122,3 +122,23 @@ export const RUBY_PACK_IDS = [
     "truemate.ruby.5",
     "truemate.ruby.6",
 ] as const;
+
+// ── in-app rating ───────────────────────────────────────────────────────────
+/**
+ * Log a rating. Five stars also completes the rating quest and tells the
+ * caller to open the store page; anything less stays in `app_ratings`.
+ */
+export async function submitRating(
+    stars: number,
+    comment?: string
+): Promise<{ ok: boolean; open_store: boolean } | null> {
+    const { data, error } = await supabase.rpc("app_submit_rating", {
+        p_stars: stars,
+        p_comment: comment?.trim() || null,
+    });
+    if (error || !data || data.error) {
+        console.warn("[rating]", error?.message ?? data?.error);
+        return null;
+    }
+    return { ok: true, open_store: !!data.open_store };
+}

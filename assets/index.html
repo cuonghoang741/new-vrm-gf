@@ -734,13 +734,18 @@
 
         const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: "high-performance" });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        // Full quality by default, same as the reference viewer.
-        renderer.setPixelRatio(window.devicePixelRatio);
+        // Cap the pixel ratio at 2. A modern phone reports 3, which is nine
+        // times the fragments of a 1x buffer for a difference nobody can see
+        // on a 6" panel — and it is what left no GPU headroom for the FBX
+        // parse when a dance loads. yuuki's viewer clamps the same way.
+        const MAX_DPR = 2.0;
+        const dpr = () => Math.min(window.devicePixelRatio || 1, MAX_DPR);
+        renderer.setPixelRatio(dpr());
 
         window.setRenderQuality = function (q) {
             q = Math.max(0, Math.min(2, q | 0));
             window.__quality = q;
-            renderer.setPixelRatio(window.devicePixelRatio * QUALITY_RATIO[q]);
+            renderer.setPixelRatio(dpr() * QUALITY_RATIO[q]);
             renderer.setSize(window.innerWidth, window.innerHeight);
             window.__frameMinMs = QUALITY_FPS[q] ? 1000 / QUALITY_FPS[q] : 0;
         };
@@ -1329,6 +1334,9 @@
         let __loadToken = 0; // bumped on each load; stale loads are discarded
         function loadVRM(modelUrl, modelName, animationToLoad = null) {
             const myToken = ++__loadToken;
+            // Clips are retargeted to one humanoid rig, so they cannot be
+            // reused across models.
+            if (window.__clearClipCache) window.__clearClipCache();
             const loader = new GLTFLoader();
             loader.crossOrigin = 'anonymous';
             helperRoot.clear();
@@ -1418,12 +1426,24 @@
             );
         }
 
+        /**
+         * Retargeted clips, by URL. Re-picking a dance (or replaying one after
+         * a costume change) used to re-download the FBX and re-run the whole
+         * per-track quaternion retarget; now it is a map lookup. Cleared when
+         * the model changes, since a clip is retargeted to one humanoid.
+         */
+        let __clipCache = new Map();
+        window.__clearClipCache = function () { __clipCache = new Map(); };
+        /** Only the newest dance request may apply; see the guard below. */
+        let __danceToken = 0;
+
         function loadFBX(animationUrl, animationName, crossFadeDuration = 0.5) {
             currentAnimationUrl = animationUrl;
             if (!currentMixer || !currentVrm) {
                 /* please load a VRM model first */
                 return;
             }
+            const myToken = ++__danceToken;
 
             // Stop current action completely to prevent position blending issues
             if (currentAction) {
@@ -1443,8 +1463,15 @@
             } catch (e) { console.warn('Failed to reset VRM position:', e); }
 
             updateFileDisplay(document.getElementById('currentModel').textContent, `Loading ${animationName}...`);
-            loadHumanoidAnimation(animationUrl, currentVrm)
+            const cached = __clipCache.get(animationUrl);
+            const pending = cached ? Promise.resolve(cached) : loadHumanoidAnimation(animationUrl, currentVrm);
+            pending
                 .then((clip) => {
+                    // A second pick while this one was still downloading used to
+                    // end with both clips playing on the same mixer — the
+                    // "double pose" jitter. The newest request wins.
+                    if (myToken !== __danceToken) return;
+                    __clipCache.set(animationUrl, clip);
                     // Reset position again before playing new animation
                     try {
                         currentVrm.scene.position.set(0, 0, 0);
@@ -1698,9 +1725,19 @@
         // which would fling the spring bones.
         window.__renderPaused = false;
         window.setRenderPaused = function (paused) { window.__renderPaused = !!paused; };
+        let __lastFrame = 0;
         function animate() {
             requestAnimationFrame(animate);
             if (window.__renderPaused) { clock.getDelta(); return; }
+            // Frame pacing. `__frameMinMs` was computed by setRenderQuality and
+            // then never read, so the "balanced" and "saver" settings changed
+            // the pixel ratio and nothing else. 16ms is the floor even at full
+            // quality: frames above 60Hz cost battery and buy nothing, and the
+            // spare milliseconds are what a dance load runs in.
+            const __now = performance.now();
+            const __min = window.__frameMinMs || 16;
+            if (__now - __lastFrame < __min) return;
+            __lastFrame = __now;
             const deltaTime = clock.getDelta();
             if (currentMixer) { currentMixer.update(deltaTime); }
             if (currentVrm) { currentVrm.update(deltaTime); }
