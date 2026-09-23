@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Modal, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -19,9 +19,11 @@ import {
     claimQuest,
     getQuestState,
     rewardAd,
+    trackShare,
     type Quest,
     type QuestState,
 } from "../../services/economyService";
+import { analyticsService } from "../../services/AnalyticsService";
 import { setRuby, useRuby } from "../../services/rubyStore";
 import { track } from "../../services/trackEvents";
 
@@ -113,11 +115,29 @@ export function QuestPage({ visible, onClose, isPro, sceneImage, onOpenSubscript
     const claimable = (kind: "daily" | "special") =>
         (state?.quests ?? []).filter((q) => q.kind === kind && !q.claimed && q.progress >= q.target).length;
 
+    /**
+     * Hand the store link to the OS share sheet, and only count a share the
+     * system says actually happened — `dismissedAction` pays nothing.
+     */
+    const shareApp = useCallback(async () => {
+        const url = Platform.OS === "ios"
+            ? "https://apps.apple.com/app/id6760695348"
+            : "https://play.google.com/store/apps/details?id=com.truemate.girlfriend";
+        try {
+            const res = await Share.share({ message: `${t("quest.share_message")} ${url}`, url });
+            if (res.action !== Share.sharedAction) return;
+            void analyticsService.logEvent("share_app", { source: "quest" });
+            await trackShare();
+            await refresh();
+        } catch { /* the sheet was cancelled or unavailable */ }
+    }, [t, refresh]);
+
     /** What the "Go" button on a quest row should do, if anything. */
     const goFor = (q: Quest) => {
         if (q.event === "watch_ad") return adsLeft > 0 && cooldown === 0 ? watchAd : undefined;
         // The rating quest is finished here rather than on another screen.
         if (q.event === "rate_app") return () => setRatingOpen(true);
+        if (q.event === "share_app") return shareApp;
         const target = GO_FOR_EVENT[q.event];
         if (!target) return undefined;
         return () => {

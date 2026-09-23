@@ -231,6 +231,7 @@ const ko: Dict = {
     "quest.pro_syncing": "PRO 동기화 중이에요. 잠시 후 다시 시도하세요.",
     "quest.pro_syncing_short": "동기화 중",
     "quest.shop": "루비 상점",
+    "quest.share_message": "TrueMate에서 그녀를 만나보세요:",
     "quest.best_value": "최고 가성비",
     "quest.popular": "인기",
     "quest.bonus": "+{{n}}% 보너스",

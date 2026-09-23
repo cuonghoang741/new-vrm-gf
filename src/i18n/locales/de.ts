@@ -231,6 +231,7 @@ const de: Dict = {
     "quest.pro_syncing": "Dein PRO wird noch synchronisiert – versuch es gleich nochmal.",
     "quest.pro_syncing_short": "Synchronisiert",
     "quest.shop": "Rubin-Shop",
+    "quest.share_message": "Lern sie auf TrueMate kennen:",
     "quest.best_value": "Bester Wert",
     "quest.popular": "Beliebt",
     "quest.bonus": "+{{n}}% Bonus",

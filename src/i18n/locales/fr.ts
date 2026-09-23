@@ -231,6 +231,7 @@ const fr: Dict = {
     "quest.pro_syncing": "Votre PRO se synchronise — réessayez dans une minute.",
     "quest.pro_syncing_short": "Synchro…",
     "quest.shop": "Boutique de rubis",
+    "quest.share_message": "Rencontre-la sur TrueMate :",
     "quest.best_value": "Meilleure offre",
     "quest.popular": "Populaire",
     "quest.bonus": "+{{n}}% bonus",

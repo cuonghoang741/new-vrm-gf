@@ -231,6 +231,7 @@ const vi: Dict = {
     "quest.pro_syncing": "Gói PRO đang đồng bộ — thử lại sau 1 phút nhé.",
     "quest.pro_syncing_short": "Đang đồng bộ",
     "quest.shop": "Cửa hàng ruby",
+    "quest.share_message": "Gặp cô ấy trên TrueMate:",
     "quest.best_value": "Hời nhất",
     "quest.popular": "Phổ biến",
     "quest.bonus": "+{{n}}% thưởng",

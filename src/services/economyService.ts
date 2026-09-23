@@ -142,3 +142,13 @@ export async function submitRating(
     }
     return { ok: true, open_store: !!data.open_store };
 }
+
+/**
+ * Count one share. The server caps it at the quest's target, so a spammed
+ * share sheet cannot pay more than sharing five times does.
+ */
+export async function trackShare(): Promise<void> {
+    try {
+        await supabase.rpc("app_track", { p_event: "share_app" });
+    } catch { /* a lost share costs a few ruby, never a crash */ }
+}

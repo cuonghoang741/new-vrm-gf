@@ -231,6 +231,7 @@ const en: Dict = {
     "quest.pro_syncing": "Your PRO is still syncing — try again in a minute.",
     "quest.pro_syncing_short": "Syncing",
     "quest.shop": "Ruby shop",
+    "quest.share_message": "Meet her on TrueMate:",
     "quest.best_value": "Best value",
     "quest.popular": "Popular",
     "quest.bonus": "+{{n}}% bonus",

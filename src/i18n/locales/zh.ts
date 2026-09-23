@@ -231,6 +231,7 @@ const zh: Dict = {
     "quest.pro_syncing": "PRO 正在同步，请稍后再试。",
     "quest.pro_syncing_short": "同步中",
     "quest.shop": "红宝石商店",
+    "quest.share_message": "来 TrueMate 认识她：",
     "quest.best_value": "最超值",
     "quest.popular": "热门",
     "quest.bonus": "+{{n}}% 赠送",

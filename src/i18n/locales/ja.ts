@@ -231,6 +231,7 @@ const ja: Dict = {
     "quest.pro_syncing": "PROを同期中です。少し後にもう一度お試しください。",
     "quest.pro_syncing_short": "同期中",
     "quest.shop": "ルビーショップ",
+    "quest.share_message": "TrueMateで彼女に会おう:",
     "quest.best_value": "お得",
     "quest.popular": "人気",
     "quest.bonus": "+{{n}}%お得",
