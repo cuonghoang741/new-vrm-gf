@@ -10,6 +10,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useTranslation } from "react-i18next";
 import { styles, PLAY_BANNER_H } from "./styles";
 
+import { ACCENT } from "./theme";
 /**
  * The chat half of PlayScreen: message list, composer, and the anchored
  * banner pinned beneath it.
@@ -67,6 +68,8 @@ export function ChatOverlay({
     dot3Anim,
 }: ChatOverlayProps) {
     const { t } = useTranslation();
+    /** Something to send, and nothing in flight. */
+    const canSend = !!inputText.trim() && !isSending;
     return (
         <View
             style={styles.chatOverlay}
@@ -219,15 +222,21 @@ export function ChatOverlay({
                             />
                         </View>
                     )}
+                    {/* The two states have to look different. Both used to be
+                        a translucent rose over a rose composer, separated only
+                        by the 0.65 opacity the Button applies when disabled —
+                        so a ready-to-send button looked exactly as dead as an
+                        empty one. Solid accent when there is something to
+                        send, muted glass when there is not. */}
                     <Button
                         variant="liquid"
                         isIconOnly
                         startIcon={IconSend}
                         startIconSize={20}
-                        startIconColor={surface.icon}
-                        tintColor={isBackgroundDark ? "rgba(255, 107, 157, 0.85)" : "rgba(255, 107, 157, 0.95)"}
+                        startIconColor={canSend ? "#FFFFFF" : surface.muted}
+                        tintColor={canSend ? ACCENT : surface.glass}
                         onPress={handleSend}
-                        disabled={!inputText.trim() || isSending}
+                        disabled={!canSend}
                         style={styles.sendBtnLiquid}
                     />
                 </View>

@@ -24,6 +24,7 @@ import { analyticsService } from "../../services/AnalyticsService";
 import { track } from "../../services/trackEvents";
 import { lockStateOf, useItemUnlock, type UnlockableItem } from "../../hooks/useItemUnlock";
 import RubyIcon from "../icons/RubyIcon";
+import { SHEET } from "../../theme/sheet";
 import LockIcon from "../icons/LockIcon";
 import { ReportDialog } from "./ReportDialog";
 import { isReported } from "../../services/reportService";
@@ -238,7 +239,7 @@ const MediaSheet = forwardRef<MediaSheetRef, MediaSheetProps>(
                                 </View>
                                 {state === "ruby" ? (
                                     <View style={styles.lockPrice}>
-                                        <RubyIcon size={11} color="#fff" />
+                                        <RubyIcon size={11} color={SHEET.ruby} />
                                         <Text style={styles.lockText}>{item.price_ruby}</Text>
                                     </View>
                                 ) : (

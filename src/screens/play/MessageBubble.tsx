@@ -10,6 +10,7 @@ import type { ChatMessage } from "../../services/chatService";
 import type { SurfaceTokens } from "../../theme/surface";
 import LockIcon from "../../components/icons/LockIcon";
 import RubyIcon from "../../components/icons/RubyIcon";
+import { SHEET } from "../../theme/sheet";
 import { styles } from "./styles";
 
 /**
@@ -142,7 +143,7 @@ export function MessageBubble({
                                 costs 150 ruby sends people to the wrong screen. */}
                             {lockState === "ruby" ? (
                                 <View style={localStyles.lockPrice}>
-                                    <RubyIcon size={13} color="#fff" />
+                                    <RubyIcon size={13} color={SHEET.ruby} />
                                     <Text style={styles.lockText}>{item.mediaPriceRuby}</Text>
                                 </View>
                             ) : (
