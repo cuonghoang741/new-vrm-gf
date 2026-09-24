@@ -17,6 +17,7 @@ import {
     IconLogout,
     IconInfoCircle,
     IconBug,
+    IconFlag,
     IconChevronRight,
     IconShieldLock,
     IconStar,
@@ -45,6 +46,7 @@ import { analyticsService } from "../../services/AnalyticsService";
 import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
 import { QualityPickerDialog } from "./QualityPickerDialog";
 import { RatingDialog } from "./RatingDialog";
+import { ReportDialog } from "./ReportDialog";
 import { supabase } from "../../config/supabase";
 import { authManager } from "../../services";
 
@@ -106,6 +108,7 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
     useEffect(() => { loadQuality().then(setQualityState); }, []);
     const [qualityOpen, setQualityOpen] = useState(false);
     const [ratingOpen, setRatingOpen] = useState(false);
+    const [reportOpen, setReportOpen] = useState(false);
     /** Seven taps on the version row sends a test crash. */
     const versionTaps = useRef(0);
     const [isDeletingAccount, setIsDeletingAccount] = useState(false);
@@ -395,6 +398,21 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>{t("set.support")}</Text>
                             <View style={styles.sectionCard}>
+                                {/* Reporting what the AI says or shows. Listed
+                                    here as well as on the content itself: this
+                                    is the entry point a store reviewer looks
+                                    for, and it must not be hidden behind a
+                                    long-press they never try. */}
+                                <SettingItem
+                                    icon={<IconFlag size={20} color="#FB7185" />}
+                                    label={t("settings.report")}
+                                    subtitle={t("settings.report_sub")}
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        setReportOpen(true);
+                                    }}
+                                />
+                                <View style={styles.separator} />
                                 <SettingItem
                                     icon={<IconBug size={20} color="#F472B6" />}
                                     label={t("set.report_bug")}
@@ -557,6 +575,11 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
             </BottomSheet>
 
             <RatingDialog visible={ratingOpen} onClose={() => setRatingOpen(false)} />
+            <ReportDialog
+                visible={reportOpen}
+                kind="character"
+                onClose={() => setReportOpen(false)}
+            />
 
             <QualityPickerDialog
                 visible={qualityOpen}

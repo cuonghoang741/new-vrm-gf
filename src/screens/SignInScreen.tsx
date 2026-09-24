@@ -31,6 +31,10 @@ import { AdsManager } from "../services/AdsManager";
 import { openBrowserSafe } from "../utils/openBrowserSafe";
 import { GalaxyBackground } from "../components/GalaxyBackground";
 
+
+/** QA credentials for the debug-only sign-in button; unset in any real build. */
+const DEV_EMAIL = process.env.EXPO_PUBLIC_DEV_EMAIL ?? "";
+const DEV_PASSWORD = process.env.EXPO_PUBLIC_DEV_PASSWORD ?? "";
 WebBrowser.maybeCompleteAuthSession();
 
 const { width, height } = Dimensions.get("window");
@@ -328,6 +332,28 @@ export default function SignInScreen() {
                             </>
                         )}
                     </TouchableOpacity>
+
+                    {/* Password sign-in for a QA account, debug builds only.
+                        Apple and Google both need a human at the device, which
+                        makes every check of a screen behind the login a manual
+                        step; this is the way in for the simulator. The
+                        credentials come from the environment, never the repo,
+                        and `__DEV__` keeps the button out of any release. */}
+                    {__DEV__ && !!DEV_EMAIL && (
+                        <TouchableOpacity
+                            style={[styles.button, styles.googleButton]}
+                            onPress={async () => {
+                                const { supabase } = await import("../config/supabase");
+                                const { error } = await supabase.auth.signInWithPassword({
+                                    email: DEV_EMAIL, password: DEV_PASSWORD,
+                                });
+                                if (error) console.warn("[dev sign-in]", error.message);
+                            }}
+                            activeOpacity={0.8}
+                        >
+                            <Text style={[styles.buttonText, styles.googleButtonText]}>DEV sign-in</Text>
+                        </TouchableOpacity>
+                    )}
 
                     <Text style={styles.termsText}>
                         {t("signin.terms_prefix")}{" "}

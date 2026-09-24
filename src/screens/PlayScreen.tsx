@@ -55,6 +55,8 @@ import { selectCostume } from "./play/selectCostume";
 import { ChatOverlay } from "./play/ChatOverlay";
 import { ACCENT, ACCENT_SOFT, ACCENT_GLOW, GOLD, GLASS_FILL, GLASS_BORDER, TEXT_BRIGHT } from "./play/theme";
 import { CharacterSwitcher } from "../components/CharacterSwitcher";
+import { ReportDialog } from "../components/sheets/ReportDialog";
+import { isReported, loadMyReports } from "../services/reportService";
 import { AdGateDialog } from "../components/AdGateDialog";
 import { autoUnlock, consumeNoFillGrant, loadUnlocks, markUnlocked, requiresAd } from "../services/unlockService";
 import { getCharacters } from "../cache/charactersCache";
@@ -96,6 +98,13 @@ export default function PlayScreen() {
     const [checkinOpen, setCheckinOpen] = useState(false);
     const [questOpen, setQuestOpen] = useState(false);
     const [bondOpen, setBondOpen] = useState(false);
+    /**
+     * Reporting what she said. Long-pressing a message opens the dialog;
+     * once filed, the message is replaced by a notice for this user.
+     */
+    const [reportTarget, setReportTarget] = useState<ChatMessage | null>(null);
+    const [reportedIds, setReportedIds] = useState<Set<string>>(new Set());
+    const [reportsLoadedAt, setReportsLoadedAt] = useState(0);
     /** Chat hidden = the scene with nothing over it. */
     const [chatVisible, setChatVisible] = useState(true);
     /** Check-in streak for the flame button; refreshed when the sheet closes. */
@@ -628,6 +637,23 @@ export default function PlayScreen() {
                 }
             }
 
+            // A photo she chose to send with this reply. `gemini-chat-v2` has
+            // already written it to `conversation`, so it survives a reload —
+            // this only puts it on screen now, after her words, the way it
+            // arrives in a real conversation.
+            if (result.image?.url) {
+                await new Promise((r) => setTimeout(r, 450));
+                setMessages((prev) => [...prev, {
+                    id: `ai-media-${result.image!.media_id}-${Date.now()}`,
+                    role: "model" as const,
+                    text: "",
+                    createdAt: new Date(),
+                    mediaUrl: result.image!.url,
+                    mediaType: "image" as const,
+                    mediaTier: result.image!.tier ?? undefined,
+                }]);
+            }
+
             setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
         } catch (error) {
             console.error("[PlayScreen] Chat error:", error);
@@ -928,6 +954,15 @@ export default function PlayScreen() {
         return () => { alive = false; };
     }, [characterId, bondOpen]);
 
+    // What this account has already flagged. Read from the server, not the
+    // device, so a reinstall doesn't bring reported messages back. Fetched
+    // once; the bump is only there to redraw the list when it lands.
+    useEffect(() => {
+        let alive = true;
+        loadMyReports().then(() => { if (alive) setReportsLoadedAt(Date.now()); });
+        return () => { alive = false; };
+    }, []);
+
     const renderMessage = useCallback(
         ({ item }: { item: ChatMessage }) => (
             <MessageBubble
@@ -935,6 +970,8 @@ export default function PlayScreen() {
                 isPro={isPro}
                 characterName={characterName}
                 surface={surface}
+                reported={reportedIds.has(item.id) || isReported(item.id)}
+                onReport={setReportTarget}
                 onLockedPress={() => {
                     // Same unlock as tapping a locked tile in the gallery sheet.
                     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -943,7 +980,7 @@ export default function PlayScreen() {
                 }}
             />
         ),
-        [characterName, isPro, surface]
+        [characterName, isPro, surface, reportedIds, reportsLoadedAt]
     );
 
 
@@ -1186,6 +1223,20 @@ export default function PlayScreen() {
                     await supabase.from("user_assets").delete().eq("user_id", user.id);
                     await supabase.from("user_preferences").delete().eq("user_id", user.id);
                     setIsOnboarded(false);
+                }}
+            />
+
+            {/* Flagging offensive AI output, from a long-press on any of her
+                messages. Google Play requires the way in to be in the app. */}
+            <ReportDialog
+                visible={!!reportTarget}
+                kind="chat_message"
+                targetId={reportTarget?.id}
+                characterId={characterId}
+                snapshot={reportTarget?.mediaUrl ?? reportTarget?.text}
+                onClose={() => setReportTarget(null)}
+                onReported={(id) => {
+                    if (id) setReportedIds((prev) => new Set(prev).add(id));
                 }}
             />
 

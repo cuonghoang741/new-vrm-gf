@@ -314,8 +314,8 @@ const styles = StyleSheet.create({
     // Hangs off the ring's lower-right, no plate behind it: the same "picture,
     // not a glyph" treatment as the rail button it mirrors.
     switchBadge: {
-        position: "absolute", right: -12, bottom: -6,
-        width: 46, height: 46,
+        position: "absolute", right: -14, bottom: -8,
+        width: 58, height: 58,
     },
     ring: {
         width: 108, height: 108, borderRadius: 54,

@@ -51,6 +51,20 @@ const DEFAULTS = {
     ads_app_open_enabled: true,
     ads_interstitial_min_gap_seconds: 120,
     ads_interstitial_max_per_day: 6,
+    /**
+     * Route chat through `gemini-chat-v2` — the version that sends her photos
+     * in the same turn. Off falls back to `gemini-chat`, which is what is on
+     * production today and stays untouched.
+     */
+    chat_v2_enabled: true,
+    /** Photos in the chat turn at all. Independent of which function is used. */
+    chat_inline_photo_enabled: true,
+    /**
+     * The one flag here that is OFF by default. Turning it on pins every reply
+     * to a strict SFW policy that overrides the character description — for a
+     * store review, or a region, or the day something goes wrong.
+     */
+    chat_safe_mode: false,
 };
 
 export type AdFlag =
@@ -105,6 +119,11 @@ function num(key: keyof typeof DEFAULTS): number {
 export function adsAllowed(flag: AdFlag): boolean {
     return bool("ads_enabled") && bool(flag);
 }
+
+/** Which chat edge function this build talks to, and how. */
+export const chatV2Enabled = () => bool("chat_v2_enabled");
+export const chatInlinePhotoEnabled = () => bool("chat_inline_photo_enabled");
+export const chatSafeMode = () => bool("chat_safe_mode");
 
 export const interstitialMinGapMs = () => num("ads_interstitial_min_gap_seconds") * 1000;
 export const interstitialMaxPerDay = () => num("ads_interstitial_max_per_day");

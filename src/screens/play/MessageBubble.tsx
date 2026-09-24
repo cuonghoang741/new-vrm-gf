@@ -1,5 +1,8 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import * as Haptics from "expo-haptics";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { useTranslation } from "react-i18next";
 import { Image } from "expo-image";
 import { BlurView } from "expo-blur";
 import { Video, ResizeMode } from "expo-av";
@@ -25,6 +28,8 @@ export function MessageBubble({
     characterName,
     surface,
     onLockedPress,
+    onReport,
+    reported,
 }: {
     item: ChatMessage;
     isPro: boolean;
@@ -32,17 +37,46 @@ export function MessageBubble({
     surface: SurfaceTokens;
     /** Tapping locked PRO media — opens the paywall. */
     onLockedPress: () => void;
+    /**
+     * Long-pressing anything she said or sent. Required by Google Play's
+     * AI-Generated Content policy: offensive output has to be reportable from
+     * inside the app.
+     */
+    onReport?: (item: ChatMessage) => void;
+    /** Already flagged by this user — the content is replaced by a notice. */
+    reported?: boolean;
 }) {
+    const { t } = useTranslation();
     const isAI = item.role === "model";
     const isUser = item.role === "user";
     const hasText = item.text.trim().length > 0;
     const isLocked = item.mediaTier === "pro" && !isPro;
+    // Only her side is reportable: reporting your own typing helps nobody.
+    const canReport = isAI && !!onReport;
+    const report = () => {
+        if (!canReport) return;
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        onReport!(item);
+    };
+
+    // Once flagged, the message itself is gone — leaving it on screen while
+    // telling the user we agree it was offensive is the worst of both.
+    if (reported) {
+        return (
+            <View style={[localStyles.reportedRow, { alignSelf: isUser ? "flex-end" : "flex-start" }]}>
+                <Ionicons name="flag" size={12} color="rgba(255,255,255,0.4)" />
+                <Text style={localStyles.reportedText}>{t("report.hidden")}</Text>
+            </View>
+        );
+    }
 
     return (
         <View style={{ marginBottom: 12, maxWidth: "85%", alignSelf: isUser ? "flex-end" : "flex-start" }}>
             {item.mediaUrl && (
                 <Pressable
                     onPress={() => isLocked && onLockedPress()}
+                    onLongPress={report}
+                    delayLongPress={350}
                     style={[styles.mediaContainer, { marginBottom: hasText ? 6 : 0 }]}
                 >
                     {item.mediaType === "video" ? (
@@ -74,7 +108,8 @@ export function MessageBubble({
                 </Pressable>
             )}
             {hasText && (
-                isLiquidGlassSupported ? (
+                <Pressable onLongPress={report} delayLongPress={350} disabled={!canReport}>
+                {isLiquidGlassSupported ? (
                     <LiquidGlassView
                         style={[
                             styles.messageBubble,
@@ -106,8 +141,20 @@ export function MessageBubble({
                         {isAI && <Text style={[styles.aiName, { color: surface.bubbleName }]}>{characterName}</Text>}
                         <Text style={[styles.messageText, isUser ? styles.userText : { color: surface.bubbleText }]}>{item.text}</Text>
                     </View>
-                )
+                )}
+                </Pressable>
             )}
         </View>
     );
 }
+
+const localStyles = StyleSheet.create({
+    reportedRow: {
+        flexDirection: "row", alignItems: "center", gap: 6,
+        marginBottom: 12, paddingVertical: 8, paddingHorizontal: 12,
+        borderRadius: 14,
+        backgroundColor: "rgba(255,255,255,0.06)",
+        borderWidth: 1, borderColor: "rgba(255,255,255,0.1)",
+    },
+    reportedText: { color: "rgba(255,255,255,0.45)", fontSize: 12.5, fontWeight: "600" },
+});

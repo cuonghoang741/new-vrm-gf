@@ -294,7 +294,7 @@ export default function ActionsBubble({
 const styles = StyleSheet.create({
     /** The character picker: a picture, not a glyph on a plate. */
     charBtn: { alignItems: "center", justifyContent: "center", paddingVertical: 2 },
-    charIcon: { width: 52, height: 52 },
+    charIcon: { width: 56, height: 56 },
     charLabel: { fontSize: 11, fontWeight: "700", marginTop: 2 },
     actionsBubble: {
         position: "absolute",

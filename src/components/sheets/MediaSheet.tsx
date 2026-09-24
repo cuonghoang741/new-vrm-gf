@@ -15,7 +15,7 @@ import { Image } from "expo-image";
 import { BlurView } from "expo-blur";
 import { Video, ResizeMode } from "expo-av";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { IconPhoto, IconVideo, IconX } from "@tabler/icons-react-native";
+import { IconFlag, IconPhoto, IconVideo, IconX } from "@tabler/icons-react-native";
 import * as Haptics from "expo-haptics";
 import { supabase } from "../../config/supabase";
 import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
@@ -23,6 +23,8 @@ import { useSubscription } from "../../contexts/SubscriptionContext";
 import { analyticsService } from "../../services/AnalyticsService";
 import { track } from "../../services/trackEvents";
 import LockIcon from "../icons/LockIcon";
+import { ReportDialog } from "./ReportDialog";
+import { isReported } from "../../services/reportService";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const COLUMN_COUNT = 3;
@@ -63,6 +65,8 @@ const MediaSheet = forwardRef<MediaSheetRef, MediaSheetProps>(
         const [loading, setLoading] = useState(false);
         const [errorMessage, setErrorMessage] = useState<string | null>(null);
         const [selectedMedia, setSelectedMedia] = useState<MediaItem | null>(null);
+        const [reportOpen, setReportOpen] = useState(false);
+        const [reportedNow, setReportedNow] = useState(false);
         const shimmerOpacity = useRef(new Animated.Value(0.3)).current;
 
         useImperativeHandle(ref, () => ({
@@ -281,6 +285,27 @@ const MediaSheet = forwardRef<MediaSheetRef, MediaSheetProps>(
                                     <IconX color={activeTab === "image" ? (images.length > 0 ? "#fff" : "rgba(255,255,255,0.8)") : "#fff"} size={28} />
                                 </Pressable>
 
+                                {/* Flagging a photo. Always visible next to the
+                                    close button rather than hidden behind a
+                                    long-press: Google Play rejected the build
+                                    for having no way to report AI content, and
+                                    a way nobody can find is the same thing. */}
+                                <Pressable
+                                    style={styles.reportLightbox}
+                                    hitSlop={8}
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        setReportOpen(true);
+                                    }}
+                                >
+                                    <IconFlag color="rgba(255,255,255,0.85)" size={20} />
+                                    <Text style={styles.reportLightboxText}>
+                                        {reportedNow || isReported(selectedMedia?.id)
+                                            ? t("report.reported")
+                                            : t("report.action_media")}
+                                    </Text>
+                                </Pressable>
+
                                 {selectedMedia?.media_type === "photo" ? (
                                     <Image
                                         source={{ uri: selectedMedia.url }}
@@ -302,6 +327,19 @@ const MediaSheet = forwardRef<MediaSheetRef, MediaSheetProps>(
                             </View>
                         </BlurView>
                     </Modal>
+
+                    <ReportDialog
+                        visible={reportOpen}
+                        kind="media"
+                        targetId={selectedMedia?.id}
+                        snapshot={selectedMedia?.url}
+                        onClose={() => setReportOpen(false)}
+                        onReported={() => {
+                            setReportedNow(true);
+                            // Take it off the screen it was reported from.
+                            setSelectedMedia(null);
+                        }}
+                    />
                 </View>
             </BottomSheet>
         );
@@ -428,6 +466,20 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         backgroundColor: "rgba(0,0,0,0.4)",
     },
+    reportLightbox: {
+        position: "absolute",
+        top: 60,
+        left: 25,
+        zIndex: 10,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 7,
+        height: 44,
+        paddingHorizontal: 14,
+        borderRadius: 22,
+        backgroundColor: "rgba(0,0,0,0.5)",
+    },
+    reportLightboxText: { color: "rgba(255,255,255,0.85)", fontSize: 13.5, fontWeight: "700" },
     closeLightbox: {
         position: "absolute",
         top: 60,

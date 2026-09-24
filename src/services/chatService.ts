@@ -1,7 +1,14 @@
 import { supabase } from "../config/supabase";
 import { analyticsService } from "./AnalyticsService";
+import { chatInlinePhotoEnabled, chatSafeMode, chatV2Enabled } from "./remoteConfig";
 
 const EDGE_FUNCTION_URL = "gemini-chat";
+/**
+ * The newer chat function: same reply, plus photos chosen in the same LLM
+ * turn from the media keyword she names. Which one runs is a Remote Config
+ * decision, so the old flow can be restored without a release.
+ */
+const EDGE_FUNCTION_URL_V2 = "gemini-chat-v2";
 
 export interface ChatMessage {
     id: string;
@@ -122,7 +129,13 @@ export const chatService = {
         conversationHistory: ChatMessage[],
         isPro?: boolean,
         userInfo?: { userName?: string; country?: string; daysUsed?: number; location?: string; costume?: string; timezone?: string }
-    ): Promise<{ messages: string[]; response: string; unseenCount: number }> {
+    ): Promise<{
+        messages: string[];
+        response: string;
+        unseenCount: number;
+        /** A photo she chose to send with this reply, if any. */
+        image?: { url: string; thumbnail: string | null; media_id: string; tier: string | null };
+    }> {
         // Save user message to DB
         await supabase.from("conversation").insert({
             character_id: characterId,
@@ -138,21 +151,29 @@ export const chatService = {
             parts: [{ text: msg.text }],
         }));
 
-        const { data, error } = await supabase.functions.invoke(EDGE_FUNCTION_URL, {
-            body: {
-                message,
-                character_id: characterId,
-                user_id: userId,
-                conversation_history: geminiHistory,
-                is_pro: isPro,
-                user_name: userInfo?.userName,
-                country: userInfo?.country,
-                days_used: userInfo?.daysUsed,
-                location: userInfo?.location,
-                costume: userInfo?.costume,
-                timezone: userInfo?.timezone,
-            },
-        });
+        const useV2 = chatV2Enabled();
+        const { data, error } = await supabase.functions.invoke(
+            useV2 ? EDGE_FUNCTION_URL_V2 : EDGE_FUNCTION_URL,
+            {
+                body: {
+                    message,
+                    character_id: characterId,
+                    user_id: userId,
+                    conversation_history: geminiHistory,
+                    is_pro: isPro,
+                    user_name: userInfo?.userName,
+                    country: userInfo?.country,
+                    days_used: userInfo?.daysUsed,
+                    location: userInfo?.location,
+                    costume: userInfo?.costume,
+                    timezone: userInfo?.timezone,
+                    // Only v2 reads these; the old function ignores them.
+                    ...(useV2
+                        ? { safe_mode: chatSafeMode(), inline_photo: chatInlinePhotoEnabled() }
+                        : {}),
+                },
+            }
+        );
 
         if (error) throw error;
 
@@ -174,6 +195,7 @@ export const chatService = {
             messages: parsed?.messages ?? [parsed?.response ?? ""],
             response: parsed?.response ?? "",
             unseenCount: parsed?.unseen_count ?? 0,
+            image: parsed?.image ?? undefined,
         };
     },
 
