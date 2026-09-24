@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { AppState, AppStateStatus, Platform } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
+import { crash } from '../services/crash';
 import { analyticsService, AnalyticsEvents } from '../services/AnalyticsService';
 import { AppsFlyerService } from '../services/AppsFlyerService';
 import { FacebookService } from '../services/FacebookService';
@@ -12,9 +13,19 @@ interface AnalyticsProviderProps {
 export const AnalyticsProvider: React.FC<AnalyticsProviderProps> = ({ children }) => {
   const { user } = useAuth();
 
+  // Attach the signed-in user to crash reports. A stack trace without a user
+  // is a bug you cannot reproduce and cannot tell anyone you fixed.
+  useEffect(() => {
+    crash.identify(user?.id ?? null, false);
+  }, [user?.id]);
+
   useEffect(() => {
     const initSDKs = async () => {
       // 1. Initialize AppsFlyer through Service
+      // Crashlytics first: a crash during the other SDKs' start-up is exactly
+      // the kind this is here to catch.
+      await crash.enable();
+
       AppsFlyerService.init();
 
       // 2. Facebook SDK — through the service, which reads the real ATT

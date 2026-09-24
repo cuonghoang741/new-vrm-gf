@@ -7,6 +7,7 @@ import {
 } from "react-native-google-mobile-ads";
 import { AdUnits } from "../config/ads";
 import { AdsManager } from "../services/AdsManager";
+import { adsAllowed } from "../services/remoteConfig";
 import { analyticsService } from "../services/AnalyticsService";
 
 /** Outcome of a gated rewarded show — see [useRewardedAd.showForGate]. */
@@ -135,6 +136,13 @@ export function useRewardedAd(
      */
     const showForGate = useCallback((): Promise<RewardedOutcome> => {
         return new Promise((resolve) => setTimeout(() => {
+            // Switched off from the console. "unavailable" is the outcome the
+            // callers already handle — they fall back to the no-fill grant, so
+            // an ad-unlock is never simply dead.
+            if (!adsAllowed("ads_rewarded_enabled")) {
+                analyticsService.logAdSkipped("rewarded", placement, "remote_off");
+                return resolve("unavailable");
+            }
             if (AdsManager.isFullscreenAdShowing) {
                 analyticsService.logAdSkipped("rewarded", placement, "overlap");
                 return resolve("unavailable");
@@ -184,6 +192,10 @@ export function useRewardedAd(
     /** Show the rewarded ad. Resolves true only if the reward was earned. */
     const show = useCallback((): Promise<boolean> => {
         return new Promise((resolve) => {
+            if (!adsAllowed("ads_rewarded_enabled")) {
+                analyticsService.logAdSkipped("rewarded", placement, "remote_off");
+                return resolve(false);
+            }
             // Never stack two fullscreen ads.
             if (AdsManager.isFullscreenAdShowing) {
                 analyticsService.logAdSkipped("rewarded", placement, "overlap");

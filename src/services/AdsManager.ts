@@ -8,6 +8,7 @@ import {
     requestTrackingPermissionsAsync,
 } from "expo-tracking-transparency";
 import * as SecureStore from "expo-secure-store";
+import { adsAllowed, initRemoteConfig, interstitialMaxPerDay, interstitialMinGapMs } from "./remoteConfig";
 
 /**
  * Frequency caps / timeouts.
@@ -125,6 +126,9 @@ class AdsManagerClass {
                     testDeviceIdentifiers: TEST_DEVICE_IDS,
                 });
 
+                // Fetch the kill switches before the first ad request, so a
+                // freshly disabled format never gets asked for.
+                await initRemoteConfig();
                 await mobileAds().initialize();
                 await this.loadDayCount();
                 this.startedAt = Date.now();
@@ -189,13 +193,15 @@ class AdsManagerClass {
 
     /** All the guards for an auto (non-user-initiated) interstitial. */
     canShowInterstitial(): boolean {
+        // The console can switch this format off without a release.
+        if (!adsAllowed("ads_interstitial_enabled")) return false;
         if (this.fullscreenAdShowing) return false;
         // Cold-start grace: nothing in the first 20s after launch.
         if (Date.now() - this.startedAt < COLD_START_GRACE_MS) return false;
         // Min gap after ANY full-screen ad (interstitial / rewarded / app-open).
-        if (Date.now() - this.lastFullscreenAt < MIN_FULLSCREEN_GAP_MS) return false;
+        if (Date.now() - this.lastFullscreenAt < interstitialMinGapMs()) return false;
         if (this.sessionInterstitials >= MAX_INTERSTITIALS_PER_SESSION) return false;
-        if (this.dayInterstitials >= MAX_INTERSTITIALS_PER_DAY) return false;
+        if (this.dayInterstitials >= interstitialMaxPerDay()) return false;
         return true;
     }
 

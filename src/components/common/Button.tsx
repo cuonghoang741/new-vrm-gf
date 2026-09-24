@@ -33,6 +33,11 @@ export interface ButtonProps {
   fullWidth?: boolean;
   isIconOnly?: boolean;
   startIcon?: React.ElementType;
+  /**
+   * An icon that is not a glyph — an image, a stack of avatars. Takes the
+   * place of `startIcon` when both are given.
+   */
+  startIconNode?: React.ReactNode;
   startIconSize?: number;
   startIconColor?: string;
   startIconStrokeWidth?: number;
@@ -55,6 +60,7 @@ const Button: React.FC<ButtonProps> = ({
   loading,
   isIconOnly = false,
   startIcon,
+  startIconNode,
   startIconSize = 20,
   startIconColor,
   startIconStrokeWidth = 1.5,
@@ -99,7 +105,7 @@ const Button: React.FC<ButtonProps> = ({
           opacity: loading ? 0 : 1,
         }}
       >
-        {startIcon ? (
+        {startIconNode ? startIconNode : startIcon ? (
           <Icon
             icon={startIcon}
             size={startIconSize}

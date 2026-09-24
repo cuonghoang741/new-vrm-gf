@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, Platform } from "react-native";
+import { View, Text, StyleSheet, Platform, Image } from "react-native";
 import { useTranslation } from "react-i18next";
 import {
     IconUser,
@@ -96,19 +96,30 @@ export default function ActionsBubble({
             {/* ─── Normal mode: show all action buttons ─── */}
             {!isInCall && (
                 <>
-                    <Button
-                        variant="liquid"
-                        size="sm"
-                        tintColor={surface.glass}
-                        borderColor={surface.border}
-                        startIcon={IconSettings}
-                        startIconColor={iconColor}
-                        textColor={iconColor}
-                        onPress={onOpenSettings}
-                        isIconOnly={!showLabels}
-                    >
-                        {t("act.settings")}
-                    </Button>
+                    {/* Three faces, not one silhouette: a single person icon
+                        reads as "my profile", which is why nobody found the
+                        character picker. The red dot is the nudge to look. */}
+                    <View>
+                        <Button
+                            variant="liquid"
+                            size="sm"
+                            tintColor={surface.glass}
+                            borderColor={surface.border}
+                            startIconNode={
+                                <Image
+                                    source={require("../../assets/icon-characters.png")}
+                                    style={{ width: 28, height: 28 }}
+                                    resizeMode="contain"
+                                />
+                            }
+                            textColor={iconColor}
+                            onPress={onOpenCharacter}
+                            isIconOnly={!showLabels}
+                        >
+                            {t("act.character")}
+                        </Button>
+                        <View style={[styles.notificationDot, { backgroundColor: surface.accent, borderColor: surface.glass, shadowColor: surface.accent }]} />
+                    </View>
                     <View>
                         <Button
                             variant="liquid"
@@ -138,22 +149,19 @@ export default function ActionsBubble({
                     >
                         {t("act.checkin")}
                     </Button>
-                    <View>
-                        <Button
-                            variant="liquid"
-                            size="sm"
-                            tintColor={surface.glass}
-                            borderColor={surface.border}
-                            startIcon={IconUser}
-                            startIconColor={iconColor}
-                            textColor={iconColor}
-                            onPress={onOpenCharacter}
-                            isIconOnly={!showLabels}
-                        >
-                            {t("act.character")}
-                        </Button>
-                        <View style={[styles.notificationDot, { backgroundColor: surface.accent, borderColor: surface.glass, shadowColor: surface.accent }]} />
-                    </View>
+                    <Button
+                        variant="liquid"
+                        size="sm"
+                        tintColor={surface.glass}
+                        borderColor={surface.border}
+                        startIcon={IconSettings}
+                        startIconColor={iconColor}
+                        textColor={iconColor}
+                        onPress={onOpenSettings}
+                        isIconOnly={!showLabels}
+                    >
+                        {t("act.settings")}
+                    </Button>
 
                     <View>
                         <Button

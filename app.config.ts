@@ -115,6 +115,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         "./plugins/withCopyIndexHtml",
         "./plugins/withAdMediation",
         "./plugins/withSlimBuild",
+        // Crashlytics needs the Google Services + Crashlytics Gradle plugins on
+        // Android and a dSYM upload phase on iOS; its own config plugin wires
+        // both. `android/` is generated and gitignored, so without this the
+        // wiring would vanish at the next prebuild.
+        "@react-native-firebase/crashlytics",
         [
             "react-native-google-mobile-ads",
             {

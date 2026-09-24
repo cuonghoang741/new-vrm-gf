@@ -3,6 +3,7 @@ import { AppState, AppStateStatus } from "react-native";
 import { AppOpenAd, AdEventType } from "react-native-google-mobile-ads";
 import { AdUnits } from "../config/ads";
 import { AdsManager, RESUME_THRESHOLD_MS } from "../services/AdsManager";
+import { adsAllowed } from "../services/remoteConfig";
 import { markResumed, setResumeAdShower } from "../services/resumeGate";
 import { useSubscription } from "../contexts/SubscriptionContext";
 
@@ -61,6 +62,7 @@ export function AdsProvider({ children }: { children: ReactNode }) {
         /** Resolves once the ad has closed, or immediately if none can show. */
         const showIfPossible = (): Promise<void> => new Promise<void>((resolve) => {
             if (isProRef.current) return resolve();
+            if (!adsAllowed("ads_app_open_enabled")) return resolve();
             if (AdsManager.isFullscreenAdShowing) return resolve();
 
             const ad = adRef.current;

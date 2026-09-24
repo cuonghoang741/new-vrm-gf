@@ -40,6 +40,7 @@ import { useSubscription } from "../../contexts/SubscriptionContext";
 import * as Haptics from "expo-haptics";
 import mobileAds from "react-native-google-mobile-ads";
 import { USE_TEST_ADS } from "../../config/ads";
+import { crash } from "../../services/crash";
 import { analyticsService } from "../../services/AnalyticsService";
 import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
 import { QualityPickerDialog } from "./QualityPickerDialog";
@@ -105,6 +106,8 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
     useEffect(() => { loadQuality().then(setQualityState); }, []);
     const [qualityOpen, setQualityOpen] = useState(false);
     const [ratingOpen, setRatingOpen] = useState(false);
+    /** Seven taps on the version row sends a test crash. */
+    const versionTaps = useRef(0);
     const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
     // Edit profile sub-sheet
@@ -448,7 +451,23 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                                     // otherwise cost an afternoon of "why do
                                     // I see no ads" — so the build says so.
                                     subtitle={`1.0.0 · ads: ${USE_TEST_ADS ? "test" : "real"}`}
-                                    onPress={() => { }}
+                                    // Seven taps sends a real crash to
+                                    // Crashlytics. The console only opens its
+                                    // dashboard once a first report lands, and
+                                    // there is no button in Firebase for that.
+                                    onPress={() => {
+                                        versionTaps.current += 1;
+                                        if (versionTaps.current < 7) return;
+                                        versionTaps.current = 0;
+                                        Alert.alert(
+                                            "Crashlytics",
+                                            "Send a test crash? The app will close.",
+                                            [
+                                                { text: t("common.cancel"), style: "cancel" },
+                                                { text: "Crash", style: "destructive", onPress: () => crash.testCrash() },
+                                            ]
+                                        );
+                                    }}
                                     // Hidden diagnostic: hold the version row
                                     // to open AdMob's Ad Inspector, which is
                                     // the only thing that says WHY a unit is

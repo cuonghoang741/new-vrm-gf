@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { BannerAd, BannerAdSize } from "react-native-google-mobile-ads";
 import { AdUnits } from "../../config/ads";
 import { useSubscription } from "../../contexts/SubscriptionContext";
+import { adsAllowed } from "../../services/remoteConfig";
 import { analyticsService } from "../../services/AnalyticsService";
 import { track } from "../../services/trackEvents";
 
@@ -57,6 +58,8 @@ export function AdBanner({
     }, []);
 
     if (isPro) return null;
+    // Switched off from the Firebase console.
+    if (!adsAllowed("ads_banner_enabled")) return null;
     // Nothing is coming — give the space back instead of holding an empty
     // strip for the rest of the session.
     if (failed) return null;

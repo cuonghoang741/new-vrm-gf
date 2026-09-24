@@ -10,6 +10,7 @@ import { AdUnits } from "../../config/ads";
 import { analyticsService } from "../../services/AnalyticsService";
 import { takePreloadedNative } from "./nativeAdPreload";
 import { useSubscription } from "../../contexts/SubscriptionContext";
+import { adsAllowed } from "../../services/remoteConfig";
 import { track } from "../../services/trackEvents";
 
 /**
@@ -125,6 +126,7 @@ export function NativeAdCard({
     }, [isPro, adUnitId]);
 
     if (isPro) return null;
+    if (!adsAllowed("ads_native_enabled")) return null;
     // Nothing will ever arrive — give the space back rather than leaving a
     // skeleton shimmering forever.
     if (failed) return null;
