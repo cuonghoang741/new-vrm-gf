@@ -1,3 +1,4 @@
+import { NativeModules } from "react-native";
 import type { FirebaseCrashlyticsTypes } from "@react-native-firebase/crashlytics";
 
 /**
@@ -14,8 +15,15 @@ let mod: (() => FirebaseCrashlyticsTypes.Module) | null | undefined;
 
 function client(): FirebaseCrashlyticsTypes.Module | null {
     if (mod === undefined) {
+        // Check the native side is there BEFORE touching the JS package:
+        // react-native-firebase throws from the module's own getters, and a
+        // throw inside a require is not something every JS runtime unwinds
+        // the same way.
+        mod = null;
         try {
-            mod = require("@react-native-firebase/crashlytics").default;
+            if (NativeModules.RNFBCrashlyticsModule) {
+                mod = require("@react-native-firebase/crashlytics").default;
+            }
         } catch {
             mod = null;
         }

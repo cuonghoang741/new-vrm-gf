@@ -51,6 +51,14 @@ export function BondPage({
         if (visible) load();
     }, [visible, load]);
 
+    const openSwitcher = useCallback(() => {
+        if (!onSwitchCharacter) return;
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        onClose();
+        // Let this modal finish closing, or the picker opens underneath it.
+        setTimeout(onSwitchCharacter, 320);
+    }, [onSwitchCharacter, onClose]);
+
     const claim = useCallback(
         async (q: BondQuest) => {
             if (!characterId || busy) return;
@@ -111,18 +119,43 @@ export function BondPage({
                         <>
                             {/* ── her, and how close you are ── */}
                             <View style={styles.head}>
-                                <LinearGradient
-                                    colors={state.level >= 5 ? SHEET.goldGradient : SHEET.accentGradient}
-                                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                                    style={styles.ring}
+                                {/* Her portrait IS the switch button — the
+                                    biggest, most obvious thing on the page,
+                                    and the one people already reach for when
+                                    they want somebody else. The little group
+                                    picture on its corner says so without a
+                                    plate or a label; same picture as the rail
+                                    button on the play screen. */}
+                                <Pressable
+                                    onPress={openSwitcher}
+                                    disabled={!onSwitchCharacter}
+                                    hitSlop={6}
+                                    style={({ pressed }) => [
+                                        styles.ringWrap,
+                                        pressed && !!onSwitchCharacter && { opacity: 0.8, transform: [{ scale: 0.97 }] },
+                                    ]}
                                 >
-                                    <View style={styles.ringInner}>
-                                        {characterArt ? (
-                                            <Image source={{ uri: characterArt }} style={styles.portrait}
-                                                   contentFit="cover" contentPosition="top center" transition={200} />
-                                        ) : null}
-                                    </View>
-                                </LinearGradient>
+                                    <LinearGradient
+                                        colors={state.level >= 5 ? SHEET.goldGradient : SHEET.accentGradient}
+                                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                                        style={styles.ring}
+                                    >
+                                        <View style={styles.ringInner}>
+                                            {characterArt ? (
+                                                <Image source={{ uri: characterArt }} style={styles.portrait}
+                                                       contentFit="cover" contentPosition="top center" transition={200} />
+                                            ) : null}
+                                        </View>
+                                    </LinearGradient>
+
+                                    {!!onSwitchCharacter && (
+                                        <Image
+                                            source={require("../../../assets/icon-characters.png")}
+                                            style={styles.switchBadge}
+                                            contentFit="contain"
+                                        />
+                                    )}
+                                </Pressable>
 
                                 <Text style={styles.name} numberOfLines={1}>{characterName}</Text>
 
@@ -157,24 +190,6 @@ export function BondPage({
                                         : t("bond.maxed")}
                                 </Text>
 
-                                {/* Outlined, not filled: this page is about
-                                    HER, and the loud button on it should stay
-                                    the one that claims her quests. */}
-                                {!!onSwitchCharacter && (
-                                    <Pressable
-                                        onPress={() => {
-                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                            onClose();
-                                            // Let this modal finish closing, or
-                                            // the picker opens underneath it.
-                                            setTimeout(onSwitchCharacter, 320);
-                                        }}
-                                        style={({ pressed }) => [styles.switchBtn, pressed && { opacity: 0.75 }]}
-                                    >
-                                        <Ionicons name="repeat" size={16} color={SHEET.accent} />
-                                        <Text style={styles.switchText}>{t("bond.switch_character")}</Text>
-                                    </Pressable>
-                                )}
                             </View>
 
                             {/* ── what each level opens ── */}
@@ -287,14 +302,6 @@ function QuestLine({
 }
 
 const styles = StyleSheet.create({
-    switchBtn: {
-        flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7,
-        alignSelf: "center", marginTop: 16,
-        paddingHorizontal: 18, height: 40, borderRadius: 20,
-        borderWidth: 1.2, borderColor: "rgba(255,77,141,0.55)",
-        backgroundColor: "rgba(255,77,141,0.10)",
-    },
-    switchText: { color: SHEET.accent, fontSize: 14, fontWeight: "800" },
     page: { flex: 1, backgroundColor: SHEET.bgBottom },
     close: {
         position: "absolute", right: 16, zIndex: 10,
@@ -303,6 +310,13 @@ const styles = StyleSheet.create({
     },
     muted: { color: SHEET.textMuted, textAlign: "center", marginTop: 60 },
     head: { alignItems: "center", marginBottom: 6 },
+    ringWrap: { width: 108, height: 108 },
+    // Hangs off the ring's lower-right, no plate behind it: the same "picture,
+    // not a glyph" treatment as the rail button it mirrors.
+    switchBadge: {
+        position: "absolute", right: -12, bottom: -6,
+        width: 46, height: 46,
+    },
     ring: {
         width: 108, height: 108, borderRadius: 54,
         alignItems: "center", justifyContent: "center", padding: 3,

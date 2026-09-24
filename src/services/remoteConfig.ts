@@ -1,3 +1,4 @@
+import { NativeModules } from "react-native";
 /**
  * Resolve the native module lazily, and only once.
  *
@@ -10,8 +11,15 @@ let mod: any;
 
 function rc(): any | null {
     if (mod === undefined) {
+        // Check the native side is there BEFORE touching the JS package:
+        // react-native-firebase throws from the module's own getters, and a
+        // throw inside a require is not something every JS runtime unwinds
+        // the same way.
+        mod = null;
         try {
-            mod = require("@react-native-firebase/remote-config").default;
+            if (NativeModules.RNFBConfigModule) {
+                mod = require("@react-native-firebase/remote-config").default;
+            }
         } catch {
             mod = null;
         }
