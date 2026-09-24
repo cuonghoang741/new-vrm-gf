@@ -12,10 +12,8 @@ import { SHEET } from "../../theme/sheet";
 import { effectivePrice, discountPercent } from "../../services/storePrice";
 import { useFlashSale } from "../../services/flashSale";
 import { FLASH_GIFT_IMAGE } from "./art";
+import { FLASH_OFFERING_ID, isFlashPackage } from "./ids";
 
-/** The offering and package the sale price lives in. Created in RevenueCat. */
-export const FLASH_OFFERING_ID = "flash_sale";
-export const FLASH_PACKAGE_ID = "flash_sale";
 
 /**
  * The offer itself: one card, one price, one clock.
@@ -60,16 +58,26 @@ export function FlashSaleSheet({
             setLoading(true);
             try {
                 const offerings = await Purchases.getOfferings();
-                const sale = offerings.all[FLASH_OFFERING_ID];
-                const found =
-                    sale?.availablePackages.find((p) => p.identifier === FLASH_PACKAGE_ID) ??
-                    sale?.availablePackages[0] ??
-                    null;
 
-                // What the same thing costs without the sale, for the
-                // strikethrough. The current offering is the honest comparison:
-                // it is the price they were just shown and turned down.
-                const normal = offerings.current?.availablePackages[0] ?? null;
+                // A dedicated offering if one exists, otherwise the package
+                // sitting in `default` — which is how it is configured today.
+                const dedicated = offerings.all[FLASH_OFFERING_ID];
+                const pool = [
+                    ...(dedicated?.availablePackages ?? []),
+                    ...(offerings.current?.availablePackages ?? []),
+                ];
+                const found = pool.find(isFlashPackage) ?? dedicated?.availablePackages[0] ?? null;
+
+                // The strikethrough compares like with like: the sale product
+                // is a discounted WEEK, so the honest "was" is the ordinary
+                // weekly plan, not whichever package happens to sort first.
+                const normal =
+                    offerings.current?.availablePackages.find(
+                        (p) => !isFlashPackage(p) &&
+                            (p.packageType === "WEEKLY" ||
+                                p.identifier.toLowerCase().includes("week") ||
+                                p.product.identifier.toLowerCase().includes("week"))
+                    ) ?? null;
 
                 if (!alive) return;
                 setPkg(found);

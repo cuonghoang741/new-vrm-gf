@@ -33,6 +33,7 @@ import { supabase } from "../../config/supabase";
 import { styles } from "./SubscriptionSheet.styles";
 import { track } from "../../services/trackEvents";
 
+import { isFlashPackage } from "../flash/ids";
 /**
  * When the hidden paywall preview is created. Just after
  * usePrefetchPaywallModel (15 s) has started downloading the model, so the
@@ -340,13 +341,19 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
     // Find plans. Weekly and monthly only — yearly is gone: a year of an AI
     // companion is a long thing to ask someone to commit to on the day they
     // installed it, and the ones who would have taken it will take monthly.
-    const weeklyPackage = packages.find(
+    // The flash-sale package lives in the same offering, and its key contains
+    // "week" — without dropping it first the weekly slot matches the DISCOUNTED
+    // package (it sorts first) and the standard paywall shows a sale price to
+    // everyone, permanently.
+    const sellable = packages.filter((p) => !isFlashPackage(p));
+
+    const weeklyPackage = sellable.find(
         (p) =>
             p.packageType === "WEEKLY" ||
             p.identifier.toLowerCase().includes("week") ||
             p.product.identifier.toLowerCase().includes("week")
     );
-    const monthlyPackage = packages.find(
+    const monthlyPackage = sellable.find(
         (p) =>
             p.packageType === "MONTHLY" ||
             p.identifier.toLowerCase().includes("month") ||
@@ -370,7 +377,7 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
     // it says so.
     useEffect(() => {
         if (packages.length > 0 && !selectedPackage) {
-            setSelectedPackage(monthlyPackage || weeklyPackage || packages[0]);
+            setSelectedPackage(monthlyPackage || weeklyPackage || sellable[0]);
         }
     }, [packages, selectedPackage, weeklyPackage, monthlyPackage]);
 
