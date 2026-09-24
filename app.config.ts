@@ -115,6 +115,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         "./plugins/withCopyIndexHtml",
         "./plugins/withAdMediation",
         "./plugins/withSlimBuild",
+        // Drops the x86 emulator ABIs: 72 MB of a 179 MB APK.
+        "./plugins/withAbiFilter",
         // Crashlytics needs the Google Services + Crashlytics Gradle plugins on
         // Android and a dSYM upload phase on iOS; its own config plugin wires
         // both. `android/` is generated and gitignored, so without this the
