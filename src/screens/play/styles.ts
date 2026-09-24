@@ -215,6 +215,15 @@ export const styles = StyleSheet.create({
         color: '#FFFFFF',
     },
 
+    /** The free-3D clock, sitting under the mode toggle. */
+    trialPill: {
+        flexDirection: "row", alignItems: "center", gap: 4,
+        alignSelf: "flex-start",
+        marginTop: 6, paddingHorizontal: 9, height: 22, borderRadius: 11,
+        backgroundColor: "#C9A6FF",
+    },
+    trialPillText: { color: "#0E0A16", fontSize: 12, fontWeight: "900" },
+
     proBadgeLeft: {
         position: 'absolute',
         top: -6,

@@ -64,6 +64,8 @@ import { useRewardedAd } from "../hooks/useRewardedAd";
 import { usePrefetchPaywallModel } from "../hooks/usePrefetchPaywallModel";
 import { AdUnits } from "../config/ads";
 import { AdsManager } from "../services/AdsManager";
+import { get3dTrial, start3dTrial } from "../services/trial3d";
+import { Trial3dDialog } from "../components/sheets/Trial3dDialog";
 import { FREE_MESSAGE_LIMIT, REWARD_MESSAGE_BONUS } from "../config/limits";
 import { Alert } from "react-native";
 
@@ -123,6 +125,18 @@ export default function PlayScreen() {
     const [characterAvatar, setCharacterAvatar] = useState<string | null>(null);
     /** The same art with the scenery cut out — only the 2D layer wants it. */
     const [characterAvatarNoBg, setCharacterAvatarNoBg] = useState<string | null>(null);
+
+    /**
+     * Three free minutes of 3D, once per account.
+     *
+     * The seconds come from the server on every read, so the countdown cannot
+     * be extended by closing the app or moving the device clock; the ticker
+     * below only spends what the server already granted.
+     */
+    const [trialRemaining, setTrialRemaining] = useState(0);
+    const [trialMinutes, setTrialMinutes] = useState(3);
+    const [trialOffer, setTrialOffer] = useState(false);
+    const trialAskedRef = useRef(false);
     const [characterAvatarSmall, setCharacterAvatarSmall] = useState<string | null>(null);
     const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null);
     const [backgroundId, setBackgroundId] = useState<string | null>(null);
@@ -675,6 +689,42 @@ export default function PlayScreen() {
     const [bannerGaveUp, setBannerGaveUp] = useState(false);
     const showPlayBanner = !isPro && !isKeyboardVisible && !bannerGaveUp;
 
+    // Offer the trial the first time a free user reaches the play screen, and
+    // resume it if the app was closed mid-trial.
+    useEffect(() => {
+        if (isPro || !user?.id || trialAskedRef.current) return;
+        trialAskedRef.current = true;
+        (async () => {
+            const t = await get3dTrial();
+            if (!t) return;
+            setTrialMinutes(t.minutes);
+            if (!t.claimed) {
+                setTrialOffer(true);
+            } else if (t.remaining > 0) {
+                setTrialRemaining(t.remaining);
+                setIs3DMode(true);
+            }
+        })();
+    }, [isPro, user?.id]);
+
+    // One tick a second while it runs; at zero the scene goes back to 2D and
+    // the paywall gets the moment they have just seen what it sells.
+    useEffect(() => {
+        if (trialRemaining <= 0) return;
+        const id = setInterval(() => {
+            setTrialRemaining((s) => {
+                if (s <= 1) {
+                    clearInterval(id);
+                    setIs3DMode(false);
+                    setTimeout(() => setSubscriptionOpen(true), 400);
+                    return 0;
+                }
+                return s - 1;
+            });
+        }, 1000);
+        return () => clearInterval(id);
+    }, [trialRemaining > 0]);
+
     /**
      * Stop rendering the scene while something is covering it.
      *
@@ -905,6 +955,7 @@ export default function PlayScreen() {
                 blurScene={isNudeBlurred}
                 characterAvatar={characterAvatar}
                 characterAvatarNoBg={characterAvatarNoBg}
+                trialRemaining={trialRemaining}
                 characterThumbnail={characterThumbnail}
                 characterName={characterName}
                 onOpenBond={() => setBondOpen(true)}
@@ -1021,7 +1072,22 @@ export default function PlayScreen() {
                     }}
                 />}
 
-                {/* Banner: pinned to the bottom of the screen rather than to the
+                <Trial3dDialog
+                visible={trialOffer}
+                minutes={trialMinutes}
+                onClose={() => setTrialOffer(false)}
+                onStart={async () => {
+                    setTrialOffer(false);
+                    const t = await start3dTrial();
+                    if (!t || t.remaining <= 0) return;
+                    void analyticsService.logEvent("trial_3d_start", { minutes: trialMinutes });
+                    setVrmReady(false);
+                    setIs3DMode(true);
+                    setTrialRemaining(t.remaining);
+                }}
+            />
+
+            {/* Banner: pinned to the bottom of the screen rather than to the
                 bottom of the chat block, because hiding the chat used to hide
                 the ad with it. Still gone for PRO and while the keyboard is
                 up (see showPlayBanner). */}

@@ -5,13 +5,14 @@ import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 import { CameraView } from "expo-camera";
 import { LiquidGlassView, isLiquidGlassSupported } from "@callstack/liquid-glass";
-import { IconCrown, IconFlame, IconPhone } from "@tabler/icons-react-native";
+import { IconBadge3d, IconCrown, IconFlame, IconPhone } from "@tabler/icons-react-native";
 import { useTranslation } from "react-i18next";
 import VRMViewer, { VRMViewerHandle } from "../../components/VRMViewer";
 import { CharacterCard } from "../../components/CharacterCard";
 import RubyIcon from "../../components/icons/RubyIcon";
 import type { SurfaceTokens } from "../../theme/surface";
 import { styles } from "./styles";
+import { formatTrial } from "../../services/trial3d";
 import { ACCENT, GOLD } from "./theme";
 
 /**
@@ -79,6 +80,11 @@ export interface SceneLayerProps {
     streak: number;
     /** Today's reward is still unclaimed — red dot. */
     needsCheckin: boolean;
+    /**
+     * Seconds left on the free 3D trial, or 0. While it runs, the 3D half of
+     * the toggle works for a free user and wears the clock.
+     */
+    trialRemaining: number;
     setSubscriptionOpen: (open: boolean) => void;
 }
 
@@ -113,6 +119,7 @@ export function SceneLayer({
     onOpenCheckin,
     streak,
     needsCheckin,
+    trialRemaining,
     setSubscriptionOpen,
 }: SceneLayerProps) {
     const { t } = useTranslation();
@@ -270,7 +277,9 @@ export function SceneLayer({
                     <TouchableOpacity
                         onPress={() => {
                             if (!is3DMode) {
-                                if (!isPro) {
+                                // The trial is the one window where 3D is not
+                                // the paywall's job.
+                                if (!isPro && trialRemaining <= 0) {
                                     setSubscriptionOpen(true);
                                 } else {
                                     setVrmReady(false);
@@ -287,6 +296,15 @@ export function SceneLayer({
                     </TouchableOpacity>
                 </View>
             </LiquidGlassView>
+
+            {/* The clock sits under the toggle rather than inside it: the pill
+                is 110pt wide and already carries two labels. */}
+            {trialRemaining > 0 && !isPro && (
+                <View style={styles.trialPill}>
+                    <IconBadge3d size={12} color="#0E0A16" />
+                    <Text style={styles.trialPillText}>{formatTrial(trialRemaining)}</Text>
+                </View>
+            )}
             {!isPro && (
                 <View style={styles.proBadgeLeft}>
                     <Text style={styles.proBadgeLeftText}>PRO</Text>
