@@ -294,10 +294,7 @@ export default function PlayScreen() {
     // Animations
     // Auto-enable 3D mode during voice/video calls (for all users, including free)
     useEffect(() => {
-        if (isVoiceMode && !is3DMode) {
-            setVrmReady(false);
-            setIs3DMode(true);
-        }
+        if (isVoiceMode && !is3DMode) enter3D();
     }, [isVoiceMode]);
 
     const dot1Anim = useRef(new Animated.Value(0)).current;
@@ -436,6 +433,28 @@ export default function PlayScreen() {
         }
     }, [vrmReady, characterModelUrl, characterName]);
 
+    /**
+     * The one way into 3D.
+     *
+     * Every caller used to do `setVrmReady(false); setIs3DMode(true)`, meaning
+     * "drop the model and load it again". It does not do that. The viewer is
+     * mounted for the whole session — 2D only hides it at opacity 0 — so
+     * `onReady` fires once, early, and nothing ever fires it again. Setting
+     * `vrmReady` false was a latch: the effect above stopped running, the
+     * model was never loaded, and 3D opened onto an empty scene until the app
+     * was killed and relaunched. That is exactly what the free-3D trial did to
+     * everyone who accepted it.
+     *
+     * `vrmReady` now means only what it says — the canvas exists — and is set
+     * by `onReady` alone. Entering 3D asks for the model directly.
+     */
+    const enter3D = useCallback(() => {
+        setIs3DMode(true);
+        if (vrmReady && characterModelUrl) {
+            vrmRef.current?.loadModelByURL(characterModelUrl, characterName);
+        }
+    }, [vrmReady, characterModelUrl, characterName]);
+
     // When VRM is ready AND we have background → set it
     // Apply the saved render quality as soon as the scene exists, and again
     // whenever it changes in Settings.
@@ -538,11 +557,12 @@ export default function PlayScreen() {
                 setSubscriptionOpen,
                 setIs3DMode,
                 setVrmReady,
+                enter3D,
                 setIsNudeBlurred,
                 setBaseModelUrl,
                 setCharacterModelUrl,
             }),
-        [isPro, characterId, user?.id, is3DMode, characterModelUrl]
+        [isPro, characterId, user?.id, is3DMode, characterModelUrl, enter3D]
     );
 
     // ─── Send message ───
@@ -737,7 +757,7 @@ export default function PlayScreen() {
                 setTrialOffer(true);
             } else if (t.remaining > 0) {
                 setTrialRemaining(t.remaining);
-                setIs3DMode(true);
+                enter3D();
             }
         })();
     }, [isPro, user?.id]);
@@ -1035,6 +1055,7 @@ export default function PlayScreen() {
             <SceneLayer
                 is3DMode={is3DMode}
                 setIs3DMode={setIs3DMode}
+                onEnter3D={enter3D}
                 setVrmReady={setVrmReady}
                 vrmRef={vrmRef}
                 backgroundUrl={backgroundUrl}
@@ -1168,8 +1189,7 @@ export default function PlayScreen() {
                     const t = await start3dTrial();
                     if (!t || t.remaining <= 0) return;
                     void analyticsService.logEvent("trial_3d_start", { minutes: trialMinutes });
-                    setVrmReady(false);
-                    setIs3DMode(true);
+                    enter3D();
                     setTrialRemaining(t.remaining);
                 }}
             />

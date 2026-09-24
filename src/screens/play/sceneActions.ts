@@ -27,6 +27,8 @@ export interface SceneControls {
     setMediaSheetOpen: (open: boolean) => void;
     setSubscriptionOpen: (open: boolean) => void;
     setIs3DMode: (on: boolean) => void;
+    /** Switch to 3D and put the model in the scene. */
+    enter3D: () => void;
     setVrmReady: (ready: boolean) => void;
     setIsNudeBlurred: (on: boolean) => void;
     setBaseModelUrl: (url: string | null) => void;
@@ -127,10 +129,9 @@ async function sendMedia(
 
 async function becomeNude(c: SceneControls) {
     // 1. Force 3D Mode
-    if (!c.is3DMode) {
-        c.setIs3DMode(true);
-        c.setVrmReady(false);
-    }
+    // `setVrmReady(false)` used to sit here too. It never reloaded anything —
+    // see `enter3D` in PlayScreen.
+    if (!c.is3DMode) c.enter3D();
 
     // 2. Find nude costume
     const { data: costumes } = await supabase

@@ -28,6 +28,8 @@ import { ACCENT, GOLD } from "./theme";
 export interface SceneLayerProps {
     is3DMode: boolean;
     setIs3DMode: (on: boolean) => void;
+    /** Switch to 3D and make sure the model is actually in the scene. */
+    onEnter3D: () => void;
     setVrmReady: (ready: boolean) => void;
     vrmRef: React.RefObject<VRMViewerHandle | null>;
 
@@ -94,6 +96,7 @@ export function SceneLayer({
     is3DMode,
     setIs3DMode,
     setVrmReady,
+    onEnter3D,
     vrmRef,
     backgroundUrl,
     blurScene = false,
@@ -286,8 +289,7 @@ export function SceneLayer({
                                 if (!isPro && trialRemaining <= 0) {
                                     setSubscriptionOpen(true);
                                 } else {
-                                    setVrmReady(false);
-                                    setIs3DMode(true);
+                                    onEnter3D();
                                 }
                             }
                         }}
