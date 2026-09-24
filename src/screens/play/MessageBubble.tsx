@@ -4,7 +4,6 @@ import * as Haptics from "expo-haptics";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTranslation } from "react-i18next";
 import { Image } from "expo-image";
-import { BlurView } from "expo-blur";
 import { Video, ResizeMode } from "expo-av";
 import { LiquidGlassView, isLiquidGlassSupported } from "@callstack/liquid-glass";
 import type { ChatMessage } from "../../services/chatService";
@@ -106,12 +105,30 @@ export function MessageBubble({
                             source={{ uri: item.mediaUrl }}
                             style={styles.messageMedia}
                             contentFit="cover"
+                            // Blur the picture itself, the way the gallery grid
+                            // does. A BlurView laid on top barely registers on
+                            // Android, so a locked photo was arriving fully
+                            // legible with a padlock drawn over it — which is
+                            // no lock at all.
+                            blurRadius={isLocked ? 42 : 0}
                         />
                     )}
 
                     {isLocked && (
                         <View style={styles.lockedMediaOverlay}>
-                            <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
+                            {/* A video frame cannot be blurred at the source,
+                                so that one still needs something opaque. */}
+                            <View
+                                style={[
+                                    StyleSheet.absoluteFill,
+                                    {
+                                        backgroundColor:
+                                            item.mediaType === "video"
+                                                ? "rgba(10,6,20,0.82)"
+                                                : "rgba(10,6,20,0.35)",
+                                    },
+                                ]}
+                            />
                             <View style={styles.lockBadge}>
                                 {lockState === "ad" ? (
                                     <Ionicons name="play" size={22} color="#fff" />
