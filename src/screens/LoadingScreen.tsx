@@ -4,10 +4,8 @@ import {
     Easing,
     Image,
     StyleSheet,
-    Text,
     View,
 } from "react-native";
-import { useTranslation } from "react-i18next";
 import { AdBanner } from "../components/ads/AdBanner";
 import { track } from "../services/trackEvents";
 
@@ -22,9 +20,13 @@ import { track } from "../services/trackEvents";
  *
  * The progress bar is honest about being indeterminate: it eases toward the
  * end and stops short rather than pretending to hit 100% and waiting.
+ *
+ * No caption. This screen runs BEFORE the language picker, so there is no
+ * language to write it in — it fell back to the default and greeted an English
+ * or Japanese user in Vietnamese. A logo and a moving bar say "loading" in
+ * every language.
  */
 export function LoadingScreen() {
-    const { t } = useTranslation();
     const progress = useRef(new Animated.Value(0)).current;
     const pulse = useRef(new Animated.Value(0.85)).current;
 
@@ -78,8 +80,6 @@ export function LoadingScreen() {
                 <View style={styles.track}>
                     <Animated.View style={[styles.fill, { width }]} />
                 </View>
-
-                <Text style={styles.caption}>{t("splash.loading")}</Text>
             </View>
 
             {/* The reason this screen has a dwell at all. Light tokens: the
@@ -102,11 +102,4 @@ const styles = StyleSheet.create({
         backgroundColor: "rgba(255,255,255,0.28)",
     },
     fill: { height: "100%", borderRadius: 3, backgroundColor: "#FFFFFF" },
-    caption: {
-        marginTop: 14,
-        color: "rgba(255,255,255,0.9)",
-        fontSize: 13,
-        fontWeight: "600",
-        letterSpacing: 0.2,
-    },
 });
