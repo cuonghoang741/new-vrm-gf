@@ -65,6 +65,17 @@ const DEFAULTS = {
      * store review, or a region, or the day something goes wrong.
      */
     chat_safe_mode: false,
+    /**
+     * Makes the flash sale testable. The offer normally opens once per day per
+     * device and never for an account that has bought anything — both correct
+     * in production and both a wall in QA, where the tester gets one attempt a
+     * day and a tester who has ever purchased gets none at all. On, the window
+     * reopens every time the paywall is closed.
+     *
+     * OFF by default, and it only relaxes WHEN the offer is shown — the price
+     * behind it is still whatever the store will actually honour.
+     */
+    flash_sale_test_mode: false,
 };
 
 export type AdFlag =
@@ -124,6 +135,7 @@ export function adsAllowed(flag: AdFlag): boolean {
 export const chatV2Enabled = () => bool("chat_v2_enabled");
 export const chatInlinePhotoEnabled = () => bool("chat_inline_photo_enabled");
 export const chatSafeMode = () => bool("chat_safe_mode");
+export const flashSaleTestMode = () => bool("flash_sale_test_mode");
 
 export const interstitialMinGapMs = () => num("ads_interstitial_min_gap_seconds") * 1000;
 export const interstitialMaxPerDay = () => num("ads_interstitial_max_per_day");

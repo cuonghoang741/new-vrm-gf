@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import * as SecureStore from "expo-secure-store";
+import { flashSaleTestMode } from "./remoteConfig";
 
 /**
  * A discounted PRO window that opens once a day, right after the paywall is
@@ -210,13 +211,20 @@ class FlashSale {
      */
     async start(): Promise<boolean> {
         if (this.isActive) return false;
-        if (await this.shownToday()) return false;
+
+        // Both gates below are correct in production and impassable in QA: one
+        // attempt per device per day, and none at all for a tester who has
+        // ever bought something. `flash_sale_test_mode` lifts them from
+        // Firebase, with no rebuild.
+        const testing = flashSaleTestMode();
+
+        if (!testing && (await this.shownToday())) return false;
         // Anyone who has ever bought anything is out. The price behind this is
         // an introductory offer, and the stores only honour those for eligible
         // accounts — showing the gift, the countdown and the discounted card
         // to someone who would then be charged full price is the "paywall
         // price does not match the store" rejection, written down.
-        if (await hasEverPurchased()) return false;
+        if (!testing && (await hasEverPurchased())) return false;
 
         this.deadlineMs = Date.now() + WINDOW_MS;
         await write(DEADLINE_KEY, String(this.deadlineMs));
