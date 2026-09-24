@@ -103,7 +103,7 @@ const en: Dict = {
     "set.pro_active": "Pro Active ✓",
     "set.upgrade_pro": "Upgrade to PRO",
     "set.pro_desc_active": "You have full access to all features",
-    "set.pro_desc": "PRO-only characters, outfits & scenes",
+    "set.pro_desc": "500 ruby a week, PRO-only characters, outfits & scenes",
     "set.reset_onboarding": "Reset Onboarding",
     "set.reset_onboarding_desc": "Re-match with a new character",
     "set.report_bug": "Report a Bug",
@@ -305,7 +305,7 @@ const en: Dict = {
     "checkin.today": "Today",
     "checkin.cycle_label": "All {{n}} days",
     "checkin.claim_n": "Check in · +{{n}} ruby",
-    "quest.pro_body_x2": "PRO-only content, no ads, +{{n}} ruby a day and ×2 from quests & check-in.",
+    "quest.pro_body_x2": "PRO-only content, no ads, 500 ruby a week, +{{n}} a day and ×2 from quests & check-in.",
     "quest.pro_x2": "×2 ruby from quests & check-in",
     "sub.b6_x2": "Double ruby from check-in & quests",
     "bond.lv1": "Stranger",
@@ -398,6 +398,7 @@ const en: Dict = {
     "media.one_photo": "Photo",
     "media.one_video": "Video",
     "dance.trial_note": "During your free 3D minutes you can try the free dances.",
+    "sub.b7": "500 ruby every week, just for being PRO",
 };
 
 export default en;

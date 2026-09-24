@@ -103,7 +103,7 @@ const ko: Dict = {
     "set.pro_active": "Pro 활성 ✓",
     "set.upgrade_pro": "PRO로 업그레이드",
     "set.pro_desc_active": "모든 기능을 전부 이용할 수 있어요",
-    "set.pro_desc": "PRO 전용 캐릭터·의상·배경",
+    "set.pro_desc": "매주 루비 500개, PRO 전용 캐릭터·의상·배경",
     "set.reset_onboarding": "온보딩 초기화",
     "set.reset_onboarding_desc": "새 캐릭터와 다시 매칭",
     "set.report_bug": "버그 신고",
@@ -305,7 +305,7 @@ const ko: Dict = {
     "checkin.today": "오늘",
     "checkin.cycle_label": "{{n}}일 전체",
     "checkin.claim_n": "출석 · +{{n}} 루비",
-    "quest.pro_body_x2": "PRO 전용 콘텐츠, 광고 없음, 매일 +{{n}} 루비, 퀘스트·출석 ×2.",
+    "quest.pro_body_x2": "PRO 전용 콘텐츠, 광고 없음, 매주 루비 500개, 매일 +{{n}}개, 퀘스트·출석 보상 ×2.",
     "quest.pro_x2": "퀘스트·출석 루비 ×2",
     "sub.b6_x2": "출석·퀘스트 루비 2배",
     "bond.lv1": "Stranger",
@@ -398,6 +398,7 @@ const ko: Dict = {
     "media.one_photo": "사진",
     "media.one_video": "동영상",
     "dance.trial_note": "무료 3D 시간 동안 무료 댄스를 사용할 수 있어요.",
+    "sub.b7": "PRO면 매주 루비 500개",
 };
 
 export default ko;

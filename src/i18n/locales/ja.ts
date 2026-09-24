@@ -103,7 +103,7 @@ const ja: Dict = {
     "set.pro_active": "Proは有効 ✓",
     "set.upgrade_pro": "PROにアップグレード",
     "set.pro_desc_active": "すべての機能をフルに利用できます",
-    "set.pro_desc": "PRO限定のキャラ・衣装・背景",
+    "set.pro_desc": "毎週500ルビー、PRO限定のキャラ・衣装・背景",
     "set.reset_onboarding": "オンボーディングをリセット",
     "set.reset_onboarding_desc": "新しいキャラと再マッチング",
     "set.report_bug": "バグを報告",
@@ -305,7 +305,7 @@ const ja: Dict = {
     "checkin.today": "今日",
     "checkin.cycle_label": "{{n}}日間すべて",
     "checkin.claim_n": "ログイン · +{{n}}ルビー",
-    "quest.pro_body_x2": "PRO限定コンテンツ、広告なし、毎日+{{n}}ルビー、クエストと点呼は2倍。",
+    "quest.pro_body_x2": "PRO限定コンテンツ、広告なし、毎週500ルビー、毎日+{{n}}、クエストとログインボーナスは×2。",
     "quest.pro_x2": "クエストと点呼のルビー2倍",
     "sub.b6_x2": "点呼とクエストのルビーが2倍",
     "bond.lv1": "Stranger",
@@ -398,6 +398,7 @@ const ja: Dict = {
     "media.one_photo": "写真",
     "media.one_video": "動画",
     "dance.trial_note": "無料3Dのあいだ、無料のダンスを試せます。",
+    "sub.b7": "PROなら毎週500ルビー",
 };
 
 export default ja;

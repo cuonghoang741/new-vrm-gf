@@ -103,7 +103,7 @@ const vi: Dict = {
     "set.pro_active": "Pro đang bật ✓",
     "set.upgrade_pro": "Nâng cấp PRO",
     "set.pro_desc_active": "Bạn có toàn quyền truy cập mọi tính năng",
-    "set.pro_desc": "Nhân vật, trang phục & bối cảnh riêng của PRO",
+    "set.pro_desc": "500 ruby mỗi tuần, nhân vật, trang phục & bối cảnh riêng cho PRO",
     "set.reset_onboarding": "Đặt lại giới thiệu",
     "set.reset_onboarding_desc": "Ghép lại với nhân vật mới",
     "set.report_bug": "Báo lỗi",
@@ -305,7 +305,7 @@ const vi: Dict = {
     "checkin.today": "Hôm nay",
     "checkin.cycle_label": "Cả {{n}} ngày",
     "checkin.claim_n": "Điểm danh · +{{n}} ruby",
-    "quest.pro_body_x2": "Nội dung riêng của PRO, không quảng cáo, +{{n}} ruby mỗi ngày và ×2 ruby từ nhiệm vụ & điểm danh.",
+    "quest.pro_body_x2": "Nội dung riêng cho PRO, không quảng cáo, 500 ruby mỗi tuần, +{{n}} mỗi ngày và ×2 từ nhiệm vụ & điểm danh.",
     "quest.pro_x2": "×2 ruby từ nhiệm vụ & điểm danh",
     "sub.b6_x2": "Nhân đôi ruby từ điểm danh & nhiệm vụ",
     "bond.lv1": "Mới quen",
@@ -398,6 +398,7 @@ const vi: Dict = {
     "media.one_photo": "Ảnh",
     "media.one_video": "Video",
     "dance.trial_note": "Trong vài phút 3D miễn phí, bạn có thể thử các điệu nhảy miễn phí.",
+    "sub.b7": "500 ruby mỗi tuần, chỉ vì bạn là PRO",
 };
 
 export default vi;

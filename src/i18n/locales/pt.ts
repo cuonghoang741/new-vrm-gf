@@ -103,7 +103,7 @@ const pt: Dict = {
     "set.pro_active": "Pro ativo ✓",
     "set.upgrade_pro": "Atualizar para PRO",
     "set.pro_desc_active": "Tens acesso total a todas as funcionalidades",
-    "set.pro_desc": "Personagens, trajes e cenários só PRO",
+    "set.pro_desc": "500 rubis por semana, personagens, roupas e cenários exclusivos PRO",
     "set.reset_onboarding": "Repor introdução",
     "set.reset_onboarding_desc": "Voltar a combinar com uma nova personagem",
     "set.report_bug": "Reportar um erro",
@@ -305,7 +305,7 @@ const pt: Dict = {
     "checkin.today": "Hoje",
     "checkin.cycle_label": "Todos os {{n}} dias",
     "checkin.claim_n": "Check-in · +{{n}} rubis",
-    "quest.pro_body_x2": "Conteúdo exclusivo PRO, sem anúncios, +{{n}} rubis por dia e ×2 em missões e check-in.",
+    "quest.pro_body_x2": "Conteúdo exclusivo PRO, sem anúncios, 500 rubis por semana, +{{n}} por dia e ×2 em missões e check-in.",
     "quest.pro_x2": "×2 rubis em missões e check-in",
     "sub.b6_x2": "O dobro de rubis em check-in e missões",
     "bond.lv1": "Stranger",
@@ -398,6 +398,7 @@ const pt: Dict = {
     "media.one_photo": "Foto",
     "media.one_video": "Vídeo",
     "dance.trial_note": "Durante seus minutos 3D grátis você pode testar as danças gratuitas.",
+    "sub.b7": "500 rubis por semana, só por ser PRO",
 };
 
 export default pt;

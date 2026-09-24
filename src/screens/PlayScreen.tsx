@@ -32,6 +32,7 @@ import VRMViewer, { VRMViewerHandle } from "../components/VRMViewer";
 import { chatService, ChatMessage, SuggestedAction } from "../services/chatService";
 import { supabase } from "../config/supabase";
 import { refreshRuby, setRuby as setRubyBalance, useRuby } from "../services/rubyStore";
+import { claimProWeekly } from "../services/economyService";
 import { track } from "../services/trackEvents";
 import { getBondState, trackBond } from "../services/bondService";
 import { getCheckinState } from "../services/checkinService";
@@ -982,6 +983,18 @@ export default function PlayScreen() {
         });
         return () => { alive = false; };
     }, [characterId, bondOpen]);
+
+    // This week's PRO ruby. Fire-and-forget on every arrival: the server pays
+    // once per ISO week, so calling it again costs one cheap round trip and
+    // never a double grant. Only the balance changes — see `claimProWeekly`.
+    useEffect(() => {
+        if (!isPro || !user?.id) return;
+        let alive = true;
+        claimProWeekly().then((res) => {
+            if (alive && res.ok && res.granted) setRubyBalance(res.ruby);
+        });
+        return () => { alive = false; };
+    }, [isPro, user?.id]);
 
     // What this account has already flagged. Read from the server, not the
     // device, so a reinstall doesn't bring reported messages back. Fetched

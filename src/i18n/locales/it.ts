@@ -103,7 +103,7 @@ const it: Dict = {
     "set.pro_active": "Pro attivo ✓",
     "set.upgrade_pro": "Passa a PRO",
     "set.pro_desc_active": "Hai accesso completo a tutte le funzioni",
-    "set.pro_desc": "Personaggi, abiti e scenari solo PRO",
+    "set.pro_desc": "500 rubini a settimana, personaggi, outfit e scenari esclusivi PRO",
     "set.reset_onboarding": "Reimposta l'introduzione",
     "set.reset_onboarding_desc": "Riabbina con un nuovo personaggio",
     "set.report_bug": "Segnala un bug",
@@ -305,7 +305,7 @@ const it: Dict = {
     "checkin.today": "Oggi",
     "checkin.cycle_label": "Tutti i {{n}} giorni",
     "checkin.claim_n": "Check-in · +{{n}} rubini",
-    "quest.pro_body_x2": "Contenuti riservati ai PRO, niente pubblicità, +{{n}} rubini al giorno e ×2 su missioni e check-in.",
+    "quest.pro_body_x2": "Contenuti esclusivi PRO, niente pubblicità, 500 rubini a settimana, +{{n}} al giorno e ×2 su missioni e accessi.",
     "quest.pro_x2": "×2 rubini su missioni e check-in",
     "sub.b6_x2": "Rubini doppi da check-in e missioni",
     "bond.lv1": "Stranger",
@@ -398,6 +398,7 @@ const it: Dict = {
     "media.one_photo": "Foto",
     "media.one_video": "Video",
     "dance.trial_note": "Durante i tuoi minuti 3D gratuiti puoi provare i balli gratuiti.",
+    "sub.b7": "500 rubini ogni settimana, solo perché sei PRO",
 };
 
 export default it;

@@ -84,6 +84,25 @@ export const buyItem = (type: AssetType, id: string) =>
 export const unlockWithAd = (type: AssetType, id: string) =>
     rpc("app_unlock_with_ad", { p_type: type, p_id: id });
 
+/**
+ * Hands over this week's PRO ruby if it is due.
+ *
+ * Granted rather than claimed: it is part of what the subscription is, not a
+ * reason to open a particular screen, so nobody should lose it for missing a
+ * card. Safe to call on every launch — the server pays once per ISO week.
+ */
+export const claimProWeekly = () =>
+    rpc<{
+        granted: boolean;
+        /** How many weeks were paid on this call — more than one after a gap. */
+        weeks: number;
+        /** Total handed over now; `weekly` × `weeks`. */
+        amount: number;
+        weekly: number;
+        ruby: number;
+        week: string;
+    }>("app_pro_weekly");
+
 export async function getRuby(): Promise<number> {
     const { data, error } = await supabase.rpc("app_get_ruby");
     if (error) return 0;

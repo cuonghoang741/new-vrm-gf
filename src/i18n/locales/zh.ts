@@ -103,7 +103,7 @@ const zh: Dict = {
     "set.pro_active": "Pro 已激活 ✓",
     "set.upgrade_pro": "升级到 PRO",
     "set.pro_desc_active": "你已拥有所有功能的完整权限",
-    "set.pro_desc": "PRO 专属角色、服装与场景",
+    "set.pro_desc": "每周 500 红宝石，PRO 专属角色、服装与场景",
     "set.reset_onboarding": "重置引导",
     "set.reset_onboarding_desc": "重新匹配新角色",
     "set.report_bug": "报告问题",
@@ -305,7 +305,7 @@ const zh: Dict = {
     "checkin.today": "今天",
     "checkin.cycle_label": "全部 {{n}} 天",
     "checkin.claim_n": "签到 · +{{n}} 红宝石",
-    "quest.pro_body_x2": "PRO 专属内容，无广告，每天 +{{n}} 红宝石，任务与签到 ×2。",
+    "quest.pro_body_x2": "PRO 专属内容、无广告、每周 500 红宝石、每日 +{{n}}，任务与签到奖励 ×2。",
     "quest.pro_x2": "任务与签到红宝石 ×2",
     "sub.b6_x2": "签到与任务红宝石翻倍",
     "bond.lv1": "Stranger",
@@ -398,6 +398,7 @@ const zh: Dict = {
     "media.one_photo": "照片",
     "media.one_video": "视频",
     "dance.trial_note": "在免费 3D 时间内，你可以试用免费舞蹈。",
+    "sub.b7": "成为 PRO，每周赠送 500 红宝石",
 };
 
 export default zh;

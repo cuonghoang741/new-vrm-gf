@@ -24,7 +24,7 @@ import { analyticsService } from "../../services/AnalyticsService";
 import * as WebBrowser from "expo-web-browser";
 import { openBrowserSafe } from "../../utils/openBrowserSafe";
 import { AdsManager } from "../../services/AdsManager";
-import { IconX, IconCube3dSphere, IconVideo, IconUsers, IconSparkles, IconHeart, IconMusic, IconChevronLeft, IconChevronRight, IconCrown, IconAdOff, IconMessageHeart, IconBolt } from "@tabler/icons-react-native";
+import { IconX, IconCube3dSphere, IconVideo, IconUsers, IconSparkles, IconHeart, IconMusic, IconChevronLeft, IconChevronRight, IconCrown, IconAdOff, IconMessageHeart, IconBolt, IconGift } from "@tabler/icons-react-native";
 import { useSubscription } from "../../contexts/SubscriptionContext";
 import VRMViewer, { VRMViewerHandle } from "../VRMViewer";
 import { getCharacters } from "../../cache/charactersCache";
@@ -42,8 +42,10 @@ import { track } from "../../services/trackEvents";
 const WARM_DELAY_MS = 16_000;
 
 const FEATURES = [
-    // First and highlighted: doubling what the user already earns is the
-    // benefit they can price, and it is easy to miss in a flat list.
+    // The two at the top are the ones with a number on them, and numbers are
+    // what a subscription is judged by. 500 a week is the concrete one — it
+    // says what PRO hands over before it says what it unlocks.
+    { icon: IconGift, text: "sub.b7", color: "#FF6FA5", highlight: true },
     { icon: IconBolt, text: "sub.b6_x2", color: "#F2C14E", highlight: true },
     { icon: IconAdOff, text: "sub.b1", color: "#FF6FA5" },
     { icon: IconMessageHeart, text: "sub.b2", color: "#FF8FB8" },
