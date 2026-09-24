@@ -87,11 +87,12 @@ function Card({ surface, children }: { surface: SurfaceTokens; children: React.R
 
 const styles = StyleSheet.create({
     /**
-     * A veil, not a blackout. The scene is already blurred at the source, so
-     * this only has to darken it enough for white text to hold — 0.94 was
-     * hiding the scene by erasing it.
+     * A veil, not a blackout. The scene is already blurred at the source and
+     * the message carries its own glass, so this does not have to carry any
+     * contrast of its own — it only keeps the blurred scene from reading as
+     * the foreground. 0.94 erased the scene; 0.38 still dulled it.
      */
-    scrim: { zIndex: 500, backgroundColor: "rgba(10, 6, 20, 0.38)" },
+    scrim: { zIndex: 500, backgroundColor: "rgba(10, 6, 20, 0.15)" },
     center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 28 },
     card: {
         width: "100%",
