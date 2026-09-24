@@ -8,17 +8,26 @@ import { SHEET } from "../../theme/sheet";
 import { IconHeartFilled } from "@tabler/icons-react-native";
 import type { LockState } from "../../hooks/useItemUnlock";
 
+import { useTranslation } from "react-i18next";
 /**
- * One picker tile, Yuuki style (background / dance pickers): 9:14 card,
- * radius 16, name on a bottom fade. The lock is drawn by kind so a glance
- * tells the user what it costs:
- *   ad          — dim + pink play badge
- *   pro         — darker dim + gold lock badge + PRO pill
- *   pro_or_ruby — as pro, plus a ruby price pill (free users may buy it)
- *   ruby        — dim + ruby price pill in the middle
- *   level       — heaviest dim + heart badge + "Lv N" pill, and under it
- *                 whatever else the item still costs (PRO, ruby): the level
- *                 is a gate in front of the price, not instead of it
+ * One picker tile: 9:14 card, radius 16, name on a bottom fade.
+ *
+ * What it costs is a BAR across the bottom of the card, one bar per item, in
+ * the same colour language Yuuki uses so the whole app reads the same way:
+ *
+ *   ad          — pink gradient, play glyph, "AD"
+ *   ruby        — dark glass with a rose tint, ruby glyph, the price
+ *   pro         — gold gradient, diamond, "PRO"
+ *   pro_or_ruby — gold half AND rose half: this needs the subscription and
+ *                 then costs ruby. It is the case that used to lie — the tile
+ *                 said only "PRO", so people subscribed to reach an item and
+ *                 discovered the ruby price afterwards.
+ *   level       — the bar is replaced by a heart and "Lv N", with whatever
+ *                 else it costs beside it: closeness is a gate in FRONT of the
+ *                 price, not instead of it.
+ *
+ * A bar rather than a corner badge because a price has to be readable, and
+ * because two gates need two slots that sit next to each other.
  */
 type Props = {
     width: number;
@@ -53,11 +62,9 @@ const PLACEHOLDER_GRADIENTS: [string, string][] = [
 ];
 
 function ItemTileImpl({ width, name, image, placeholderIcon, lock, price = 0, requiredLevel, proTier, selected, disabled, onPress, topLeft }: Props) {
+    const { t } = useTranslation();
     const height = width / SHEET.tileAspect;
     const isProLock = lock === "pro" || lock === "pro_or_ruby";
-    // A level-locked PRO item is still a PRO item; hiding the pill made the
-    // tile look free the moment the level was reached.
-    const showProPill = isProLock || (lock === "level" && !!proTier);
     const gradient = isProLock
         ? (["#FFB347", "#FF4D8D"] as [string, string])
         : PLACEHOLDER_GRADIENTS[
@@ -96,58 +103,34 @@ function ItemTileImpl({ width, name, image, placeholderIcon, lock, price = 0, re
                     <View
                         style={[
                             StyleSheet.absoluteFill,
-                            styles.center,
                             {
                                 backgroundColor:
-                                    lock === "level" ? "rgba(0,0,0,0.66)"
-                                    : isProLock ? "rgba(0,0,0,0.55)"
-                                    : "rgba(0,0,0,0.45)",
+                                    lock === "level" ? "rgba(0,0,0,0.6)"
+                                    : isProLock ? "rgba(0,0,0,0.42)"
+                                    : "rgba(0,0,0,0.34)",
                             },
                         ]}
-                    >
-                        {lock === "ad" && (
-                            <LinearGradient colors={SHEET.accentGradient} style={[styles.badge, styles.badgeAd]}>
-                                <Ionicons name="play" size={20} color="#fff" style={{ marginLeft: 2 }} />
-                            </LinearGradient>
-                        )}
-                        {isProLock && (
-                            <LinearGradient colors={SHEET.goldGradient} style={styles.badge}>
-                                <Ionicons name="lock-closed" size={20} color="#fff" />
-                            </LinearGradient>
-                        )}
-                        {lock === "level" && (
-                            <View style={styles.levelStack}>
-                                <View style={styles.levelBadge}>
-                                    <IconHeartFilled size={17} color="#FF6FA5" />
-                                    <Text style={styles.levelBadgeText}>Lv {requiredLevel ?? 1}</Text>
-                                </View>
+                    />
+                )}
+
+                {!selected && lock === "level" && (
+                    <View style={styles.levelStack}>
+                        <View style={styles.levelBadge}>
+                            <IconHeartFilled size={17} color="#FF6FA5" />
+                            <Text style={styles.levelBadgeText}>Lv {requiredLevel ?? 1}</Text>
+                        </View>
+                        {(proTier || price > 0) && (
+                            <View style={styles.levelAlso}>
+                                {proTier && <Text style={styles.levelAlsoPro}>PRO</Text>}
                                 {price > 0 && (
-                                    <View style={styles.rubyPillSmall}>
+                                    <>
                                         <RubyIcon size={10} color="#fff" />
-                                        <Text style={styles.rubyPillSmallText}>{price}</Text>
-                                    </View>
+                                        <Text style={styles.levelAlsoText}>{price}</Text>
+                                    </>
                                 )}
                             </View>
                         )}
-                        {lock === "ruby" && (
-                            <View style={styles.rubyPillBig}>
-                                <RubyIcon size={14} color="#fff" />
-                                <Text style={styles.rubyPillBigText}>{price}</Text>
-                            </View>
-                        )}
-                        {lock === "pro_or_ruby" && price > 0 && (
-                            <View style={styles.rubyPillSmall}>
-                                <RubyIcon size={10} color="#fff" />
-                                <Text style={styles.rubyPillSmallText}>{price}</Text>
-                            </View>
-                        )}
                     </View>
-                )}
-
-                {showProPill && !selected && (
-                    <LinearGradient colors={SHEET.goldGradient} style={styles.proPill}>
-                        <Text style={styles.proPillText}>PRO</Text>
-                    </LinearGradient>
                 )}
 
                 {!!topLeft && <View style={styles.topLeft}>{topLeft}</View>}
@@ -155,6 +138,39 @@ function ItemTileImpl({ width, name, image, placeholderIcon, lock, price = 0, re
                 <LinearGradient colors={["transparent", "rgba(0,0,0,0.78)"]} style={styles.caption}>
                     <Text style={styles.name} numberOfLines={1}>{name}</Text>
                 </LinearGradient>
+
+                {/* What it costs, along the bottom edge. One bar, or two
+                    halves when the item needs PRO *and* ruby. */}
+                {!selected && lock !== "free" && lock !== "level" && (
+                    <View style={styles.gateBar}>
+                        {(lock === "pro" || lock === "pro_or_ruby") && (
+                            <LinearGradient
+                                colors={SHEET.goldGradient}
+                                start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
+                                style={[styles.gateHalf, lock === "pro" && styles.gateFull]}
+                            >
+                                <Ionicons name="diamond" size={11} color="#3A2600" />
+                                <Text style={styles.gateProText}>PRO</Text>
+                            </LinearGradient>
+                        )}
+                        {(lock === "ruby" || lock === "pro_or_ruby") && price > 0 && (
+                            <View style={[styles.gateHalf, styles.gateRuby, lock === "ruby" && styles.gateFull]}>
+                                <RubyIcon size={12} color="#fff" />
+                                <Text style={styles.gateText}>{price}</Text>
+                            </View>
+                        )}
+                        {lock === "ad" && (
+                            <LinearGradient
+                                colors={SHEET.accentGradient}
+                                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                                style={[styles.gateHalf, styles.gateFull]}
+                            >
+                                <Ionicons name="play" size={11} color="#fff" />
+                                <Text style={styles.gateText}>{t("media.lock_ad")}</Text>
+                            </LinearGradient>
+                        )}
+                    </View>
+                )}
 
                 {selected && (
                     <View style={styles.check}>
@@ -184,15 +200,30 @@ const styles = StyleSheet.create({
     tileSelected: { borderColor: SHEET.accent, borderWidth: 2.5, shadowColor: SHEET.accent, shadowOpacity: 0.4, shadowRadius: 16 },
     clip: { flex: 1, borderRadius: SHEET.tileRadius - 1.5, overflow: "hidden" },
     center: { alignItems: "center", justifyContent: "center" },
-    badge: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        alignItems: "center",
-        justifyContent: "center",
+    /** The cost strip. Sits on the caption fade, flush to the card's edges. */
+    gateBar: {
+        position: "absolute", left: 0, right: 0, bottom: 0,
+        flexDirection: "row", height: 24, overflow: "hidden",
     },
-    badgeAd: { shadowColor: SHEET.accent, shadowOpacity: 0.4, shadowRadius: 12, elevation: 6 },
-    levelStack: { alignItems: "center", gap: 6 },
+    gateHalf: {
+        flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4,
+    },
+    /** One gate: the strip is a single block rather than two halves. */
+    gateFull: { flex: 1 },
+    gateRuby: { backgroundColor: "rgba(214, 51, 108, 0.92)" },
+    gateText: { color: "#fff", fontSize: 11.5, fontWeight: "900" },
+    gateProText: { color: "#3A2600", fontSize: 11.5, fontWeight: "900" },
+    levelAlso: {
+        flexDirection: "row", alignItems: "center", gap: 4,
+        paddingHorizontal: 8, height: 20, borderRadius: 10,
+        backgroundColor: "rgba(0,0,0,0.55)",
+    },
+    levelAlsoPro: { color: SHEET.gold, fontSize: 10.5, fontWeight: "900" },
+    levelAlsoText: { color: "#fff", fontSize: 11, fontWeight: "800" },
+    levelStack: {
+        ...StyleSheet.absoluteFillObject,
+        alignItems: "center", justifyContent: "center", gap: 6,
+    },
     levelBadge: {
         flexDirection: "row", alignItems: "center", gap: 4,
         paddingHorizontal: 11, height: 30, borderRadius: 15,
@@ -200,30 +231,6 @@ const styles = StyleSheet.create({
         borderWidth: 1.2, borderColor: "rgba(255,111,165,0.75)",
     },
     levelBadgeText: { color: "#fff", fontSize: 13, fontWeight: "900" },
-    rubyPillBig: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 5,
-        paddingHorizontal: 12,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: "rgba(255,77,141,0.92)",
-    },
-    rubyPillBigText: { color: "#fff", fontSize: 15, fontWeight: "800" },
-    rubyPillSmall: {
-        position: "absolute",
-        bottom: 34,
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 3,
-        paddingHorizontal: 8,
-        height: 20,
-        borderRadius: 10,
-        backgroundColor: "rgba(255,77,141,0.9)",
-    },
-    rubyPillSmallText: { color: "#fff", fontSize: 11, fontWeight: "800" },
-    proPill: { position: "absolute", top: 8, right: 8, borderRadius: 5, paddingHorizontal: 7, paddingVertical: 2 },
-    proPillText: { color: "#fff", fontSize: 9, fontWeight: "800", letterSpacing: 0.8 },
     topLeft: { position: "absolute", top: 8, left: 8, flexDirection: "row", gap: 4 },
     caption: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 10, paddingTop: 18, paddingBottom: 8 },
     name: { color: "#fff", fontSize: 13, fontWeight: "700" },

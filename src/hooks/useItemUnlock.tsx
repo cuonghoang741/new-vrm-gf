@@ -38,10 +38,11 @@ export type UnlockableItem = {
 /**
  * Lock state of one item, from its tier and its ruby price:
  *
- *   free + no price  → watch an ad
- *   free + price     → pay ruby
- *   pro  + no price  → be PRO
- *   pro  + price     → be PRO, *then* pay ruby
+ *   free + no price  → watch an ad          ("ad")
+ *   free + price     → pay ruby             ("ruby")
+ *   pro  + no price  → be PRO               ("pro")
+ *   pro  + price     → be PRO, THEN pay ruby ("pro_or_ruby" until they are
+ *                      PRO; "ruby" once they are)
  *
  * The last row is the one that used to be wrong: a PRO item carrying a price
  * offered "subscribe OR pay ruby", so a non-subscriber saw two prices at once
@@ -62,8 +63,12 @@ export function lockStateOf(item: UnlockableItem, isPro: boolean, bondLevel = 5)
     const isProTier = (item.tier ?? "free") === "pro";
 
     if (isProTier) {
-        // Subscription first, whatever the price says.
-        if (!isPro) return "pro";
+        // Subscription first, whatever the price says — but say so when there
+        // is a price behind it. Returning a bare "pro" meant a PRO item with a
+        // ruby price showed only "PRO": the user subscribed to reach it and
+        // THEN found out it still costs ruby. `pro_or_ruby` was already a
+        // state the tile knew how to draw; nothing ever returned it.
+        if (!isPro) return price > 0 ? "pro_or_ruby" : "pro";
         return price > 0 ? "ruby" : "free";
     }
     return price > 0 ? "ruby" : isPro ? "free" : "ad";

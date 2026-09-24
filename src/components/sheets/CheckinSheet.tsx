@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import React, { useCallback, useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react";
-import { View, Text, StyleSheet, Pressable, Alert, ActivityIndicator, Animated, ScrollView } from "react-native";
+import { View, Text, StyleSheet, Pressable, Alert, ActivityIndicator, Animated, ScrollView, useWindowDimensions } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -40,6 +40,11 @@ export type CheckinSheetRef = BottomSheetRef;
 const CheckinSheet = forwardRef<CheckinSheetRef, Props>(
     ({ isOpened, onIsOpenedChange, userId, onClaimed, sceneImage, onOpenSubscription }, ref) => {
         const { t } = useTranslation();
+        // Six columns that exactly fill the row, so both margins stay 16.
+        const { width: screenW } = useWindowDimensions();
+        const cellSize = Math.floor(
+            (screenW - SHEET_H_PAD * 2 - GRID_GAP * (GRID_COLS - 1)) / GRID_COLS
+        );
         const sheetRef = useRef<BottomSheetRef>(null);
         const [state, setState] = useState<CheckinState | null>(null);
         const [loading, setLoading] = useState(false);
@@ -210,6 +215,7 @@ const CheckinSheet = forwardRef<CheckinSheetRef, Props>(
                                     key={r.day}
                                     style={[
                                         styles.cell,
+                                        { width: cellSize, height: cellSize },
                                         showSkeleton && { opacity: pulse },
                                         r.ruby > 0 && styles.cellRuby,
                                         claimed && styles.cellClaimed,
@@ -283,6 +289,19 @@ const CheckinSheet = forwardRef<CheckinSheetRef, Props>(
 
 export default CheckinSheet;
 
+/**
+ * The cycle grid is six fixed columns, so its width has to be derived rather
+ * than guessed.
+ *
+ * It was `width: 50` with `gap: 7`: six cells plus five gaps is 335pt against
+ * the 358pt the sheet's 16pt padding leaves on a 390pt screen. The 23pt that
+ * did not fit anywhere piled up on the right, and the sheet read as though its
+ * left and right padding were different.
+ */
+const GRID_COLS = 6;
+const GRID_GAP = 7;
+const SHEET_H_PAD = 16;
+
 const styles = StyleSheet.create({
     container: { paddingHorizontal: 16, paddingBottom: 16 },
     streakRow: { flexDirection: "row", alignItems: "center", gap: 14, marginBottom: 14 },
@@ -335,10 +354,9 @@ const styles = StyleSheet.create({
     upcomingValue: { color: "#fff", fontSize: 16, fontWeight: "800" },
     todayTag: { color: "rgba(255,255,255,0.85)", fontSize: 10, fontWeight: "800", textTransform: "uppercase" },
     sectionLabel: { color: SHEET.textMuted, fontSize: 12.5, fontWeight: "700", marginTop: 18, marginBottom: 10 },
-    grid: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
+    grid: { flexDirection: "row", flexWrap: "wrap", gap: GRID_GAP },
     cell: {
-        width: 50,
-        height: 50,
+        // Width comes from the row, not a constant — see CELL_SIZE.
         borderRadius: 12,
         backgroundColor: "rgba(255,255,255,0.05)",
         borderWidth: 1,

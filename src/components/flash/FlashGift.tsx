@@ -60,9 +60,11 @@ export function FlashGift({ onPress }: { onPress: () => void }) {
 }
 
 const styles = StyleSheet.create({
-    // Left side, below the ruby column: the right rail is a dense stack of
-    // controls and the left has room. High enough to clear the chat.
-    wrap: { position: "absolute", left: 14, bottom: 210, zIndex: 40, alignItems: "center" },
+    // Left side, under the ruby column: the right rail is a dense stack of
+    // controls and the left has room. `bottom: 210` put it among the chat
+    // bubbles — this sits above where the first bubble starts, in the gap
+    // between the left controls and the conversation.
+    wrap: { position: "absolute", left: 14, bottom: 318, zIndex: 40, alignItems: "center" },
     gift: { width: 86, height: 86 },
     clock: {
         marginTop: -6,
