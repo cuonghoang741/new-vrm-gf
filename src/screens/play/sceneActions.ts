@@ -29,6 +29,8 @@ export interface SceneControls {
     setIs3DMode: (on: boolean) => void;
     /** Switch to 3D and put the model in the scene. */
     enter3D: () => void;
+    /** The chat function is sending photos itself; don't send a second one. */
+    inlinePhotoOwnsMedia: boolean;
     setVrmReady: (ready: boolean) => void;
     setIsNudeBlurred: (on: boolean) => void;
     setBaseModelUrl: (url: string | null) => void;
@@ -63,9 +65,18 @@ export function executeSceneAction(action: SuggestedAction, c: SceneControls) {
             c.setCharSheetOpen(true);
             break;
 
+        // `gemini-chat-v2` picks a photo inside the same LLM turn that wrote
+        // the reply. When it is doing that, this path must not send one too —
+        // otherwise a request for a picture answers with two, from two
+        // different pickers that agree on nothing. Video is still ours: v2
+        // only ever reaches for `media_type = 'photo'`.
         case "send_photo":
-        case "send_video":
         case "send_nude_media":
+            if (c.inlinePhotoOwnsMedia) break;
+            void sendMedia(action.action, c, action.parameters.mediaTag);
+            break;
+
+        case "send_video":
             void sendMedia(action.action, c, action.parameters.mediaTag);
             break;
 

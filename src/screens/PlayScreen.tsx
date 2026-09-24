@@ -57,6 +57,7 @@ import { ACCENT, ACCENT_SOFT, ACCENT_GLOW, GOLD, GLASS_FILL, GLASS_BORDER, TEXT_
 import { CharacterSwitcher } from "../components/CharacterSwitcher";
 import { ReportDialog } from "../components/sheets/ReportDialog";
 import { isReported, loadMyReports } from "../services/reportService";
+import { chatInlinePhotoEnabled, chatV2Enabled } from "../services/remoteConfig";
 import { lockStateOf, useItemUnlock, type UnlockableItem } from "../hooks/useItemUnlock";
 import { AdGateDialog } from "../components/AdGateDialog";
 import { autoUnlock, consumeNoFillGrant, loadUnlocks, markUnlocked, requiresAd } from "../services/unlockService";
@@ -558,6 +559,7 @@ export default function PlayScreen() {
                 setIs3DMode,
                 setVrmReady,
                 enter3D,
+                inlinePhotoOwnsMedia: chatV2Enabled() && chatInlinePhotoEnabled(),
                 setIsNudeBlurred,
                 setBaseModelUrl,
                 setCharacterModelUrl,
