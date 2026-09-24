@@ -896,7 +896,10 @@
                 const c = renderer && renderer.domElement;
                 if (!c) return;
                 c.style.transition = 'filter 0.25s ease';
-                c.style.filter = on ? 'blur(16px)' : '';
+                // 16px turned her into a smear. 10px still hides the detail
+                // the gate is there for while leaving a recognisable shape —
+                // which is what makes the PRO prompt worth reading.
+                c.style.filter = on ? 'blur(10px)' : '';
             } catch (e) { }
         };
 
