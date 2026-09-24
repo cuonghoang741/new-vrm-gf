@@ -200,6 +200,12 @@ export function PlaySheets(p: PlaySheetsProps) {
                 onIsOpenedChange={p.setMediaSheetOpen}
                 characterId={p.characterId}
                 sceneImage={p.sceneImage}
+                userId={p.user?.id}
+                bondLevel={p.bondLevel ?? 1}
+                bondProgress={p.bondProgress}
+                characterName={p.characterName}
+                onOpenBond={() => p.setBondOpen(true)}
+                onOpenQuests={openQuests}
                 onOpenSubscription={() => {
                     p.setMediaSheetOpen(false);
                     openSubscription();

@@ -393,6 +393,10 @@ const ko: Dict = {
     "settings.report": "불쾌한 콘텐츠 신고",
     "settings.report_sub": "AI가 말하거나 보여주는 모든 것을 신고",
     "report.pick_hint": "메시지를 길게 눌러 신고하세요.",
+    "ads.gate_body_media": "짧은 광고를 보고 이 사진을 확인하세요.",
+    "media.lock_ad": "광고",
+    "media.one_photo": "사진",
+    "media.one_video": "동영상",
 };
 
 export default ko;

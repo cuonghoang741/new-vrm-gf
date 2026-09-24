@@ -393,6 +393,10 @@ const ja: Dict = {
     "settings.report": "不適切なコンテンツを報告",
     "settings.report_sub": "AIの発言や画像を報告できます",
     "report.pick_hint": "メッセージを長押しすると報告できます。",
+    "ads.gate_body_media": "短い広告を見てこの写真を表示します。",
+    "media.lock_ad": "広告",
+    "media.one_photo": "写真",
+    "media.one_video": "動画",
 };
 
 export default ja;

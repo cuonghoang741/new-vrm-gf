@@ -18,6 +18,14 @@ export interface ChatMessage {
     mediaUrl?: string;
     mediaType?: "image" | "video";
     mediaTier?: string;
+    /** The `medias` row id — what the unlock is recorded against. */
+    mediaId?: string;
+    /** > 0 means it is bought with ruby, not merely unlocked by PRO. */
+    mediaPriceRuby?: number | null;
+    /** Bond level before she will show it at all. */
+    mediaUnlockLevel?: number | null;
+    /** 'default' | 'ads' | 'ruby' | 'pro'. */
+    mediaUnlockType?: string | null;
 }
 
 export interface SuggestedAction {
@@ -92,7 +100,7 @@ export const chatService = {
                 is_agent, 
                 created_at,
                 media_id,
-                medias:media_id (url, media_type, tier)
+                medias:media_id (url, media_type, tier, price_ruby, unlock_relationship_level, unlock_type)
             `)
             .eq("character_id", characterId)
             .eq("user_id", userId)
@@ -114,6 +122,10 @@ export const chatService = {
                 mediaUrl: row.medias?.url,
                 mediaType: row.medias?.media_type === "photo" ? "image" : (row.medias?.media_type === "video" ? "video" : undefined),
                 mediaTier: row.medias?.tier,
+                mediaId: row.media_id ?? undefined,
+                mediaPriceRuby: row.medias?.price_ruby ?? null,
+                mediaUnlockLevel: row.medias?.unlock_relationship_level ?? null,
+                mediaUnlockType: row.medias?.unlock_type ?? null,
             }));
     },
 
@@ -134,7 +146,15 @@ export const chatService = {
         response: string;
         unseenCount: number;
         /** A photo she chose to send with this reply, if any. */
-        image?: { url: string; thumbnail: string | null; media_id: string; tier: string | null };
+        image?: {
+            url: string;
+            thumbnail: string | null;
+            media_id: string;
+            tier: string | null;
+            price_ruby?: number | null;
+            unlock_relationship_level?: number | null;
+            unlock_type?: string | null;
+        };
     }> {
         // Save user message to DB
         await supabase.from("conversation").insert({

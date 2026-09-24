@@ -393,6 +393,10 @@ const fr: Dict = {
     "settings.report": "Signaler un contenu choquant",
     "settings.report_sub": "Signalez tout ce que l'IA dit ou montre",
     "report.pick_hint": "Appuyez longuement sur un message pour le signaler.",
+    "ads.gate_body_media": "Regardez une courte pub pour voir cette photo.",
+    "media.lock_ad": "PUB",
+    "media.one_photo": "Photo",
+    "media.one_video": "Vidéo",
 };
 
 export default fr;

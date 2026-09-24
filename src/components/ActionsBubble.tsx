@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, Platform, Image, Pressable } from "react-native";
 import { useTranslation } from "react-i18next";
 import {
@@ -24,6 +24,10 @@ import {
 import Button from "./common/Button";
 import { surfaceOn } from "../theme/surface";
 
+import { hasSeen, markSeen, seenNow } from "../services/seenOnce";
+
+/** The id `seenOnce` files the character button under. */
+const CHAR_BUTTON = "rail_character";
 // Shared accent palette (kept in sync with PlayScreen / girlfriend-3d-aiva)
 const ACCENT = "#FF3D7F";                     // rose accent
 const GOLD = "#F2C14E";                        // premium / PRO
@@ -83,6 +87,11 @@ export default function ActionsBubble({
     const { t } = useTranslation();
     const isInCall = ["connected", "connecting"].includes(conversationStatus);
     const [showLabels, setShowLabels] = useState(false);
+    /** `undefined` until the device answers; the dot never flashes on. */
+    const [charSeen, setCharSeen] = useState<boolean | undefined>(() => seenNow(CHAR_BUTTON));
+    useEffect(() => {
+        if (charSeen === undefined) hasSeen(CHAR_BUTTON).then(setCharSeen);
+    }, [charSeen]);
 
     // Contrast against whatever scene is behind: dark glass + light icons over
     // a dark background, light glass + dark icons over a light one. Most of the
@@ -101,9 +110,18 @@ export default function ActionsBubble({
                         plate to sit on; this one is a picture of the people
                         you would be switching to, and a plate around it only
                         makes it smaller and greyer. It is the odd one out on
-                        purpose — that is what makes it findable. */}
+                        purpose — that is what makes it findable.
+
+                        The dot is an introduction, not a notification: it says
+                        "there are other girls in here" to someone who has
+                        never opened the picker, and once they have, it is gone
+                        for good on this device. */}
                     <Pressable
-                        onPress={onOpenCharacter}
+                        onPress={() => {
+                            setCharSeen(true);
+                            void markSeen(CHAR_BUTTON);
+                            onOpenCharacter();
+                        }}
                         hitSlop={6}
                         style={({ pressed }) => [styles.charBtn, pressed && { opacity: 0.75, transform: [{ scale: 0.96 }] }]}
                     >
@@ -112,7 +130,9 @@ export default function ActionsBubble({
                             style={styles.charIcon}
                             resizeMode="contain"
                         />
-                        <View style={[styles.notificationDot, { backgroundColor: surface.accent, borderColor: "rgba(20,10,30,0.9)", shadowColor: surface.accent }]} />
+                        {charSeen === false && (
+                            <View style={[styles.charDot, { backgroundColor: surface.accent, shadowColor: surface.accent }]} />
+                        )}
                         {showLabels && (
                             <Text style={[styles.charLabel, { color: iconColor }]}>{t("act.character")}</Text>
                         )}
@@ -295,11 +315,17 @@ const styles = StyleSheet.create({
     /** The character picker: a picture, not a glyph on a plate. */
     charBtn: { alignItems: "center", justifyContent: "center", paddingVertical: 2 },
     charIcon: { width: 56, height: 56 },
+    charDot: {
+        position: "absolute", top: 2, right: 0,
+        width: 11, height: 11, borderRadius: 6,
+        borderWidth: 2, borderColor: "rgba(20,10,30,0.9)",
+        shadowOpacity: 0.9, shadowRadius: 4, shadowOffset: { width: 0, height: 0 },
+    },
     charLabel: { fontSize: 11, fontWeight: "700", marginTop: 2 },
     actionsBubble: {
         position: "absolute",
         right: 20,
-        top: Platform.OS === "ios" ? 60 : 40,
+        top: Platform.OS === "ios" ? 50 : 32,
         gap: 12,
         zIndex: 50,
         alignItems: "flex-end",

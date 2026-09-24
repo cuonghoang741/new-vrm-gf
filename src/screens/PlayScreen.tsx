@@ -57,6 +57,7 @@ import { ACCENT, ACCENT_SOFT, ACCENT_GLOW, GOLD, GLASS_FILL, GLASS_BORDER, TEXT_
 import { CharacterSwitcher } from "../components/CharacterSwitcher";
 import { ReportDialog } from "../components/sheets/ReportDialog";
 import { isReported, loadMyReports } from "../services/reportService";
+import { lockStateOf, useItemUnlock, type UnlockableItem } from "../hooks/useItemUnlock";
 import { AdGateDialog } from "../components/AdGateDialog";
 import { autoUnlock, consumeNoFillGrant, loadUnlocks, markUnlocked, requiresAd } from "../services/unlockService";
 import { getCharacters } from "../cache/charactersCache";
@@ -105,6 +106,8 @@ export default function PlayScreen() {
     const [reportTarget, setReportTarget] = useState<ChatMessage | null>(null);
     const [reportedIds, setReportedIds] = useState<Set<string>>(new Set());
     const [reportsLoadedAt, setReportsLoadedAt] = useState(0);
+    /** Bumped when a photo is unlocked, so the bubbles redraw. */
+    const [mediaUnlockedAt, setMediaUnlockedAt] = useState(0);
     /** Chat hidden = the scene with nothing over it. */
     const [chatVisible, setChatVisible] = useState(true);
     /** Check-in streak for the flame button; refreshed when the sheet closes. */
@@ -651,6 +654,10 @@ export default function PlayScreen() {
                     mediaUrl: result.image!.url,
                     mediaType: "image" as const,
                     mediaTier: result.image!.tier ?? undefined,
+                    mediaId: result.image!.media_id,
+                    mediaPriceRuby: result.image!.price_ruby ?? null,
+                    mediaUnlockLevel: result.image!.unlock_relationship_level ?? null,
+                    mediaUnlockType: result.image!.unlock_type ?? null,
                 }]);
             }
 
@@ -963,6 +970,40 @@ export default function PlayScreen() {
         return () => { alive = false; };
     }, []);
 
+    /**
+     * A photo she sent is the same asset as a photo in her gallery, so it gets
+     * the same gate: bond level, then PRO, then ruby, then an ad. Before this
+     * the bubble only ever knew "pro or not" and its tap went straight to the
+     * paywall, which was wrong for every priced or ad-unlockable photo.
+     */
+    const mediaUnlock = useItemUnlock({
+        isPro,
+        userId: user?.id,
+        bondLevel: bondLevel ?? 1,
+        bondProgress,
+        characterName,
+        onOpenBond: () => setBondOpen(true),
+        placement: "chat_photo",
+        adBody: t("ads.gate_body_media"),
+        onOpenPaywall: () => setSubscriptionOpen(true),
+        onOpenQuests: () => setQuestOpen(true),
+        kind: "gallery",
+    });
+
+    const mediaItemOf = useCallback(
+        (m: ChatMessage): UnlockableItem => ({
+            type: "media",
+            id: m.mediaId ?? m.id,
+            unlock: m.mediaUnlockType as any,
+            tier: m.mediaTier,
+            unlockAtLevel: m.mediaUnlockLevel,
+            price: m.mediaPriceRuby,
+            name: t(m.mediaType === "video" ? "media.one_video" : "media.one_photo"),
+            image: m.mediaUrl,
+        }),
+        [t]
+    );
+
     const renderMessage = useCallback(
         ({ item }: { item: ChatMessage }) => (
             <MessageBubble
@@ -972,15 +1013,18 @@ export default function PlayScreen() {
                 surface={surface}
                 reported={reportedIds.has(item.id) || isReported(item.id)}
                 onReport={setReportTarget}
+                lock={item.mediaUrl ? lockStateOf(mediaItemOf(item), isPro, bondLevel ?? 1) : undefined}
                 onLockedPress={() => {
-                    // Same unlock as tapping a locked tile in the gallery sheet.
-                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-                    track.unlockSelect("gallery", item.id, 0, "pro");
-                    setSubscriptionOpen(true);
+                    if (!item.mediaUrl) return;
+                    // Literally the same call the gallery tile makes.
+                    mediaUnlock.request(mediaItemOf(item), () => {
+                        setMediaUnlockedAt(Date.now());
+                    });
                 }}
             />
         ),
-        [characterName, isPro, surface, reportedIds, reportsLoadedAt]
+        [characterName, isPro, surface, reportedIds, reportsLoadedAt,
+         bondLevel, mediaItemOf, mediaUnlock.request, mediaUnlockedAt]
     );
 
 
@@ -1225,6 +1269,8 @@ export default function PlayScreen() {
                     setIsOnboarded(false);
                 }}
             />
+
+            {mediaUnlock.dialogs}
 
             {/* Flagging offensive AI output, from a long-press on any of her
                 messages. Google Play requires the way in to be in the app. */}

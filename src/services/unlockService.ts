@@ -2,7 +2,7 @@ import { supabase } from "../config/supabase";
 import { unlockWithAd } from "./economyService";
 
 /** Asset families a one-time rewarded unlock applies to. */
-export type UnlockType = "character" | "costume" | "background" | "dance";
+export type UnlockType = "character" | "costume" | "background" | "dance" | "media";
 
 const TABLE = "user_unlocks";
 

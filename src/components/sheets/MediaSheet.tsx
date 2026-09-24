@@ -22,6 +22,8 @@ import { BottomSheet, type BottomSheetRef } from "../common/BottomSheet";
 import { useSubscription } from "../../contexts/SubscriptionContext";
 import { analyticsService } from "../../services/AnalyticsService";
 import { track } from "../../services/trackEvents";
+import { lockStateOf, useItemUnlock, type UnlockableItem } from "../../hooks/useItemUnlock";
+import RubyIcon from "../icons/RubyIcon";
 import LockIcon from "../icons/LockIcon";
 import { ReportDialog } from "./ReportDialog";
 import { isReported } from "../../services/reportService";
@@ -38,6 +40,12 @@ interface MediaItem {
     tier: string | null;
     media_type: string; // "image" | "video"
     content_type: string | null;
+    /** > 0 means it is bought, not merely subscribed to. */
+    price_ruby: number | null;
+    /** Bond level with her before this is on offer at all. */
+    unlock_relationship_level: number | null;
+    /** 'default' | 'ads' | 'ruby' | 'pro'; the authority over tier and price. */
+    unlock_type: string | null;
 }
 
 interface MediaSheetProps {
@@ -47,6 +55,13 @@ interface MediaSheetProps {
     onIsOpenedChange: (open: boolean) => void;
     characterId: string | null;
     onOpenSubscription?: () => void;
+    /** Everything below feeds the shared unlock flow; see `useItemUnlock`. */
+    userId?: string | null;
+    onOpenQuests?: () => void;
+    bondLevel?: number;
+    bondProgress?: number | null;
+    characterName?: string;
+    onOpenBond?: () => void;
 }
 
 export type MediaSheetRef = BottomSheetRef;
@@ -54,7 +69,10 @@ export type MediaSheetRef = BottomSheetRef;
 type TabKey = "image" | "video";
 
 const MediaSheet = forwardRef<MediaSheetRef, MediaSheetProps>(
-    ({ isOpened, onIsOpenedChange, characterId, onOpenSubscription, sceneImage }, ref) => {
+    ({
+        isOpened, onIsOpenedChange, characterId, onOpenSubscription, sceneImage,
+        userId, onOpenQuests, bondLevel, bondProgress, characterName, onOpenBond,
+    }, ref) => {
         const { t } = useTranslation();
         const sheetRef = useRef<BottomSheetRef>(null);
         const { isPro } = useSubscription();
@@ -81,7 +99,7 @@ const MediaSheet = forwardRef<MediaSheetRef, MediaSheetProps>(
             try {
                 const { data, error } = await supabase
                     .from("medias")
-                    .select("id, url, thumbnail, tier, media_type, content_type")
+                    .select("id, url, thumbnail, tier, media_type, content_type, price_ruby, unlock_relationship_level, unlock_type")
                     .eq("character_id", characterId)
                     .eq("available", true)
                     .order("created_at", { ascending: false });
@@ -116,30 +134,71 @@ const MediaSheet = forwardRef<MediaSheetRef, MediaSheetProps>(
             }
         }, [loading]);
 
+        const close = useCallback(() => {
+            onIsOpenedChange(false);
+            sheetRef.current?.dismiss();
+        }, [onIsOpenedChange]);
+
+        /**
+         * The same unlock flow every other picker uses.
+         *
+         * It used to be `tier === 'pro'` and nothing else, which meant the
+         * seven free photos priced at 150 ruby opened for nothing and the ones
+         * behind a bond level opened early. Tier, price and level all live in
+         * `medias`; `lockStateOf` is what reads them.
+         */
+        const unlock = useItemUnlock({
+            isPro,
+            userId,
+            bondLevel,
+            bondProgress,
+            characterName,
+            onOpenBond,
+            placement: "gallery",
+            adBody: t("ads.gate_body_media"),
+            onOpenPaywall: () => {
+                close();
+                setTimeout(() => onOpenSubscription?.(), 300);
+            },
+            onOpenQuests: () => {
+                close();
+                setTimeout(() => onOpenQuests?.(), 450);
+            },
+            closeSheet: close,
+            kind: "gallery",
+        });
+
+        const toItem = useCallback(
+            (m: MediaItem): UnlockableItem => ({
+                type: "media",
+                id: m.id,
+                unlock: m.unlock_type as any,
+                tier: m.tier,
+                unlockAtLevel: m.unlock_relationship_level,
+                price: m.price_ruby,
+                name: t(m.media_type === "video" ? "media.one_video" : "media.one_photo"),
+                image: m.thumbnail ?? m.url,
+            }),
+            [t]
+        );
+
+        const open = useCallback((item: MediaItem) => {
+            analyticsService.logMediaView(item.id, item.media_type === "photo" ? "image" : "video");
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setSelectedMedia(item);
+        }, []);
+
         const handleMediaPress = useCallback(
             (item: MediaItem) => {
-                const isLocked = item.tier === "pro" && !isPro;
-                track.itemSelect("gallery", item.id, isLocked);
-                if (isLocked) {
-                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-                    // Gallery media has no ruby price: PRO is the only unlock.
-                    track.unlockSelect("gallery", item.id, 0, "pro");
-                    onOpenSubscription?.();
-                    return;
-                }
-
-                // Log Analytics
-                analyticsService.logMediaView(item.id, item.media_type === "photo" ? "image" : "video");
-
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setSelectedMedia(item);
+                unlock.request(toItem(item), () => open(item));
             },
-            [isPro, onOpenSubscription]
+            [unlock.request, toItem, open]
         );
 
         const renderMediaItem = useCallback(
             ({ item }: { item: MediaItem }) => {
-                const isLocked = item.tier === "pro" && !isPro;
+                const state = lockStateOf(toItem(item), isPro, bondLevel ?? 5);
+                const isLocked = state !== "free";
                 const isVideo = item.media_type === "video";
 
                 return (
@@ -162,20 +221,41 @@ const MediaSheet = forwardRef<MediaSheetRef, MediaSheetProps>(
                             </View>
                         )}
 
-                        {/* PRO blur overlay */}
+                        {/* What it costs, not just that it costs something.
+                            A blurred tile that says PRO when the real price is
+                            150 ruby sends the user to the wrong screen. */}
                         {isLocked && (
                             <View style={styles.lockedOverlay}>
                                 <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(10,6,20,0.4)" }]} />
                                 <View style={styles.lockBadge}>
-                                    <LockIcon size={16} color="#fff" />
+                                    {state === "ad" ? (
+                                        <Ionicons name="play" size={15} color="#fff" />
+                                    ) : state === "level" ? (
+                                        <Ionicons name="heart" size={15} color="#fff" />
+                                    ) : (
+                                        <LockIcon size={16} color="#fff" />
+                                    )}
                                 </View>
-                                <Text style={styles.lockText}>PRO</Text>
+                                {state === "ruby" ? (
+                                    <View style={styles.lockPrice}>
+                                        <RubyIcon size={11} color="#fff" />
+                                        <Text style={styles.lockText}>{item.price_ruby}</Text>
+                                    </View>
+                                ) : (
+                                    <Text style={styles.lockText}>
+                                        {state === "ad"
+                                            ? t("media.lock_ad")
+                                            : state === "level"
+                                                ? `Lv ${item.unlock_relationship_level}`
+                                                : "PRO"}
+                                    </Text>
+                                )}
                             </View>
                         )}
                     </Pressable>
                 );
             },
-            [isPro, handleMediaPress]
+            [isPro, handleMediaPress, toItem, bondLevel, t]
         );
 
         const activeData = activeTab === "image" ? images : videos;
@@ -328,6 +408,8 @@ const MediaSheet = forwardRef<MediaSheetRef, MediaSheetProps>(
                         </BlurView>
                     </Modal>
 
+                    {unlock.dialogs}
+
                     <ReportDialog
                         visible={reportOpen}
                         kind="media"
@@ -439,6 +521,7 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         marginBottom: 4,
     },
+    lockPrice: { flexDirection: "row", alignItems: "center", gap: 3 },
     lockText: {
         fontSize: 10,
         fontWeight: "800",

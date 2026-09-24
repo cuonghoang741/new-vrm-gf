@@ -393,6 +393,10 @@ const en: Dict = {
     "settings.report": "Report offensive content",
     "settings.report_sub": "Flag anything the AI says or shows",
     "report.pick_hint": "Long-press any message to report it.",
+    "ads.gate_body_media": "Watch a short ad to see this photo.",
+    "media.lock_ad": "AD",
+    "media.one_photo": "Photo",
+    "media.one_video": "Video",
 };
 
 export default en;

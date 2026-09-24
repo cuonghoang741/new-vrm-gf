@@ -59,6 +59,8 @@ interface MediaRow {
     tier: string | null;
     keywords: string | null;
     price_ruby: number | null;
+    unlock_relationship_level: number | null;
+    unlock_type: string | null;
 }
 
 // Hardcoded Telegram Credentials to match client service
@@ -240,7 +242,7 @@ serve(async (req) => {
             try {
                 let q = admin
                     .from('medias')
-                    .select('id, url, thumbnail, tier, keywords, price_ruby')
+                    .select('id, url, thumbnail, tier, keywords, price_ruby, unlock_relationship_level, unlock_type')
                     .eq('character_id', character_id)
                     .eq('media_type', 'photo')
                     .eq('available', true);
@@ -576,7 +578,12 @@ serve(async (req) => {
             photoCategory = best;
         }
 
-        let image: { url: string; thumbnail: string | null; media_id: string; tier: string | null } | null = null;
+        // The client locks the bubble from these, exactly as the gallery does.
+        let image: {
+            url: string; thumbnail: string | null; media_id: string;
+            tier: string | null; price_ruby: number | null;
+            unlock_relationship_level: number | null; unlock_type: string | null;
+        } | null = null;
         if (photoPool.length > 0 && (asksForPhoto || ((wantsPhoto || replyMentionsPhoto) && !onCooldown))) {
             // Match on the category she named. Falling back to the whole pool
             // is on purpose: a photo that is merely hers beats no photo, and
@@ -605,7 +612,11 @@ serve(async (req) => {
             if (client_id) row.client_id = client_id;
             try {
                 await admin.from('conversation').insert(row);
-                image = { url: pick.url, thumbnail: pick.thumbnail, media_id: pick.id, tier: pick.tier };
+                image = {
+                    url: pick.url, thumbnail: pick.thumbnail, media_id: pick.id, tier: pick.tier,
+                    price_ruby: pick.price_ruby, unlock_relationship_level: pick.unlock_relationship_level,
+                    unlock_type: pick.unlock_type,
+                };
             } catch { }
         }
 

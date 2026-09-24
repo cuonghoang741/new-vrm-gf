@@ -10,6 +10,7 @@ import { LiquidGlassView, isLiquidGlassSupported } from "@callstack/liquid-glass
 import type { ChatMessage } from "../../services/chatService";
 import type { SurfaceTokens } from "../../theme/surface";
 import LockIcon from "../../components/icons/LockIcon";
+import RubyIcon from "../../components/icons/RubyIcon";
 import { styles } from "./styles";
 
 /**
@@ -28,6 +29,7 @@ export function MessageBubble({
     characterName,
     surface,
     onLockedPress,
+    lock,
     onReport,
     reported,
 }: {
@@ -35,8 +37,14 @@ export function MessageBubble({
     isPro: boolean;
     characterName: string;
     surface: SurfaceTokens;
-    /** Tapping locked PRO media — opens the paywall. */
+    /**
+     * Tapping media she sent. The bubble does not decide what happens — the
+     * screen runs the same unlock flow the gallery does, because a photo is a
+     * photo whether it arrived in a sheet or in the conversation.
+     */
     onLockedPress: () => void;
+    /** What stands between the user and this photo right now. */
+    lock?: "free" | "ad" | "pro" | "pro_or_ruby" | "ruby" | "level";
     /**
      * Long-pressing anything she said or sent. Required by Google Play's
      * AI-Generated Content policy: offensive output has to be reportable from
@@ -50,7 +58,10 @@ export function MessageBubble({
     const isAI = item.role === "model";
     const isUser = item.role === "user";
     const hasText = item.text.trim().length > 0;
-    const isLocked = item.mediaTier === "pro" && !isPro;
+    // `lock` is the authority when the screen supplies it; the tier check is
+    // the fallback for messages that predate it.
+    const lockState = lock ?? (item.mediaTier === "pro" && !isPro ? "pro" : "free");
+    const isLocked = lockState !== "free";
     // Only her side is reportable: reporting your own typing helps nobody.
     const canReport = isAI && !!onReport;
     const report = () => {
@@ -74,7 +85,7 @@ export function MessageBubble({
         <View style={{ marginBottom: 12, maxWidth: "85%", alignSelf: isUser ? "flex-end" : "flex-start" }}>
             {item.mediaUrl && (
                 <Pressable
-                    onPress={() => isLocked && onLockedPress()}
+                    onPress={onLockedPress}
                     onLongPress={report}
                     delayLongPress={350}
                     style={[styles.mediaContainer, { marginBottom: hasText ? 6 : 0 }]}
@@ -100,9 +111,30 @@ export function MessageBubble({
                         <View style={styles.lockedMediaOverlay}>
                             <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
                             <View style={styles.lockBadge}>
-                                <LockIcon size={24} color="#fff" />
+                                {lockState === "ad" ? (
+                                    <Ionicons name="play" size={22} color="#fff" />
+                                ) : lockState === "level" ? (
+                                    <Ionicons name="heart" size={22} color="#fff" />
+                                ) : (
+                                    <LockIcon size={24} color="#fff" />
+                                )}
                             </View>
-                            <Text style={styles.lockText}>PRO ONLY</Text>
+                            {/* Say the real price. "PRO ONLY" on a photo that
+                                costs 150 ruby sends people to the wrong screen. */}
+                            {lockState === "ruby" ? (
+                                <View style={localStyles.lockPrice}>
+                                    <RubyIcon size={13} color="#fff" />
+                                    <Text style={styles.lockText}>{item.mediaPriceRuby}</Text>
+                                </View>
+                            ) : (
+                                <Text style={styles.lockText}>
+                                    {lockState === "ad"
+                                        ? t("media.lock_ad")
+                                        : lockState === "level"
+                                            ? `Lv ${item.mediaUnlockLevel}`
+                                            : "PRO"}
+                                </Text>
+                            )}
                         </View>
                     )}
                 </Pressable>
@@ -149,6 +181,7 @@ export function MessageBubble({
 }
 
 const localStyles = StyleSheet.create({
+    lockPrice: { flexDirection: "row", alignItems: "center", gap: 4 },
     reportedRow: {
         flexDirection: "row", alignItems: "center", gap: 6,
         marginBottom: 12, paddingVertical: 8, paddingHorizontal: 12,

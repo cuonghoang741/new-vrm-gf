@@ -393,6 +393,10 @@ const vi: Dict = {
     "settings.report": "Báo cáo nội dung phản cảm",
     "settings.report_sub": "Gắn cờ bất cứ điều gì AI nói hoặc hiển thị",
     "report.pick_hint": "Nhấn giữ một tin nhắn để báo cáo.",
+    "ads.gate_body_media": "Xem một quảng cáo ngắn để mở ảnh này.",
+    "media.lock_ad": "QC",
+    "media.one_photo": "Ảnh",
+    "media.one_video": "Video",
 };
 
 export default vi;

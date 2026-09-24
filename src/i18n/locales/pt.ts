@@ -393,6 +393,10 @@ const pt: Dict = {
     "settings.report": "Denunciar conteúdo ofensivo",
     "settings.report_sub": "Sinalize qualquer coisa que a IA diga ou mostre",
     "report.pick_hint": "Toque e segure uma mensagem para denunciá-la.",
+    "ads.gate_body_media": "Assista a um anúncio curto para ver esta foto.",
+    "media.lock_ad": "ANÚNCIO",
+    "media.one_photo": "Foto",
+    "media.one_video": "Vídeo",
 };
 
 export default pt;

@@ -11,7 +11,7 @@ import { supabase } from "../config/supabase";
 
 export type UnlockKind = "default" | "ads" | "pro" | "ruby";
 /** Asset families in `user_unlocks.asset_type`. */
-export type AssetType = "character" | "costume" | "background" | "dance";
+export type AssetType = "character" | "costume" | "background" | "dance" | "media";
 
 export type Quest = {
     id: string;

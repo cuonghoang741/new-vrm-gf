@@ -393,6 +393,10 @@ const zh: Dict = {
     "settings.report": "举报不良内容",
     "settings.report_sub": "举报 AI 说出或显示的任何内容",
     "report.pick_hint": "长按任意消息即可举报。",
+    "ads.gate_body_media": "观看一段短广告即可查看这张照片。",
+    "media.lock_ad": "广告",
+    "media.one_photo": "照片",
+    "media.one_video": "视频",
 };
 
 export default zh;

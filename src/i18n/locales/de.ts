@@ -393,6 +393,10 @@ const de: Dict = {
     "settings.report": "Anstößige Inhalte melden",
     "settings.report_sub": "Melde alles, was die KI sagt oder zeigt",
     "report.pick_hint": "Halte eine Nachricht gedrückt, um sie zu melden.",
+    "ads.gate_body_media": "Sieh dir eine kurze Werbung an, um dieses Foto zu sehen.",
+    "media.lock_ad": "WERBUNG",
+    "media.one_photo": "Foto",
+    "media.one_video": "Video",
 };
 
 export default de;
