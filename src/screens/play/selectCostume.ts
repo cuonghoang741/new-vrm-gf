@@ -26,6 +26,7 @@ export interface CostumeSelectDeps {
     setCharacterModelUrl: (v: string | null) => void;
     setCharacterThumbnail: (v: string | null) => void;
     setCharacterAvatar: (v: string | null) => void;
+    setCharacterAvatarNoBg?: (v: string | null) => void;
     setCharacterAvatarSmall: (v: string | null) => void;
     setCostumeName: (v: string | null) => void;
     setBackgroundId: (v: string | null) => void;
@@ -39,7 +40,8 @@ export function selectCostume(costume: any, deps: CostumeSelectDeps) {
         characterId, characterName, characterThumbnail, characterAvatar, characterModelUrl,
         backgroundUrl, backgroundId, agentElevenlabsId, isBackgroundDark,
         setCharacterModelUrl, setCharacterThumbnail, setCharacterAvatar,
-        setCharacterAvatarSmall, setCostumeName, setBackgroundId, setIsNudeBlurred,
+        setCharacterAvatarNoBg,
+    setCharacterAvatarSmall, setCostumeName, setBackgroundId, setIsNudeBlurred,
     } = deps;
     const user = userId ? { id: userId } : null;
 
@@ -64,6 +66,8 @@ export function selectCostume(costume: any, deps: CostumeSelectDeps) {
         setCharacterAvatar(avatarToSet);
         setCharacterAvatarSmall(avatarToSet);
     }
+    // The 2D layer's copy, with the outfit photographed against nothing.
+    setCharacterAvatarNoBg?.(costume.url_nobg ?? costume.thumbnail_nobg ?? null);
 
     if (costume.thumbnail) {
         setCharacterThumbnail(costume.thumbnail);

@@ -34,6 +34,13 @@ export interface SceneLayerProps {
     /** Sensitive-content gate is up: blur the 2D art as well as the 3D canvas. */
     blurScene?: boolean;
     characterAvatar: string | null;
+    /**
+     * Same art with the scenery cut out, for the 2D layer only — it is the one
+     * place something is drawn behind her, so it is the only place that needs
+     * a transparent PNG. Her card and the character sheet want the full
+     * illustration. Null falls back to `characterAvatar`.
+     */
+    characterAvatarNoBg: string | null;
     characterThumbnail: string | null;
     characterName: string;
     onOpenBond: () => void;
@@ -83,6 +90,7 @@ export function SceneLayer({
     backgroundUrl,
     blurScene = false,
     characterAvatar,
+    characterAvatarNoBg,
     characterThumbnail,
     characterName,
     onOpenBond,
@@ -125,9 +133,9 @@ export function SceneLayer({
                             blurRadius={blurScene ? 30 : 0}
                         />
                     )}
-                    {characterAvatar && (
+                    {(characterAvatarNoBg ?? characterAvatar) && (
                         <Image
-                            source={{ uri: characterAvatar }}
+                            source={{ uri: (characterAvatarNoBg ?? characterAvatar)! }}
                             style={styles.staticCharacter}
                             // Costume art is a full illustration with its own
                             // scenery; "contain" left the scene background

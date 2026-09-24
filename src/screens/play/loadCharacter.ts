@@ -32,6 +32,7 @@ export interface CharacterLoadTarget {
     setCharacterName: (v: string) => void;
     setCharacterThumbnail: (v: string | null) => void;
     setCharacterAvatar: (v: string | null) => void;
+    setCharacterAvatarNoBg: (v: string | null) => void;
     setCharacterModelUrl: (v: string | null) => void;
     setBaseModelUrl: (v: string | null) => void;
     setAgentElevenlabsId: (v: string | null) => void;
@@ -92,13 +93,13 @@ export async function loadCharacterForUser(c: CharacterLoadTarget): Promise<void
 
         let { data: char } = await supabase
             .from("characters")
-            .select("name, base_model_url, background_default_id, thumbnail_url, avatar, agent_elevenlabs_id")
+            .select("name, base_model_url, background_default_id, thumbnail_url, avatar, avatar_nobg, agent_elevenlabs_id")
             .eq("id", charId)
             .maybeSingle();
 
         if (!char) {
             console.log("[PlayScreen] Character not found in DB! Attempting to fallback to public character...");
-            const { data: firstPublic } = await supabase.from("characters").select("id, name, base_model_url, background_default_id, thumbnail_url, avatar, agent_elevenlabs_id").eq("is_public", true).eq("available", true).limit(1).maybeSingle();
+            const { data: firstPublic } = await supabase.from("characters").select("id, name, base_model_url, background_default_id, thumbnail_url, avatar, avatar_nobg, agent_elevenlabs_id").eq("is_public", true).eq("available", true).limit(1).maybeSingle();
             if (firstPublic) {
                 charId = firstPublic.id;
                 char = firstPublic;
@@ -114,6 +115,7 @@ export async function loadCharacterForUser(c: CharacterLoadTarget): Promise<void
         let finalModelUrl = char ? (char.base_model_url ?? "") : "";
         let finalThumbnailUrl = char ? (char.thumbnail_url ?? null) : null;
         let finalAvatarUrl = char ? (char.avatar ?? null) : null;
+        let finalAvatarNoBg: string | null = char ? ((char as any).avatar_nobg ?? null) : null;
 
         if (char) {
             // Lấy trang phục đang mặc hiện tại (nếu có)
@@ -127,19 +129,21 @@ export async function loadCharacterForUser(c: CharacterLoadTarget): Promise<void
             if (userChar?.current_costume_id) {
                 const { data: costume } = await supabase
                     .from("character_costumes")
-                    .select("model_url, thumbnail, url")
+                    .select("model_url, thumbnail, url, url_nobg, thumbnail_nobg")
                     .eq("id", userChar.current_costume_id)
                     .maybeSingle();
                 if (costume) {
                     if (costume.model_url) finalModelUrl = costume.model_url;
                     if (costume.thumbnail) finalThumbnailUrl = costume.thumbnail;
                     if (costume.url) finalAvatarUrl = costume.url;
+                    finalAvatarNoBg = costume.url_nobg ?? costume.thumbnail_nobg ?? null;
                 }
             }
 
             c.setCharacterName(char.name);
             c.setCharacterThumbnail(finalThumbnailUrl);
             c.setCharacterAvatar(finalAvatarUrl);
+            c.setCharacterAvatarNoBg(finalAvatarNoBg);
             if (finalModelUrl.endsWith(".vrm")) {
                 c.setCharacterModelUrl(finalModelUrl);
                 c.setBaseModelUrl(char.base_model_url); // Store the default base model

@@ -184,9 +184,21 @@ export default function OnboardingScreen({
                 return;
             }
 
+            // The welcome gift may only be one of the fully free characters —
+            // tier `free` with no ruby price, i.e. the ones the catalogue opens
+            // for an ad. Handing someone a PRO character on day one gives away
+            // the thing the subscription is for, and handing over a ruby one
+            // undercuts the shop. Falls back to the whole list if the tiers are
+            // ever edited into a state where nothing qualifies, because an
+            // onboarding that cannot finish is worse than a generous gift.
+            const freeChars = chars.filter(
+                (c: any) => (c.tier ?? "free") === "free" && !(c.price_ruby > 0)
+            );
+            const giftable = freeChars.length > 0 ? freeChars : chars;
+
             // Prefer characters with more than 3 costumes; fallback to all if none qualify
-            const richCostumeChars = chars.filter((c) => (c.total_costumes || 0) > 3);
-            const pool = richCostumeChars.length > 0 ? richCostumeChars : chars;
+            const richCostumeChars = giftable.filter((c) => (c.total_costumes || 0) > 3);
+            const pool = richCostumeChars.length > 0 ? richCostumeChars : giftable;
 
             // Random pick from the pool
             const matched = pool[Math.floor(Math.random() * pool.length)];

@@ -121,6 +121,8 @@ export default function PlayScreen() {
     const [characterThumbnail, setCharacterThumbnail] = useState<string | null>(null);
     const [characterThumbnailSmall, setCharacterThumbnailSmall] = useState<string | null>(null);
     const [characterAvatar, setCharacterAvatar] = useState<string | null>(null);
+    /** The same art with the scenery cut out — only the 2D layer wants it. */
+    const [characterAvatarNoBg, setCharacterAvatarNoBg] = useState<string | null>(null);
     const [characterAvatarSmall, setCharacterAvatarSmall] = useState<string | null>(null);
     const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null);
     const [backgroundId, setBackgroundId] = useState<string | null>(null);
@@ -389,6 +391,7 @@ export default function PlayScreen() {
             setCharacterName,
             setCharacterThumbnail,
             setCharacterAvatar,
+            setCharacterAvatarNoBg,
             setCharacterModelUrl,
             setBaseModelUrl,
             setAgentElevenlabsId,
@@ -635,6 +638,7 @@ export default function PlayScreen() {
                 setCharacterThumbnail,
                 setCharacterThumbnailSmall,
                 setCharacterAvatar,
+                setCharacterAvatarNoBg,
                 setCharacterAvatarSmall,
                 setCharacterModelUrl,
                 setBaseModelUrl,
@@ -900,6 +904,7 @@ export default function PlayScreen() {
                 backgroundUrl={backgroundUrl}
                 blurScene={isNudeBlurred}
                 characterAvatar={characterAvatar}
+                characterAvatarNoBg={characterAvatarNoBg}
                 characterThumbnail={characterThumbnail}
                 characterName={characterName}
                 onOpenBond={() => setBondOpen(true)}

@@ -28,6 +28,7 @@ export interface CharacterSelectDeps {
     setCharacterThumbnail: (v: string | null) => void;
     setCharacterThumbnailSmall: (v: string | null) => void;
     setCharacterAvatar: (v: string | null) => void;
+    setCharacterAvatarNoBg: (v: string | null) => void;
     setCharacterAvatarSmall: (v: string | null) => void;
     setCharacterModelUrl: (v: string | null) => void;
     setBaseModelUrl: (v: string | null) => void;
@@ -47,7 +48,7 @@ export async function selectCharacter(char: any, deps: CharacterSelectDeps) {
         userId, is3DMode, vrmRef, saveCache,
         backgroundUrl, backgroundId, agentElevenlabsId, isBackgroundDark,
         setCharacterId, setCharacterName, setCharacterThumbnail, setCharacterThumbnailSmall,
-        setCharacterAvatar, setCharacterAvatarSmall, setCharacterModelUrl, setBaseModelUrl,
+        setCharacterAvatar, setCharacterAvatarNoBg, setCharacterAvatarSmall, setCharacterModelUrl, setBaseModelUrl,
         setAgentElevenlabsId, setBackgroundId, setBackgroundUrl, setBackgroundName,
         setIsBackgroundDark, setIsNudeBlurred, setIs3DMode, setMessages,
     } = deps;
@@ -61,7 +62,7 @@ export async function selectCharacter(char: any, deps: CharacterSelectDeps) {
     // Fetch full detail for the character (including avatar/vrm/background)
     const { data: fullChar } = await supabase
         .from("characters")
-        .select("base_model_url, background_default_id, thumbnail_url, avatar, small_thumb_url, small_avatar")
+        .select("base_model_url, background_default_id, thumbnail_url, avatar, avatar_nobg, small_thumb_url, small_avatar")
         .eq("id", char.id)
         .single();
 
@@ -69,6 +70,8 @@ export async function selectCharacter(char: any, deps: CharacterSelectDeps) {
         if (fullChar.thumbnail_url) setCharacterThumbnail(fullChar.thumbnail_url);
         if (fullChar.small_thumb_url) setCharacterThumbnailSmall(fullChar.small_thumb_url);
         if (fullChar.avatar) setCharacterAvatar(fullChar.avatar);
+        // Null is meaningful: a character with no cut-out falls back to `avatar`.
+        setCharacterAvatarNoBg((fullChar as any).avatar_nobg ?? null);
         if (fullChar.small_avatar) setCharacterAvatarSmall(fullChar.small_avatar);
 
         // Handle VRM if applicable
