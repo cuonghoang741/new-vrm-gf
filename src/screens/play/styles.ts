@@ -124,11 +124,12 @@ export const styles = StyleSheet.create({
         alignItems: "center",
         alignSelf: "flex-start",
         gap: 5,
-        paddingHorizontal: 14,
-        // 42 to match the 2D/3D toggle directly above it in the same rail —
-        // it was 32 and read as a different control family.
-        height: 42,
-        borderRadius: 21,
+        paddingHorizontal: 12,
+        // 36 — the same height as the icon buttons in the right rail. It was
+        // 42, matching only the toggle above it, and the two of them together
+        // read as a heavier, separate family of controls.
+        height: 36,
+        borderRadius: 18,
         marginTop: 8,
         overflow: "hidden",
         // Colour comes from the surface tokens at the call site, like the
@@ -137,7 +138,7 @@ export const styles = StyleSheet.create({
     },
     rubyPillText: {
         color: "#FFFFFF",
-        fontSize: 15,
+        fontSize: 13.5,
         fontWeight: "700",
     },
     settingsBtn: {
@@ -171,10 +172,10 @@ export const styles = StyleSheet.create({
         borderColor: 'rgba(255,255,255,0.25)',
     },
     liquidToggleWrapper: {
-        borderRadius: 24,
+        borderRadius: 18,
         overflow: 'hidden',
-        width: 110,
-        height: 42,
+        width: 94,
+        height: 36,
         borderWidth: 1,
         borderColor: GLASS_BORDER,
         backgroundColor: Platform.OS === 'android' ? GLASS_FILL : 'transparent',
@@ -194,7 +195,7 @@ export const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        borderRadius: 20,
+        borderRadius: 14,
     },
     toggleOptionActive: {
         backgroundColor: ACCENT,
@@ -205,7 +206,7 @@ export const styles = StyleSheet.create({
         elevation: 4,
     },
     toggleLabel: {
-        fontSize: 12,
+        fontSize: 11,
         fontWeight: '800',
     },
     toggleLabelInactive: {
@@ -220,9 +221,11 @@ export const styles = StyleSheet.create({
         flexDirection: "row", alignItems: "center", gap: 4,
         alignSelf: "flex-start",
         marginTop: 6, paddingHorizontal: 9, height: 22, borderRadius: 11,
-        backgroundColor: "#C9A6FF",
+        // The accent, not lavender. This clock is the 3D chip's clock; a third
+        // colour in that corner made it look like a separate feature.
+        backgroundColor: ACCENT,
     },
-    trialPillText: { color: "#0E0A16", fontSize: 12, fontWeight: "900" },
+    trialPillText: { color: "#FFFFFF", fontSize: 12, fontWeight: "900" },
 
     proBadgeLeft: {
         position: 'absolute',

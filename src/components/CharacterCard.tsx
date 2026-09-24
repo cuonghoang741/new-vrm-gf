@@ -96,7 +96,10 @@ function Wrapper({ surface, children }: { surface: SurfaceTokens; children: Reac
 
 const styles = StyleSheet.create({
     claimDot: {
-        position: "absolute", top: 4, left: 40,
+        // On the avatar's upper-left edge, touching it. Parked out at left:40
+        // it floated in the gap between the picture and her name and read as
+        // a stray mark rather than a badge on her.
+        position: "absolute", top: 3, left: 3,
         width: 11, height: 11, borderRadius: 5.5,
         backgroundColor: "#FF3B5C",
         borderWidth: 2, borderColor: "rgba(20,10,30,0.95)",

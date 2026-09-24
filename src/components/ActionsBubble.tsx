@@ -25,6 +25,7 @@ import Button from "./common/Button";
 import { surfaceOn } from "../theme/surface";
 
 import { hasSeen, markSeen, seenNow } from "../services/seenOnce";
+import { ICON_CHARACTERS } from "./icons/iconCharacters";
 
 /** The id `seenOnce` files the character button under. */
 const CHAR_BUTTON = "rail_character";
@@ -126,7 +127,7 @@ export default function ActionsBubble({
                         style={({ pressed }) => [styles.charBtn, pressed && { opacity: 0.75, transform: [{ scale: 0.96 }] }]}
                     >
                         <Image
-                            source={require("../../assets/icon-characters.png")}
+                            source={{ uri: ICON_CHARACTERS }}
                             style={styles.charIcon}
                             resizeMode="contain"
                         />

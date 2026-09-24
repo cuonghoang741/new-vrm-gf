@@ -305,7 +305,7 @@ export function SceneLayer({
                 is 110pt wide and already carries two labels. */}
             {trialRemaining > 0 && !isPro && (
                 <View style={styles.trialPill}>
-                    <IconBadge3d size={12} color="#0E0A16" />
+                    <IconBadge3d size={12} color="#FFFFFF" />
                     <Text style={styles.trialPillText}>{formatTrial(trialRemaining)}</Text>
                 </View>
             )}

@@ -15,6 +15,7 @@ import {
     claimBondQuest, difficultyKey, getBondState, type BondQuest, type BondState,
 } from "../../services/bondService";
 import { refreshRuby } from "../../services/rubyStore";
+import { ICON_CHARACTERS } from "../../components/icons/iconCharacters";
 
 /**
  * Her level page: how close you are to this one character, what the next level
@@ -150,7 +151,7 @@ export function BondPage({
 
                                     {!!onSwitchCharacter && (
                                         <Image
-                                            source={require("../../../assets/icon-characters.png")}
+                                            source={{ uri: ICON_CHARACTERS }}
                                             style={styles.switchBadge}
                                             contentFit="contain"
                                         />

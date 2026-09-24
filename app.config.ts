@@ -34,7 +34,15 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     newArchEnabled: true,
     backgroundColor: "#FFC2DA",
 
-
+    // Every file under assets/ ships inside the binary.
+    //
+    // Without this Expo picks its own default, and the embedded update
+    // manifest ended up listing 24 assets — not the app's own PNGs. A
+    // `require()`d image that is missing from that manifest resolves to
+    // nothing on Android release and draws as an empty box: the rail's
+    // character button, and the language flags before it (which were worked
+    // around with base64 data URIs rather than fixed).
+    assetBundlePatterns: ["**/*"],
 
     extra: {
         eas: {
