@@ -988,9 +988,31 @@
             return randomFBX;
         }
 
+        // The two default standing poses, alternating per model load.
+        //
+        // "Idle Stand" is this app's; "Bashful" is what Yuuki's React Native
+        // build uses (it puts /bashful/i first in its own priority list). She
+        // keeps ONE of them for as long as she is on screen and switches to
+        // the other the next time a model is loaded.
+        //
+        // Deliberately not rotated when she settles back from a dance: Yuuki
+        // learned that the hard way — if the resting pose differs from the one
+        // she loaded with, finishing a dance reads as her turning into someone
+        // else. Whatever this returns has to stay put for the whole session.
+        const IDLE_POSES = ["Idle Stand.fbx", "Bashful.fbx"];
+        let idlePoseIndex = 0;
+
+        /** Next pose, for the next model load. Never mid-session. */
+        function advanceIdlePose() {
+            idlePoseIndex = (idlePoseIndex + 1) % IDLE_POSES.length;
+        }
+
         // Calm default animation for first-time auto-play
         function getDefaultIdleAnimation() {
             if (!fbxFiles || fbxFiles.length === 0) return null;
+            const poses = IDLE_POSES.filter(name => fbxFiles.includes(name));
+            if (poses.length > 0) return poses[idlePoseIndex % poses.length];
+            // Neither shipped in this catalogue — fall back to the old search.
             const priorities = [
                 /idle/i,
                 /stand/i,
@@ -1596,6 +1618,8 @@
                     console.log('⏭️ [loadModelByURL] Skipping - same VRM already loaded:', url);
                     return;
                 }
+                // A genuinely new model: she comes back in the other pose.
+                advanceIdlePose();
                 loadVRM(url, name);
                 startBackgroundPreloading(null, null);
             } catch (e) {
