@@ -1311,6 +1311,7 @@ export default function PlayScreen() {
                 zIndex 500 so nothing floats over what it is meant to hide. */}
             <SensitiveOverlay
                 visible={isNudeBlurred}
+                surface={surface}
                 onUpgrade={() => setSubscriptionOpen(true)}
                 onDismiss={() => {
                     setIsNudeBlurred(false);

@@ -1,8 +1,10 @@
 import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { BlurView } from "expo-blur";
+import { LiquidGlassView, isLiquidGlassSupported } from "@callstack/liquid-glass";
 import { useTranslation } from "react-i18next";
 import LockIcon from "../../components/icons/LockIcon";
+import type { SurfaceTokens } from "../../theme/surface";
 import { ACCENT } from "./theme";
 
 /**
@@ -12,13 +14,23 @@ import { ACCENT } from "./theme";
  * Renders last in PlayScreen's tree and at zIndex 500 so nothing floats over
  * it — the point is that the content underneath stays unreadable, and a
  * bubble or sheet drawn on top would defeat that.
+ *
+ * The hiding is NOT this component's job any more. The scene blurs itself —
+ * `setPreviewBlur` inside the WebView for the 3D canvas, `blurRadius` on the
+ * 2D art — which is the only thing that works on Android, where expo-blur
+ * cannot touch a GL surface. This used to compensate with a 94%-opaque scrim,
+ * which hid the scene by deleting it. Now it is a light veil, and the message
+ * sits on its own glass so it stays readable over whatever is behind.
  */
 export function SensitiveOverlay({
     visible,
+    surface,
     onUpgrade,
     onDismiss,
 }: {
     visible: boolean;
+    /** Palette for the card, from the scene behind it. */
+    surface: SurfaceTokens;
     onUpgrade: () => void;
     /** Closes the gate AND reverts the model — see PlayScreen's handler. */
     onDismiss: () => void;
@@ -27,50 +39,91 @@ export function SensitiveOverlay({
     if (!visible) return null;
 
     return (
-        <BlurView intensity={65} tint="dark" style={[StyleSheet.absoluteFill, styles.scrim]}>
+        <BlurView intensity={28} tint="dark" style={[StyleSheet.absoluteFill, styles.scrim]}>
             <View style={styles.center}>
-                <View style={styles.iconRing}>
-                    <LockIcon size={40} color={ACCENT} />
-                </View>
-                <Text style={styles.title}>{t("play.sensitive_title")}</Text>
-                <Text style={styles.body}>{t("play.sensitive_body")}</Text>
-                <Pressable style={styles.cta} onPress={onUpgrade}>
-                    <Text style={styles.ctaText}>{t("play.unlock_pro")}</Text>
-                </Pressable>
-                <Pressable style={styles.dismiss} onPress={onDismiss}>
-                    <Text style={styles.dismissText}>{t("play.dismiss")}</Text>
-                </Pressable>
+                <Card surface={surface}>
+                    <View style={styles.iconRing}>
+                        <LockIcon size={40} color={ACCENT} />
+                    </View>
+                    <Text style={[styles.title, { color: surface.icon }]}>
+                        {t("play.sensitive_title")}
+                    </Text>
+                    <Text style={[styles.body, { color: surface.muted }]}>
+                        {t("play.sensitive_body")}
+                    </Text>
+                    <Pressable style={styles.cta} onPress={onUpgrade}>
+                        <Text style={styles.ctaText}>{t("play.unlock_pro")}</Text>
+                    </Pressable>
+                    <Pressable style={styles.dismiss} onPress={onDismiss}>
+                        <Text style={[styles.dismissText, { color: surface.muted }]}>
+                            {t("play.dismiss")}
+                        </Text>
+                    </Pressable>
+                </Card>
             </View>
         </BlurView>
     );
 }
 
+/**
+ * The message's own surface. Liquid glass where the platform has it, a tinted
+ * pane from the surface tokens everywhere else — the same pair every other
+ * control that floats over the scene uses.
+ */
+function Card({ surface, children }: { surface: SurfaceTokens; children: React.ReactNode }) {
+    if (isLiquidGlassSupported) {
+        return (
+            <LiquidGlassView style={styles.card} effect="regular" tintColor={surface.glass}>
+                {children}
+            </LiquidGlassView>
+        );
+    }
+    return (
+        <View style={[styles.card, { backgroundColor: surface.glass, borderColor: surface.border, borderWidth: 1 }]}>
+            {children}
+        </View>
+    );
+}
+
 const styles = StyleSheet.create({
     /**
-     * The gate carried no colour of its own and leaned entirely on BlurView.
-     * On Android expo-blur cannot blur the WebView/GL surface the scene draws
-     * into, so it came out all but transparent — the one thing this overlay
-     * exists to prevent. An opaque scrim does the hiding; the blur is now only
-     * the extra depth it adds on iOS.
+     * A veil, not a blackout. The scene is already blurred at the source, so
+     * this only has to darken it enough for white text to hold — 0.94 was
+     * hiding the scene by erasing it.
      */
-    scrim: { zIndex: 500, backgroundColor: "rgba(10, 6, 20, 0.94)" },
-    center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 40 },
+    scrim: { zIndex: 500, backgroundColor: "rgba(10, 6, 20, 0.38)" },
+    center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 28 },
+    card: {
+        width: "100%",
+        maxWidth: 340,
+        borderRadius: 28,
+        overflow: "hidden",
+        alignItems: "center",
+        paddingHorizontal: 26,
+        paddingTop: 28,
+        paddingBottom: 18,
+        ...Platform.select({
+            ios: { shadowColor: "#000", shadowOpacity: 0.45, shadowRadius: 24, shadowOffset: { width: 0, height: 10 } },
+            android: { elevation: 12 },
+            default: {},
+        }),
+    },
     iconRing: {
         backgroundColor: "rgba(255, 107, 157, 0.18)",
         padding: 20,
         borderRadius: 100,
         marginBottom: 20,
     },
+    // Colour comes from the surface tokens: over a light scene the glass is
+    // near-white and white text on it is invisible.
     title: {
-        color: "#fff",
-        fontSize: 24,
+        fontSize: 21,
         fontWeight: "800",
         textAlign: "center",
         marginBottom: 12,
     },
     body: {
-        color: "rgba(255,255,255,0.7)",
-        fontSize: 16,
+        fontSize: 15,
         textAlign: "center",
         lineHeight: 22,
         marginBottom: 30,
@@ -88,5 +141,5 @@ const styles = StyleSheet.create({
     },
     ctaText: { color: "#fff", fontSize: 16, fontWeight: "700" },
     dismiss: { marginTop: 20, padding: 10 },
-    dismissText: { color: "rgba(255,255,255,0.4)", fontSize: 14 },
+    dismissText: { fontSize: 14 },
 });
