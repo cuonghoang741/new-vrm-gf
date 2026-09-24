@@ -18,6 +18,7 @@ import { mediaUrl, supabase } from '../lib/supabase';
 import { deleteOne, errMsg, insertOne, parsePrice, selectAll, updateOne } from '../lib/db';
 import { BackgroundPicker } from '../components/BackgroundPicker';
 import VrmPreviewModal from '../components/VrmPreviewModal';
+import VrmThumb from '../components/VrmThumb';
 import type { Background, Character } from '../lib/types';
 
 const pad = (n: number) => String(n).padStart(3, '0');
@@ -273,8 +274,16 @@ export default function Characters() {
                 </span>
 
                 <Link to={`/characters/${c.id}`} draggable={false} style={{ color: 'inherit', textDecoration: 'none' }}>
-                  <div className="char-avatar" style={{ backgroundImage: img ? `url(${img})` : undefined, filter: live ? undefined : 'grayscale(0.8)' }}>
-                    {!img && <span>{c.name.slice(0, 1)}</span>}
+                  {/* The model, not the catalogue art. A character whose
+                      `base_model_url` is not a .vrm keeps its thumbnail. */}
+                  <div className="char-avatar" style={{ filter: live ? undefined : 'grayscale(0.8)', overflow: 'hidden' }}>
+                    <VrmThumb
+                      modelUrl={c.base_model_url}
+                      fallback={img}
+                      alt={c.name}
+                      style={{ width: '100%', height: '100%' }}
+                    />
+                    {!img && !c.base_model_url && <span>{c.name.slice(0, 1)}</span>}
                   </div>
                   <div className="char-body">
                     <div className="char-name">{c.name}</div>
