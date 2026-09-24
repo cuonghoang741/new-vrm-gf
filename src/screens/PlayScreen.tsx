@@ -107,6 +107,8 @@ export default function PlayScreen() {
     const [bondLevel, setBondLevel] = useState<number | null>(null);
     /** 0..1 through the current level, for the bar on her card. */
     const [bondProgress, setBondProgress] = useState<number | null>(null);
+    /** Her quests have something finished and waiting — a dot on her card. */
+    const [bondClaimable, setBondClaimable] = useState(false);
     const ruby = useRuby() ?? 0;
 
     const { isPro, refreshStatus } = useSubscription();
@@ -919,6 +921,9 @@ export default function PlayScreen() {
             setBondProgress(
                 b && b.xpForNext ? Math.min(1, b.xpIntoLevel / Math.max(1, b.xpForNext)) : null
             );
+            setBondClaimable(
+                (b?.quests ?? []).some((q) => !q.claimed && q.progress >= q.target)
+            );
         });
         return () => { alive = false; };
     }, [characterId, bondOpen]);
@@ -965,6 +970,7 @@ export default function PlayScreen() {
                 needsCheckin={needsCheckin}
                 bondLevel={bondLevel}
                 bondProgress={bondProgress}
+                bondClaimable={bondClaimable}
                 characterId={characterId}
                 isPro={isPro}
                 isCameraMode={isCameraMode}

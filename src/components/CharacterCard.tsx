@@ -17,6 +17,7 @@ export function CharacterCard({
     avatar,
     level,
     progress,
+    hasClaimable,
     surface,
     onPress,
 }: {
@@ -26,6 +27,8 @@ export function CharacterCard({
     level: number | null;
     /** 0..1 through the current level; null at max. */
     progress: number | null;
+    /** A quest of hers is finished and waiting to be claimed. */
+    hasClaimable?: boolean;
     surface: SurfaceTokens;
     onPress: () => void;
 }) {
@@ -42,6 +45,10 @@ export function CharacterCard({
             ) : (
                 <View style={[styles.avatar, styles.avatarEmpty]} />
             )}
+
+            {/* Ruby waiting on her level page. The dot sits on the avatar
+                rather than in the row, so it survives a long name. */}
+            {hasClaimable && <View style={styles.claimDot} />}
 
             {/* Name and level share one line, bar spans the rest.
                 A badge pinned over the avatar was cramped, covered her face and
@@ -88,6 +95,12 @@ function Wrapper({ surface, children }: { surface: SurfaceTokens; children: Reac
 }
 
 const styles = StyleSheet.create({
+    claimDot: {
+        position: "absolute", top: 4, left: 40,
+        width: 11, height: 11, borderRadius: 5.5,
+        backgroundColor: "#FF3B5C",
+        borderWidth: 2, borderColor: "rgba(20,10,30,0.95)",
+    },
     card: {
         flexDirection: "row",
         alignItems: "center",

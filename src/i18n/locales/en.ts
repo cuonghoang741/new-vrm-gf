@@ -330,6 +330,7 @@ const en: Dict = {
     "bond.hidden_hint": "She keeps a few things to herself. Find them and they appear here.",
     "bond.xp_to_next": "{{have}} / {{need}} XP to Lv {{lv}}",
     "bond.maxed": "Fully bonded",
+    "bond.switch_character": "Switch character",
     "bond.q.chat_10": "Send her 10 messages",
     "bond.q.chat_25": "Send her 25 messages",
     "bond.q.outfit_1": "Change her outfit",

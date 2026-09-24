@@ -48,6 +48,8 @@ export interface SceneLayerProps {
     bondLevel?: number | null;
     /** 0..1 through the current bond level, for the card's bar. */
     bondProgress?: number | null;
+    /** One of her quests is done and unclaimed — red dot on her card. */
+    bondClaimable?: boolean;
     characterId: string | null;
 
     isPro: boolean;
@@ -102,6 +104,7 @@ export function SceneLayer({
     onOpenBond,
     bondLevel,
     bondProgress,
+    bondClaimable,
     characterId,
     isPro,
     isCameraMode,
@@ -242,6 +245,7 @@ export function SceneLayer({
                         avatar={characterAvatar ?? characterThumbnail}
                         level={bondLevel ?? null}
                         progress={bondProgress ?? null}
+                        hasClaimable={!!bondClaimable}
                         surface={surface}
                         onPress={onOpenBond}
                     />

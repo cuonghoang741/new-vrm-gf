@@ -330,6 +330,7 @@ const vi: Dict = {
     "bond.hidden_hint": "Cô ấy giữ vài điều cho riêng mình. Tìm ra thì chúng sẽ hiện ở đây.",
     "bond.xp_to_next": "{{have}} / {{need}} XP để lên Lv {{lv}}",
     "bond.maxed": "Đã thân nhất có thể",
+    "bond.switch_character": "Đổi nhân vật",
     "bond.q.chat_10": "Nhắn cho cô ấy 10 tin",
     "bond.q.chat_25": "Nhắn cho cô ấy 25 tin",
     "bond.q.outfit_1": "Đổi trang phục cho cô ấy",

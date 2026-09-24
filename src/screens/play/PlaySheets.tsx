@@ -237,6 +237,7 @@ export function PlaySheets(p: PlaySheetsProps) {
                 characterId={p.characterId}
                 characterName={p.characterName}
                 characterArt={p.sceneImage}
+                onSwitchCharacter={() => p.setCharSheetOpen(true)}
             />
             <CheckinSheet
                 isOpened={p.checkinOpen}

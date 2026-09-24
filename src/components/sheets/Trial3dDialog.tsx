@@ -64,7 +64,7 @@ export function Trial3dDialog({
                             end={{ x: 1, y: 0 }}
                             style={styles.cta}
                         >
-                            <Text style={styles.ctaText}>{t("trial3d.cta")}</Text>
+                            <Text style={styles.ctaText}>{t("trial3d.cta", { n: minutes })}</Text>
                         </LinearGradient>
                     </Pressable>
 

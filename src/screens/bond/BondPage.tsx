@@ -24,13 +24,15 @@ import { refreshRuby } from "../../services/rubyStore";
  * global score, because the point is that Nerine is hard and Tilda is not.
  */
 export function BondPage({
-    visible, onClose, characterId, characterName, characterArt,
+    visible, onClose, characterId, characterName, characterArt, onSwitchCharacter,
 }: {
     visible: boolean;
     onClose: () => void;
     characterId: string | null;
     characterName: string;
     characterArt?: string | null;
+    /** Opens the character picker. Closes this page first; see the button. */
+    onSwitchCharacter?: () => void;
 }) {
     const { t } = useTranslation();
     const insets = useSafeAreaInsets();
@@ -154,6 +156,25 @@ export function BondPage({
                                           })
                                         : t("bond.maxed")}
                                 </Text>
+
+                                {/* Outlined, not filled: this page is about
+                                    HER, and the loud button on it should stay
+                                    the one that claims her quests. */}
+                                {!!onSwitchCharacter && (
+                                    <Pressable
+                                        onPress={() => {
+                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                            onClose();
+                                            // Let this modal finish closing, or
+                                            // the picker opens underneath it.
+                                            setTimeout(onSwitchCharacter, 320);
+                                        }}
+                                        style={({ pressed }) => [styles.switchBtn, pressed && { opacity: 0.75 }]}
+                                    >
+                                        <Ionicons name="repeat" size={16} color={SHEET.accent} />
+                                        <Text style={styles.switchText}>{t("bond.switch_character")}</Text>
+                                    </Pressable>
+                                )}
                             </View>
 
                             {/* ── what each level opens ── */}
@@ -266,6 +287,14 @@ function QuestLine({
 }
 
 const styles = StyleSheet.create({
+    switchBtn: {
+        flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7,
+        alignSelf: "center", marginTop: 16,
+        paddingHorizontal: 18, height: 40, borderRadius: 20,
+        borderWidth: 1.2, borderColor: "rgba(255,77,141,0.55)",
+        backgroundColor: "rgba(255,77,141,0.10)",
+    },
+    switchText: { color: SHEET.accent, fontSize: 14, fontWeight: "800" },
     page: { flex: 1, backgroundColor: SHEET.bgBottom },
     close: {
         position: "absolute", right: 16, zIndex: 10,
