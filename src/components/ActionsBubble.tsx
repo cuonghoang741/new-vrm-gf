@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, Platform, Image } from "react-native";
+import { View, Text, StyleSheet, Platform, Image, Pressable } from "react-native";
 import { useTranslation } from "react-i18next";
 import {
     IconUser,
@@ -96,30 +96,27 @@ export default function ActionsBubble({
             {/* ─── Normal mode: show all action buttons ─── */}
             {!isInCall && (
                 <>
-                    {/* Three faces, not one silhouette: a single person icon
-                        reads as "my profile", which is why nobody found the
-                        character picker. The red dot is the nudge to look. */}
-                    <View>
-                        <Button
-                            variant="liquid"
-                            size="sm"
-                            tintColor={surface.glass}
-                            borderColor={surface.border}
-                            startIconNode={
-                                <Image
-                                    source={require("../../assets/icon-characters.png")}
-                                    style={{ width: 28, height: 28 }}
-                                    resizeMode="contain"
-                                />
-                            }
-                            textColor={iconColor}
-                            onPress={onOpenCharacter}
-                            isIconOnly={!showLabels}
-                        >
-                            {t("act.character")}
-                        </Button>
-                        <View style={[styles.notificationDot, { backgroundColor: surface.accent, borderColor: surface.glass, shadowColor: surface.accent }]} />
-                    </View>
+                    {/* No glass bubble on this one.
+                        Every other button in the rail is a glyph that needs a
+                        plate to sit on; this one is a picture of the people
+                        you would be switching to, and a plate around it only
+                        makes it smaller and greyer. It is the odd one out on
+                        purpose — that is what makes it findable. */}
+                    <Pressable
+                        onPress={onOpenCharacter}
+                        hitSlop={6}
+                        style={({ pressed }) => [styles.charBtn, pressed && { opacity: 0.75, transform: [{ scale: 0.96 }] }]}
+                    >
+                        <Image
+                            source={require("../../assets/icon-characters.png")}
+                            style={styles.charIcon}
+                            resizeMode="contain"
+                        />
+                        <View style={[styles.notificationDot, { backgroundColor: surface.accent, borderColor: "rgba(20,10,30,0.9)", shadowColor: surface.accent }]} />
+                        {showLabels && (
+                            <Text style={[styles.charLabel, { color: iconColor }]}>{t("act.character")}</Text>
+                        )}
+                    </Pressable>
                     <View>
                         <Button
                             variant="liquid"
@@ -295,6 +292,10 @@ export default function ActionsBubble({
 }
 
 const styles = StyleSheet.create({
+    /** The character picker: a picture, not a glyph on a plate. */
+    charBtn: { alignItems: "center", justifyContent: "center", paddingVertical: 2 },
+    charIcon: { width: 52, height: 52 },
+    charLabel: { fontSize: 11, fontWeight: "700", marginTop: 2 },
     actionsBubble: {
         position: "absolute",
         right: 20,

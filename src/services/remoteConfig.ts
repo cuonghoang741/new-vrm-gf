@@ -1,4 +1,27 @@
-import remoteConfig from "@react-native-firebase/remote-config";
+/**
+ * Resolve the native module lazily, and only once.
+ *
+ * A binary built before Remote Config was added has the JS package but not the
+ * native module, and react-native-firebase throws a hard "[runtime not ready]"
+ * error on first use. The kill switch must never be the thing that kills the
+ * app, so a missing module leaves every flag at its default — which is ON.
+ */
+let mod: any;
+
+function rc(): any | null {
+    if (mod === undefined) {
+        try {
+            mod = require("@react-native-firebase/remote-config").default;
+        } catch {
+            mod = null;
+        }
+    }
+    try {
+        return mod ? mod() : null;
+    } catch {
+        return null;
+    }
+}
 
 /**
  * Firebase Remote Config, used as a kill switch for ads.
@@ -33,15 +56,17 @@ let ready = false;
 
 export async function initRemoteConfig(): Promise<void> {
     try {
-        await remoteConfig().setDefaults(DEFAULTS as any);
-        await remoteConfig().setConfigSettings({
+        const c = rc();
+        if (!c) return;
+        await c.setDefaults(DEFAULTS as any);
+        await c.setConfigSettings({
             // A kill switch nobody can reach for an hour is not a kill switch.
             // One minute is the shortest Firebase will serve without throttling
             // a busy app.
             minimumFetchIntervalMillis: 60_000,
             fetchTimeMillis: 8_000,
         });
-        await remoteConfig().fetchAndActivate();
+        await c.fetchAndActivate();
         ready = true;
     } catch (e) {
         // Keep the defaults; never let this block start-up.
@@ -52,7 +77,7 @@ export async function initRemoteConfig(): Promise<void> {
 function bool(key: keyof typeof DEFAULTS): boolean {
     if (!ready) return DEFAULTS[key] as boolean;
     try {
-        return remoteConfig().getValue(key).asBoolean();
+        return rc()?.getValue(key).asBoolean() ?? (DEFAULTS[key] as boolean);
     } catch {
         return DEFAULTS[key] as boolean;
     }
@@ -61,7 +86,7 @@ function bool(key: keyof typeof DEFAULTS): boolean {
 function num(key: keyof typeof DEFAULTS): number {
     if (!ready) return DEFAULTS[key] as number;
     try {
-        const n = remoteConfig().getValue(key).asNumber();
+        const n = rc()?.getValue(key).asNumber() ?? NaN;
         return Number.isFinite(n) && n > 0 ? n : (DEFAULTS[key] as number);
     } catch {
         return DEFAULTS[key] as number;

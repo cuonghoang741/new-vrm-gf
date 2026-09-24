@@ -1,4 +1,31 @@
-import crashlytics from "@react-native-firebase/crashlytics";
+import type { FirebaseCrashlyticsTypes } from "@react-native-firebase/crashlytics";
+
+/**
+ * Resolve the native module lazily, and only once.
+ *
+ * A binary built before Crashlytics was added — every build already in
+ * someone's hands, and the iOS dev client on this machine — has the JS package
+ * but not the native module, and react-native-firebase throws a hard
+ * "[runtime not ready]" error the first time it is called. Reporting must
+ * never be the thing that takes the app down, so a missing module is simply a
+ * no-op here.
+ */
+let mod: (() => FirebaseCrashlyticsTypes.Module) | null | undefined;
+
+function client(): FirebaseCrashlyticsTypes.Module | null {
+    if (mod === undefined) {
+        try {
+            mod = require("@react-native-firebase/crashlytics").default;
+        } catch {
+            mod = null;
+        }
+    }
+    try {
+        return mod ? mod() : null;
+    } catch {
+        return null;
+    }
+}
 
 /**
  * Crashlytics, wrapped so the rest of the app never imports it directly.
@@ -21,7 +48,7 @@ export const crash = {
      */
     async enable() {
         try {
-            await crashlytics().setCrashlyticsCollectionEnabled(true);
+            await client()?.setCrashlyticsCollectionEnabled(true);
         } catch (e) {
             console.warn("[crashlytics] enable:", e);
         }
@@ -32,27 +59,29 @@ export const crash = {
      * opens its dashboard after the first report arrives.
      */
     testCrash() {
-        crashlytics().log("manual test crash from settings");
-        crashlytics().crash();
+        const c = client();
+        if (!c) return;
+        c.log("manual test crash from settings");
+        c.crash();
     },
     /** Called once the user is known, so a crash report has someone attached. */
     async identify(userId: string | null, isPro: boolean) {
         try {
-            if (userId) await crashlytics().setUserId(userId);
-            await crashlytics().setAttribute("pro", String(isPro));
+            if (userId) await client()?.setUserId(userId);
+            await client()?.setAttribute("pro", String(isPro));
         } catch { /* reporting must never break the app */ }
     },
 
     /** Breadcrumb. Shows up in the log of the next crash. */
     log(message: string) {
-        try { crashlytics().log(message); } catch { }
+        try { client()?.log(message); } catch { }
     },
 
     /** A JS error worth a report, with the screen it came from. */
     record(error: unknown, where?: string) {
         try {
-            if (where) crashlytics().log(where);
-            crashlytics().recordError(
+            if (where) client()?.log(where);
+            client()?.recordError(
                 error instanceof Error ? error : new Error(String(error))
             );
         } catch { }
@@ -60,7 +89,7 @@ export const crash = {
 
     async setCharacter(id: string | null, name?: string) {
         try {
-            await crashlytics().setAttributes({
+            await client()?.setAttributes({
                 character_id: id ?? "",
                 character_name: name ?? "",
             });
