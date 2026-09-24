@@ -397,6 +397,7 @@ const ko: Dict = {
     "media.lock_ad": "광고",
     "media.one_photo": "사진",
     "media.one_video": "동영상",
+    "dance.trial_note": "무료 3D 시간 동안 무료 댄스를 사용할 수 있어요.",
 };
 
 export default ko;

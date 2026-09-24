@@ -397,6 +397,7 @@ const zh: Dict = {
     "media.lock_ad": "广告",
     "media.one_photo": "照片",
     "media.one_video": "视频",
+    "dance.trial_note": "在免费 3D 时间内，你可以试用免费舞蹈。",
 };
 
 export default zh;

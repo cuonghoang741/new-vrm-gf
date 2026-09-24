@@ -36,7 +36,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 const SPLASH_MIN_MS = 2800;
 
 export default function AppNavigator() {
-    const { isLoggedIn, isLoading, isOnboarded, setIsOnboarded } = useAuth();
+    const { isLoggedIn, isLoading, isOnboarded, isOnboardedKnown, setIsOnboarded } = useAuth();
     /** open_splash / inter_splash — holds the boot screen until the ad closes. */
     const { splashAdDone } = useSplashAd();
 
@@ -131,7 +131,15 @@ export default function AppNavigator() {
                     contentStyle: { backgroundColor: "#0a0a1a" },
                 }}
             >
-                {!booted || isLoading || !minDwellDone || !splashAdDone ? (
+                {/* `isOnboardedKnown` belongs in this list: signing in flips
+                    `isLoggedIn` immediately while the onboarding check is
+                    still in flight, and `isOnboarded` defaults to true. A
+                    brand-new account therefore fell past the onboarding
+                    branch and flashed "Welcome back" for half a second
+                    before landing where it belonged. Waiting on the boot
+                    screen is the honest answer to "we do not know yet". */}
+                {!booted || isLoading || !minDwellDone || !splashAdDone ||
+                 (isLoggedIn && !isOnboardedKnown) ? (
                     <Stack.Screen name="Splash" component={LoadingScreen} />
                 ) : needsLanguage ? (
                     <Stack.Screen name="Language">

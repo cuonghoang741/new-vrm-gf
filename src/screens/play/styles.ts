@@ -292,7 +292,11 @@ export const styles = StyleSheet.create({
     // Messages
     messageList: { flexGrow: 1 },
     messageListContent: { padding: 16, paddingBottom: 8 },
-    messageBubble: { maxWidth: "80%", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 18, marginBottom: 8 },
+    // No `maxWidth` here. The row that wraps it already caps the width, and a
+    // percentage resolved against a parent that is itself sized by its content
+    // is exactly the case Yoga cannot settle — it collapsed the bubble to a
+    // sliver and clipped the text inside it.
+    messageBubble: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 18, marginBottom: 8 },
     userBubble: {
         alignSelf: "flex-end",
         backgroundColor: ACCENT,

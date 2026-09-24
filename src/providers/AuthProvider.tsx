@@ -7,7 +7,21 @@ export default function AuthProvider({ children }: PropsWithChildren) {
     const [session, setSession] = useState<Session | null>(null);
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(true); // For initial boot
-    const [isOnboarded, setIsOnboarded] = useState<boolean>(true);
+    const [isOnboarded, setIsOnboardedRaw] = useState<boolean>(true);
+    /**
+     * Has the check above actually run for the signed-in user?
+     *
+     * `isOnboarded` defaults to true so a returning user never flickers
+     * through onboarding — but that same default is a lie for a brand-new
+     * account, and the navigator acted on it. This is the "we do not know
+     * yet" the boolean could not express.
+     */
+    const [isOnboardedKnown, setIsOnboardedKnown] = useState<boolean>(false);
+
+    const setIsOnboarded = useCallback((v: boolean) => {
+        setIsOnboardedRaw(v);
+        setIsOnboardedKnown(true);
+    }, []);
     const [isInitializing, setIsInitializing] = useState<boolean>(true);
     const isLoadingRef = useRef(true);
 
@@ -120,6 +134,7 @@ export default function AuthProvider({ children }: PropsWithChildren) {
                 isLoading,
                 isLoggedIn: !!session,
                 isOnboarded,
+                isOnboardedKnown,
                 setIsOnboarded,
             }}
         >

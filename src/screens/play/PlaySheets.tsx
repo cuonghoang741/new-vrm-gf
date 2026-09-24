@@ -48,6 +48,8 @@ export interface PlaySheetsProps {
     questOpen: boolean;
     setQuestOpen: (open: boolean) => void;
     bondOpen: boolean;
+    /** Seconds left of the free-3D trial; 0 when it is not running. */
+    trialRemaining?: number;
     bondLevel: number | null;
     bondProgress: number | null;
     setBondOpen: (open: boolean) => void;
@@ -212,6 +214,7 @@ export function PlaySheets(p: PlaySheetsProps) {
                 }}
             />
             <DanceSheet
+                trialActive={(p.trialRemaining ?? 0) > 0}
                 bondLevel={p.bondLevel ?? 1}
                 bondProgress={p.bondProgress}
                 characterName={p.characterName}

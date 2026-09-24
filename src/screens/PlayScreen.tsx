@@ -1247,6 +1247,7 @@ export default function PlayScreen() {
 
             <PlaySheets
                 user={user}
+                trialRemaining={trialRemaining}
                 charSheetOpen={charSheetOpen}
                 setCharSheetOpen={setCharSheetOpen}
                 costumeSheetOpen={costumeSheetOpen}

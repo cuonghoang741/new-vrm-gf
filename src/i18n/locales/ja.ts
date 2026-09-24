@@ -397,6 +397,7 @@ const ja: Dict = {
     "media.lock_ad": "広告",
     "media.one_photo": "写真",
     "media.one_video": "動画",
+    "dance.trial_note": "無料3Dのあいだ、無料のダンスを試せます。",
 };
 
 export default ja;

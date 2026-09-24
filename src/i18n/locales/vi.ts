@@ -397,6 +397,7 @@ const vi: Dict = {
     "media.lock_ad": "QC",
     "media.one_photo": "Ảnh",
     "media.one_video": "Video",
+    "dance.trial_note": "Trong vài phút 3D miễn phí, bạn có thể thử các điệu nhảy miễn phí.",
 };
 
 export default vi;

@@ -7,6 +7,14 @@ export interface AuthContextData {
     isLoading: boolean;
     isLoggedIn: boolean;
     isOnboarded: boolean;
+    /**
+     * False until the onboarding check has actually answered for this user.
+     *
+     * `isOnboarded` alone cannot say "I don't know yet", and its optimistic
+     * default sent a brand-new account past the onboarding branch and onto
+     * "Welcome back" for the half second the check was in flight.
+     */
+    isOnboardedKnown: boolean;
     setIsOnboarded: (value: boolean) => void;
 }
 
@@ -16,6 +24,7 @@ export const AuthContext = createContext<AuthContextData>({
     isLoading: true,
     isLoggedIn: false,
     isOnboarded: false,
+    isOnboardedKnown: false,
     setIsOnboarded: () => { },
 });
 

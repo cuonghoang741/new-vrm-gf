@@ -31,6 +31,12 @@ interface Props {
     currentDanceId: string | null;
     onSelect: (dance: Dance) => void;
     isPro: boolean;
+    /**
+     * The free-3D trial is running. She is on screen in 3D right now, so the
+     * blanket "dancing is PRO" gate is wrong for these few minutes — the whole
+     * point of the trial is to show what 3D does.
+     */
+    trialActive?: boolean;
     userId?: string;
     onOpenSubscription: () => void;
     onOpenQuests: () => void;
@@ -80,6 +86,9 @@ export default function DanceSheet(p: Props) {
         track.danceSheetView();
         if (!cachedDances) load();
     }, [p.isOpened]);
+
+    /** PRO, or the free-3D trial while it lasts. */
+    const canDance = p.isPro || !!p.trialActive;
 
     const close = useCallback(() => {
         p.onIsOpenedChange(false);
@@ -138,7 +147,7 @@ export default function DanceSheet(p: Props) {
                 dance without PRO would buy something that cannot be played, so
                 the grid is disabled and says why instead of selling first and
                 disappointing after. */}
-            {!p.isPro && (
+            {!p.isPro && !p.trialActive && (
                 <Pressable
                     onPress={() => {
                         close();
@@ -152,6 +161,13 @@ export default function DanceSheet(p: Props) {
                         <Text style={styles.proNoteCtaText}>PRO</Text>
                     </LinearGradient>
                 </Pressable>
+            )}
+
+            {!p.isPro && p.trialActive && (
+                <View style={styles.proNote}>
+                    <Ionicons name="sparkles" size={15} color={SHEET.accent} />
+                    <Text style={styles.proNoteText}>{t("dance.trial_note")}</Text>
+                </View>
             )}
 
             <PickerGrid
@@ -175,9 +191,11 @@ export default function DanceSheet(p: Props) {
                             requiredLevel={d.unlock_at_level ?? 1}
                             proTier={(d.tier ?? "free") === "pro"}
                             selected={d.id === p.currentDanceId}
-                            disabled={!p.isPro}
+                            disabled={!canDance || (!p.isPro && lock !== "free")}
                             onPress={() => {
-                                if (!p.isPro) {
+                                // Selling a dance during the trial would sell
+                                // something that stops working in two minutes.
+                                if (!canDance || (!p.isPro && lock !== "free")) {
                                     close();
                                     return setTimeout(p.onOpenSubscription, 300);
                                 }

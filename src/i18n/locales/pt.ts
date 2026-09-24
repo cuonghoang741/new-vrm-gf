@@ -397,6 +397,7 @@ const pt: Dict = {
     "media.lock_ad": "ANÚNCIO",
     "media.one_photo": "Foto",
     "media.one_video": "Vídeo",
+    "dance.trial_note": "Durante seus minutos 3D grátis você pode testar as danças gratuitas.",
 };
 
 export default pt;

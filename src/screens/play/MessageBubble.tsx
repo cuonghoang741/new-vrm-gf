@@ -82,7 +82,9 @@ export function MessageBubble({
     }
 
     return (
-        <View style={{ marginBottom: 12, maxWidth: "85%", alignSelf: isUser ? "flex-end" : "flex-start" }}>
+        // The row is what caps the width, against the list's full-width
+        // parent — a percentage Yoga can actually resolve.
+        <View style={[localStyles.row, { alignSelf: isUser ? "flex-end" : "flex-start" }]}>
             {item.mediaUrl && (
                 <Pressable
                     onPress={onLockedPress}
@@ -181,6 +183,10 @@ export function MessageBubble({
 }
 
 const localStyles = StyleSheet.create({
+    // She answers in two to four bubbles at a time, so this gap is what
+    // separates her sentences, not just one message from the next. At 12 they
+    // ran together into one pink mass.
+    row: { marginBottom: 16, maxWidth: "84%" },
     lockPrice: { flexDirection: "row", alignItems: "center", gap: 4 },
     reportedRow: {
         flexDirection: "row", alignItems: "center", gap: 6,
