@@ -80,12 +80,20 @@ import { Alert } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import RubyIcon from "../components/icons/RubyIcon";
 import LockIcon from "../components/icons/LockIcon";
+import { takeWelcomePaywallPending } from "../services/session";
 
 const { width, height } = Dimensions.get("window");
 
 const CACHE_KEY = "play_last_character";
 
 
+
+/**
+ * How long Play waits before presenting the welcome paywall. The onboarding
+ * screen is a modal that is still dismissing when Play mounts, and iOS will
+ * not present a second modal while the first one is on its way out.
+ */
+const WELCOME_PAYWALL_DELAY_MS = 600;
 
 export default function PlayScreen() {
     const { t } = useTranslation();
@@ -130,8 +138,34 @@ export default function PlayScreen() {
     const [bondClaimable, setBondClaimable] = useState(false);
     const ruby = useRuby() ?? 0;
 
-    const { isPro, refreshStatus } = useSubscription();
+    const { isPro, isLoading: subscriptionLoading, refreshStatus } = useSubscription();
     const { showInterstitial } = useInterstitialAd();
+
+    /**
+     * Welcome paywall — the Yuuki flow: the first time the user reaches Play
+     * after onboarding, the paywall comes up by itself, once.
+     *
+     * Two guards keep it from firing at the wrong moment. It waits for the
+     * subscription status to resolve, so someone who already pays is never
+     * shown a paywall for what they own. And it waits a beat after mount: the
+     * onboarding screen is still dismissing, and iOS refuses to present a
+     * modal on top of one that is going away — the sheet would silently never
+     * appear and the render loop below would stay suspended.
+     */
+    const welcomePaywallRef = useRef(false);
+    useEffect(() => {
+        if (welcomePaywallRef.current || subscriptionLoading) return;
+        welcomePaywallRef.current = true;
+        let timer: ReturnType<typeof setTimeout> | null = null;
+        void (async () => {
+            const pending = await takeWelcomePaywallPending();
+            if (!pending || isPro) return;
+            timer = setTimeout(() => setSubscriptionOpen(true), WELCOME_PAYWALL_DELAY_MS);
+        })();
+        return () => {
+            if (timer) clearTimeout(timer);
+        };
+    }, [subscriptionLoading, isPro]);
     const { show: showRewardedForMessages } = useRewardedAd(AdUnits.rewarded, "unlock_messages");
     const { showForGate: showSwitchAd } = useRewardedAd(AdUnits.rewarded, "switch_character");
 
@@ -1207,8 +1241,12 @@ export default function PlayScreen() {
                     }}
                 />}
 
+                {/* Never on top of a paywall. The offer stays armed and the
+                    dialog appears the moment the sheet is gone — stacking a
+                    second sales pitch on the one being read is how both get
+                    dismissed. */}
                 <Trial3dDialog
-                visible={trialOffer}
+                visible={trialOffer && !subscriptionOpen && !flashOpen}
                 minutes={trialMinutes}
                 onClose={() => setTrialOffer(false)}
                 onStart={async () => {
