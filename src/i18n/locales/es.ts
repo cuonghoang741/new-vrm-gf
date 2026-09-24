@@ -175,7 +175,6 @@ const es: Dict = {
     "sub.b5": "Trajes, escenarios y bailes solo para PRO",
     "sub.fine_print": "Algunos artículos PRO aún se compran con rubíes; PRO duplica los rubíes que ganas.",
     "sub.testing_unlocked": "PRO desbloqueado en este dispositivo para pruebas.",
-    "sub.annual": "ANUAL",
     "sub.monthly": "MENSUAL",
     "sub.no_plan": "No hay plan seleccionado.",
     "sub.purchase_failed_title": "Compra fallida",
@@ -231,7 +230,6 @@ const es: Dict = {
     "quest.tomorrow": "Mañana",
     "quest.limit_reached": "¡Eso es todo por hoy! Vuelve mañana por más rubíes.",
     "quest.pro_title": "Hazte PRO",
-    "quest.pro_body": "Contenido exclusivo PRO. Sin anuncios. +{{n}} rubíes al día.",
     "quest.pro_bonus": "Bono diario PRO",
     "quest.pro_bonus_body": "+{{n}} rubíes cada día",
     "quest.pro_syncing": "Tu PRO aún se está sincronizando; inténtalo en un minuto.",
@@ -405,6 +403,8 @@ const es: Dict = {
     "flash.later": "No, gracias",
     "flash.off": "AHORRA {{n}}%",
     "flash.unavailable": "Esta oferta no está disponible en tu cuenta.",
+    "sub.weekly": "SEMANAL",
+    "sub.per_week_suffix": "/sem",
 };
 
 export default es;

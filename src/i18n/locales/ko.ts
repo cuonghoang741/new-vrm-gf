@@ -175,7 +175,6 @@ const ko: Dict = {
     "sub.b5": "PRO 전용 의상·배경·댄스",
     "sub.fine_print": "일부 PRO 아이템은 루비로 구매해야 합니다 — PRO는 획득 루비를 2배로 늘려 줍니다.",
     "sub.testing_unlocked": "테스트를 위해 이 기기에서 PRO를 해제했어요.",
-    "sub.annual": "연간",
     "sub.monthly": "월간",
     "sub.no_plan": "선택된 플랜이 없어요.",
     "sub.purchase_failed_title": "구매 실패",
@@ -231,7 +230,6 @@ const ko: Dict = {
     "quest.tomorrow": "내일",
     "quest.limit_reached": "오늘은 여기까지! 내일 또 받아 가세요.",
     "quest.pro_title": "PRO 업그레이드",
-    "quest.pro_body": "PRO 전용 콘텐츠. 광고 없음. 매일 +{{n}} 루비.",
     "quest.pro_bonus": "PRO 일일 보너스",
     "quest.pro_bonus_body": "매일 +{{n}} 루비",
     "quest.pro_syncing": "PRO 동기화 중이에요. 잠시 후 다시 시도하세요.",
@@ -405,6 +403,8 @@ const ko: Dict = {
     "flash.later": "괜찮아요",
     "flash.off": "{{n}}% 할인",
     "flash.unavailable": "이 계정에서는 사용할 수 없는 혜택입니다.",
+    "sub.weekly": "주간",
+    "sub.per_week_suffix": "/주",
 };
 
 export default ko;

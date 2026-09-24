@@ -175,7 +175,6 @@ const fr: Dict = {
     "sub.b5": "Tenues, décors et danses réservés au PRO",
     "sub.fine_print": "Certains contenus PRO s'achètent encore en rubis — le PRO double les rubis gagnés.",
     "sub.testing_unlocked": "PRO débloqué sur cet appareil pour les tests.",
-    "sub.annual": "ANNUEL",
     "sub.monthly": "MENSUEL",
     "sub.no_plan": "Aucun forfait sélectionné.",
     "sub.purchase_failed_title": "Échec de l'achat",
@@ -231,7 +230,6 @@ const fr: Dict = {
     "quest.tomorrow": "Demain",
     "quest.limit_reached": "C'est tout pour aujourd'hui — revenez demain !",
     "quest.pro_title": "Passer PRO",
-    "quest.pro_body": "Contenu réservé au PRO. Sans pub. +{{n}} rubis par jour.",
     "quest.pro_bonus": "Bonus quotidien PRO",
     "quest.pro_bonus_body": "+{{n}} rubis chaque jour",
     "quest.pro_syncing": "Votre PRO se synchronise — réessayez dans une minute.",
@@ -405,6 +403,8 @@ const fr: Dict = {
     "flash.later": "Non merci",
     "flash.off": "-{{n}} %",
     "flash.unavailable": "Cette offre n'est pas disponible sur votre compte.",
+    "sub.weekly": "HEBDO",
+    "sub.per_week_suffix": "/sem",
 };
 
 export default fr;

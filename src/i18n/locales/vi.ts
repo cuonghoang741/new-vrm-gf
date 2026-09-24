@@ -175,7 +175,6 @@ const vi: Dict = {
     "sub.b5": "Trang phục, bối cảnh & vũ điệu riêng của PRO",
     "sub.fine_print": "Một số nhân vật và vật phẩm PRO vẫn cần mua bằng ruby — PRO nhân đôi ruby bạn kiếm được.",
     "sub.testing_unlocked": "Đã mở PRO trên thiết bị này để thử nghiệm.",
-    "sub.annual": "HẰNG NĂM",
     "sub.monthly": "HẰNG THÁNG",
     "sub.no_plan": "Chưa chọn gói.",
     "sub.purchase_failed_title": "Mua thất bại",
@@ -231,7 +230,6 @@ const vi: Dict = {
     "quest.tomorrow": "Ngày mai",
     "quest.limit_reached": "Hết lượt hôm nay — mai quay lại nhận thêm ruby nhé!",
     "quest.pro_title": "Nâng cấp PRO",
-    "quest.pro_body": "Nội dung riêng của PRO. Không quảng cáo. +{{n}} ruby mỗi ngày.",
     "quest.pro_bonus": "Quà PRO mỗi ngày",
     "quest.pro_bonus_body": "+{{n}} ruby mỗi ngày",
     "quest.pro_syncing": "Gói PRO đang đồng bộ — thử lại sau 1 phút nhé.",
@@ -405,6 +403,8 @@ const vi: Dict = {
     "flash.later": "Thôi, cảm ơn",
     "flash.off": "GIẢM {{n}}%",
     "flash.unavailable": "Tài khoản của bạn không áp dụng được ưu đãi này.",
+    "sub.weekly": "HÀNG TUẦN",
+    "sub.per_week_suffix": "/tuần",
 };
 
 export default vi;

@@ -337,13 +337,14 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
         if (vrmReady) vrmRef.current?.setPreviewBlur(shouldBlurPreview);
     }, [shouldBlurPreview, vrmReady]);
 
-    // Find plans
-    const yearlyPackage = packages.find(
+    // Find plans. Weekly and monthly only — yearly is gone: a year of an AI
+    // companion is a long thing to ask someone to commit to on the day they
+    // installed it, and the ones who would have taken it will take monthly.
+    const weeklyPackage = packages.find(
         (p) =>
-            p.packageType === "ANNUAL" ||
-            p.identifier.toLowerCase().includes("year") ||
-            p.identifier.toLowerCase().includes("annual") ||
-            p.product.identifier.toLowerCase().includes("year")
+            p.packageType === "WEEKLY" ||
+            p.identifier.toLowerCase().includes("week") ||
+            p.product.identifier.toLowerCase().includes("week")
     );
     const monthlyPackage = packages.find(
         (p) =>
@@ -352,22 +353,26 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
             p.product.identifier.toLowerCase().includes("month")
     );
 
+    /** A month against the ~4.35 weeks it replaces. */
+    const WEEKS_PER_MONTH = 4.345;
+
     const discountPercentage = useMemo(() => {
-        if (!yearlyPackage || !monthlyPackage) return null;
+        if (!weeklyPackage || !monthlyPackage) return null;
+        const weekly = weeklyPackage.product.price;
         const monthly = monthlyPackage.product.price;
-        const yearly = yearlyPackage.product.price;
-        if (monthly <= 0) return null;
-        const pct = Math.round(((monthly * 12 - yearly) / (monthly * 12)) * 100);
+        if (weekly <= 0) return null;
+        const pct = Math.round(((weekly * WEEKS_PER_MONTH - monthly) / (weekly * WEEKS_PER_MONTH)) * 100);
         // The label around it already says "save", so no "OFF" suffix here.
         return pct > 0 ? `${pct}%` : null;
-    }, [yearlyPackage, monthlyPackage]);
+    }, [weeklyPackage, monthlyPackage]);
 
-    // Default selection
+    // Default to monthly: it is the better value of the two, and the badge on
+    // it says so.
     useEffect(() => {
         if (packages.length > 0 && !selectedPackage) {
-            setSelectedPackage(yearlyPackage || monthlyPackage || packages[0]);
+            setSelectedPackage(monthlyPackage || weeklyPackage || packages[0]);
         }
-    }, [packages, selectedPackage, yearlyPackage, monthlyPackage]);
+    }, [packages, selectedPackage, weeklyPackage, monthlyPackage]);
 
     // Active product - find which product the user is currently subscribed to
     useEffect(() => {
@@ -643,6 +648,45 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                     >
                         {/* Plans */}
                         <View style={styles.plansRow}>
+                            {weeklyPackage && (
+                                <Pressable
+                                    style={[
+                                        styles.planCard,
+                                        !isPro && selectedPackage?.identifier === weeklyPackage.identifier && styles.planCardSelected,
+                                        isPro && activeProductId === weeklyPackage.product.identifier && styles.planCardActive,
+                                    ]}
+                                    onPress={() => !isPro && handleSelectPlan(weeklyPackage, "weekly")}
+                                >
+                                    {isPro && activeProductId === weeklyPackage.product.identifier && (
+                                        <View style={styles.activeBadge}>
+                                            <Text style={styles.activeText}>{t("sub.active")}</Text>
+                                        </View>
+                                    )}
+                                    <View style={styles.planInfo}>
+                                        <Text
+                                            style={[
+                                                styles.planName,
+                                                !isPro && selectedPackage?.identifier === weeklyPackage.identifier && styles.textHL,
+                                                isPro && activeProductId === weeklyPackage.product.identifier && styles.textActive,
+                                            ]}
+                                        >
+                                            {t("sub.weekly")}
+                                        </Text>
+                                        <Text style={styles.planPrice}>{weeklyPackage.product.priceString}</Text>
+                                    </View>
+                                    {!isPro && (
+                                        <View
+                                            style={[
+                                                styles.radio,
+                                                selectedPackage?.identifier === weeklyPackage.identifier && styles.radioSelected,
+                                            ]}
+                                        />
+                                    )}
+                                    {isPro && activeProductId === weeklyPackage.product.identifier && (
+                                        <IconCrown size={18} color="#F59E0B" fill="#F59E0B" />
+                                    )}
+                                </Pressable>
+                            )}
                             {monthlyPackage && (
                                 <Pressable
                                     style={[
@@ -652,46 +696,7 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                                     ]}
                                     onPress={() => !isPro && handleSelectPlan(monthlyPackage, "monthly")}
                                 >
-                                    {isPro && activeProductId === monthlyPackage.product.identifier && (
-                                        <View style={styles.activeBadge}>
-                                            <Text style={styles.activeText}>{t("sub.active")}</Text>
-                                        </View>
-                                    )}
-                                    <View style={styles.planInfo}>
-                                        <Text
-                                            style={[
-                                                styles.planName,
-                                                !isPro && selectedPackage?.identifier === monthlyPackage.identifier && styles.textHL,
-                                                isPro && activeProductId === monthlyPackage.product.identifier && styles.textActive,
-                                            ]}
-                                        >
-                                            {t("sub.monthly")}
-                                        </Text>
-                                        <Text style={styles.planPrice}>{monthlyPackage.product.priceString}</Text>
-                                    </View>
-                                    {!isPro && (
-                                        <View
-                                            style={[
-                                                styles.radio,
-                                                selectedPackage?.identifier === monthlyPackage.identifier && styles.radioSelected,
-                                            ]}
-                                        />
-                                    )}
-                                    {isPro && activeProductId === monthlyPackage.product.identifier && (
-                                        <IconCrown size={18} color="#F59E0B" fill="#F59E0B" />
-                                    )}
-                                </Pressable>
-                            )}
-                            {yearlyPackage && (
-                                <Pressable
-                                    style={[
-                                        styles.planCard,
-                                        !isPro && selectedPackage?.identifier === yearlyPackage.identifier && styles.planCardSelected,
-                                        isPro && activeProductId === yearlyPackage.product.identifier && styles.planCardActive,
-                                    ]}
-                                    onPress={() => !isPro && handleSelectPlan(yearlyPackage, "yearly")}
-                                >
-                                    {isPro && activeProductId === yearlyPackage.product.identifier ? (
+                                    {isPro && activeProductId === monthlyPackage.product.identifier ? (
                                         <View style={styles.activeBadge}>
                                             <Text style={styles.activeText}>{t("sub.active")}</Text>
                                         </View>
@@ -706,30 +711,34 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                                         <Text
                                             style={[
                                                 styles.planName,
-                                                !isPro && selectedPackage?.identifier === yearlyPackage.identifier && styles.textHL,
-                                                isPro && activeProductId === yearlyPackage.product.identifier && styles.textActive,
+                                                !isPro && selectedPackage?.identifier === monthlyPackage.identifier && styles.textHL,
+                                                isPro && activeProductId === monthlyPackage.product.identifier && styles.textActive,
                                             ]}
                                         >
-                                            {t("sub.annual")}
+                                            {t("sub.monthly")}
                                         </Text>
-                                        <Text style={styles.planPrice}>{yearlyPackage.product.priceString}</Text>
+                                        <Text style={styles.planPrice}>{monthlyPackage.product.priceString}</Text>
+                                        {/* What a month works out to per week,
+                                            so the saving is arithmetic the
+                                            user can check rather than a claim
+                                            on a badge. */}
                                         <Text style={styles.perMonth}>
-                                            {(yearlyPackage.product.price / 12).toLocaleString(undefined, {
+                                            {(monthlyPackage.product.price / WEEKS_PER_MONTH).toLocaleString(undefined, {
                                                 style: "currency",
-                                                currency: yearlyPackage.product.currencyCode,
+                                                currency: monthlyPackage.product.currencyCode,
                                             })}
-                                            /mo
+                                            {t("sub.per_week_suffix")}
                                         </Text>
                                     </View>
                                     {!isPro && (
                                         <View
                                             style={[
                                                 styles.radio,
-                                                selectedPackage?.identifier === yearlyPackage.identifier && styles.radioSelected,
+                                                selectedPackage?.identifier === monthlyPackage.identifier && styles.radioSelected,
                                             ]}
                                         />
                                     )}
-                                    {isPro && activeProductId === yearlyPackage.product.identifier && (
+                                    {isPro && activeProductId === monthlyPackage.product.identifier && (
                                         <IconCrown size={18} color="#F59E0B" fill="#F59E0B" />
                                     )}
                                 </Pressable>

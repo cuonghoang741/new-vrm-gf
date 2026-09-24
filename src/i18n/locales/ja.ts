@@ -175,7 +175,6 @@ const ja: Dict = {
     "sub.b5": "PRO限定の衣装・背景・ダンス",
     "sub.fine_print": "一部のPROアイテムの入手にはルビーが必要です。PROなら獲得ルビーが2倍になります。",
     "sub.testing_unlocked": "このデバイスでテスト用にPROを解放しました。",
-    "sub.annual": "年額",
     "sub.monthly": "月額",
     "sub.no_plan": "プランが選択されていません。",
     "sub.purchase_failed_title": "購入失敗",
@@ -231,7 +230,6 @@ const ja: Dict = {
     "quest.tomorrow": "明日",
     "quest.limit_reached": "今日はここまで。明日また来てね！",
     "quest.pro_title": "PROにアップグレード",
-    "quest.pro_body": "PRO限定コンテンツ。広告なし。毎日+{{n}}ルビー。",
     "quest.pro_bonus": "PRO デイリーボーナス",
     "quest.pro_bonus_body": "毎日 +{{n}} ルビー",
     "quest.pro_syncing": "PROを同期中です。少し後にもう一度お試しください。",
@@ -405,6 +403,8 @@ const ja: Dict = {
     "flash.later": "今はやめておく",
     "flash.off": "{{n}}%オフ",
     "flash.unavailable": "このアカウントではご利用いただけません。",
+    "sub.weekly": "週額",
+    "sub.per_week_suffix": "/週",
 };
 
 export default ja;

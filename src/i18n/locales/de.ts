@@ -175,7 +175,6 @@ const de: Dict = {
     "sub.b5": "Outfits, Szenen & Tänze nur für PRO",
     "sub.fine_print": "Manche PRO-Inhalte kosten weiterhin Rubine – PRO verdoppelt deine Rubin-Einnahmen.",
     "sub.testing_unlocked": "PRO auf diesem Gerät zum Testen freigeschaltet.",
-    "sub.annual": "JÄHRLICH",
     "sub.monthly": "MONATLICH",
     "sub.no_plan": "Kein Plan ausgewählt.",
     "sub.purchase_failed_title": "Kauf fehlgeschlagen",
@@ -231,7 +230,6 @@ const de: Dict = {
     "quest.tomorrow": "Morgen",
     "quest.limit_reached": "Das war's für heute – morgen gibt's mehr Rubine!",
     "quest.pro_title": "PRO holen",
-    "quest.pro_body": "PRO-exklusive Inhalte. Keine Werbung. Täglich +{{n}} Rubine.",
     "quest.pro_bonus": "PRO-Tagesbonus",
     "quest.pro_bonus_body": "Jeden Tag +{{n}} Rubine",
     "quest.pro_syncing": "Dein PRO wird noch synchronisiert – versuch es gleich nochmal.",
@@ -405,6 +403,8 @@ const de: Dict = {
     "flash.later": "Nein danke",
     "flash.off": "{{n}}% SPAREN",
     "flash.unavailable": "Dieses Angebot ist für dein Konto nicht verfügbar.",
+    "sub.weekly": "WÖCHENTLICH",
+    "sub.per_week_suffix": "/Wo.",
 };
 
 export default de;

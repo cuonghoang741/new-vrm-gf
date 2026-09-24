@@ -175,7 +175,6 @@ const zh: Dict = {
     "sub.b5": "PRO 专属服装、场景与舞蹈",
     "sub.fine_print": "部分 PRO 内容仍需用红宝石购买 —— PRO 会让你获得的红宝石翻倍。",
     "sub.testing_unlocked": "已在此设备上解锁 PRO 用于测试。",
-    "sub.annual": "年付",
     "sub.monthly": "月付",
     "sub.no_plan": "未选择套餐。",
     "sub.purchase_failed_title": "购买失败",
@@ -231,7 +230,6 @@ const zh: Dict = {
     "quest.tomorrow": "明天",
     "quest.limit_reached": "今天的次数已用完，明天再来领取吧！",
     "quest.pro_title": "升级 PRO",
-    "quest.pro_body": "PRO 专属内容。无广告。每天 +{{n}} 红宝石。",
     "quest.pro_bonus": "PRO 每日奖励",
     "quest.pro_bonus_body": "每天 +{{n}} 红宝石",
     "quest.pro_syncing": "PRO 正在同步，请稍后再试。",
@@ -405,6 +403,8 @@ const zh: Dict = {
     "flash.later": "暂时不用",
     "flash.off": "立省 {{n}}%",
     "flash.unavailable": "你的账号无法使用此优惠。",
+    "sub.weekly": "每周",
+    "sub.per_week_suffix": "/周",
 };
 
 export default zh;

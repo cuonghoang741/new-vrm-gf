@@ -175,7 +175,6 @@ const en: Dict = {
     "sub.b5": "PRO-only costumes, scenes & dances",
     "sub.fine_print": "Some PRO items are still bought with ruby — PRO doubles the ruby you earn.",
     "sub.testing_unlocked": "PRO unlocked on this device for testing.",
-    "sub.annual": "ANNUAL",
     "sub.monthly": "MONTHLY",
     "sub.no_plan": "No plan selected.",
     "sub.purchase_failed_title": "Purchase Failed",
@@ -231,7 +230,6 @@ const en: Dict = {
     "quest.tomorrow": "Tomorrow",
     "quest.limit_reached": "That's all for today — come back tomorrow for more ruby!",
     "quest.pro_title": "Go PRO",
-    "quest.pro_body": "PRO-only content. No ads. +{{n}} ruby every day.",
     "quest.pro_bonus": "PRO daily bonus",
     "quest.pro_bonus_body": "+{{n}} ruby every day",
     "quest.pro_syncing": "Your PRO is still syncing — try again in a minute.",
@@ -405,6 +403,8 @@ const en: Dict = {
     "flash.later": "No thanks",
     "flash.off": "SAVE {{n}}%",
     "flash.unavailable": "This offer is not available on your account.",
+    "sub.weekly": "WEEKLY",
+    "sub.per_week_suffix": "/wk",
 };
 
 export default en;
