@@ -67,6 +67,17 @@ export function FlashSaleSheet({
                     ...(offerings.current?.availablePackages ?? []),
                 ];
                 const found = pool.find(isFlashPackage) ?? dedicated?.availablePackages[0] ?? null;
+                if (!found) {
+                    // Worth a line in the log: "no offer" is almost always a
+                    // store-side configuration problem, not a user one, and
+                    // without this there is nothing to tell them apart by.
+                    console.warn(
+                        "[flash] no package. offerings=",
+                        Object.keys(offerings.all),
+                        "current=",
+                        (offerings.current?.availablePackages ?? []).map((p) => p.identifier)
+                    );
+                }
 
                 // The strikethrough compares like with like: the sale product
                 // is a discounted WEEK, so the honest "was" is the ordinary
