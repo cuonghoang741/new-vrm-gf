@@ -73,13 +73,13 @@ export function SensitiveOverlay({
 function Card({ surface, children }: { surface: SurfaceTokens; children: React.ReactNode }) {
     if (isLiquidGlassSupported) {
         return (
-            <LiquidGlassView style={styles.card} effect="regular" tintColor={surface.glass}>
+            <LiquidGlassView style={[styles.card, styles.cardEdge]} effect="regular" tintColor={surface.glass}>
                 {children}
             </LiquidGlassView>
         );
     }
     return (
-        <View style={[styles.card, { backgroundColor: surface.glass, borderColor: surface.border, borderWidth: 1 }]}>
+        <View style={[styles.card, styles.cardEdge, { backgroundColor: surface.glass }]}>
             {children}
         </View>
     );
@@ -87,13 +87,15 @@ function Card({ surface, children }: { surface: SurfaceTokens; children: React.R
 
 const styles = StyleSheet.create({
     /**
-     * A veil, not a blackout. The scene is already blurred at the source and
-     * the message carries its own glass, so this does not have to carry any
-     * contrast of its own — it only keeps the blurred scene from reading as
-     * the foreground. 0.94 erased the scene; 0.38 still dulled it.
+     * Barely there. The scene is already blurred at the source and the card
+     * carries its own glass and edge, so this is only a hint of depth behind
+     * the dialog — it is not what hides anything. It has come down 0.94 →
+     * 0.38 → 0.15 → 0.05 as each of those jobs moved to where it belonged.
      */
-    scrim: { zIndex: 500, backgroundColor: "rgba(10, 6, 20, 0.15)" },
+    scrim: { zIndex: 500, backgroundColor: "rgba(10, 6, 20, 0.05)" },
     center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 28 },
+    /** The pink edge is what separates the card from the scene now. */
+    cardEdge: { borderWidth: 1.5, borderColor: "rgba(255, 61, 127, 0.75)" },
     card: {
         width: "100%",
         maxWidth: 340,
