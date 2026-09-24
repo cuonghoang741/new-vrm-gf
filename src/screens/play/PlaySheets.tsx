@@ -12,6 +12,7 @@ import { QuestPage, type QuestTarget } from "../quest/QuestPage";
 import { BondPage } from "../bond/BondPage";
 import { trackBond } from "../../services/bondService";
 import { track } from "../../services/economyService";
+import { flashSale } from "../../services/flashSale";
 import type { useDance } from "./useDance";
 
 /**
@@ -191,7 +192,15 @@ export function PlaySheets(p: PlaySheetsProps) {
             />
             <SubscriptionSheet
                 isOpened={p.subscriptionOpen}
-                onClose={() => p.setSubscriptionOpen(false)}
+                onClose={() => {
+                    p.setSubscriptionOpen(false);
+                    // Closing the paywall is the one moment a lower price still
+                    // means something: they have just seen the full one and
+                    // said no. A no-op when they are PRO, when a window is
+                    // already open, when today's has been used, or when the
+                    // account has ever purchased — see `flashSale.start`.
+                    if (!p.isPro) void flashSale.start();
+                }}
                 onPurchaseSuccess={p.onPurchaseSuccess}
                 currentModelUrl={p.characterModelUrl}
                 currentBackgroundUrl={p.backgroundUrl}

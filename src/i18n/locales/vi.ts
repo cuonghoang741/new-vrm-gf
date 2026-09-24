@@ -399,6 +399,12 @@ const vi: Dict = {
     "media.one_video": "Video",
     "dance.trial_note": "Trong vài phút 3D miễn phí, bạn có thể thử các điệu nhảy miễn phí.",
     "sub.b7": "500 ruby mỗi tuần, chỉ vì bạn là PRO",
+    "flash.title": "Giá tốt hơn, chỉ trong vài giờ tới",
+    "flash.body": "Vẫn là PRO đó, không thiếu gì — chỉ có giá này thì mai không còn.",
+    "flash.cta": "Nhận ưu đãi",
+    "flash.later": "Thôi, cảm ơn",
+    "flash.off": "GIẢM {{n}}%",
+    "flash.unavailable": "Tài khoản của bạn không áp dụng được ưu đãi này.",
 };
 
 export default vi;

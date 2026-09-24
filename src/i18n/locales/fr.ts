@@ -399,6 +399,12 @@ const fr: Dict = {
     "media.one_video": "Vidéo",
     "dance.trial_note": "Pendant vos minutes 3D offertes, vous pouvez essayer les danses gratuites.",
     "sub.b7": "500 rubis chaque semaine, rien que parce que vous êtes PRO",
+    "flash.title": "Un meilleur prix, pour quelques heures",
+    "flash.body": "Le même PRO, tout pareil — c'est ce prix-là qui ne sera plus là demain.",
+    "flash.cta": "Profiter de l'offre",
+    "flash.later": "Non merci",
+    "flash.off": "-{{n}} %",
+    "flash.unavailable": "Cette offre n'est pas disponible sur votre compte.",
 };
 
 export default fr;

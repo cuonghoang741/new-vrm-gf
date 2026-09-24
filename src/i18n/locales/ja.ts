@@ -399,6 +399,12 @@ const ja: Dict = {
     "media.one_video": "動画",
     "dance.trial_note": "無料3Dのあいだ、無料のダンスを試せます。",
     "sub.b7": "PROなら毎週500ルビー",
+    "flash.title": "これから数時間だけの特別価格",
+    "flash.body": "内容は同じPRO。この価格だけが明日にはありません。",
+    "flash.cta": "この価格で入る",
+    "flash.later": "今はやめておく",
+    "flash.off": "{{n}}%オフ",
+    "flash.unavailable": "このアカウントではご利用いただけません。",
 };
 
 export default ja;

@@ -399,6 +399,12 @@ const en: Dict = {
     "media.one_video": "Video",
     "dance.trial_note": "During your free 3D minutes you can try the free dances.",
     "sub.b7": "500 ruby every week, just for being PRO",
+    "flash.title": "A better price, for the next few hours",
+    "flash.body": "Same PRO, same everything — this price just will not be here tomorrow.",
+    "flash.cta": "Take the offer",
+    "flash.later": "No thanks",
+    "flash.off": "SAVE {{n}}%",
+    "flash.unavailable": "This offer is not available on your account.",
 };
 
 export default en;

@@ -399,6 +399,12 @@ const ko: Dict = {
     "media.one_video": "동영상",
     "dance.trial_note": "무료 3D 시간 동안 무료 댄스를 사용할 수 있어요.",
     "sub.b7": "PRO면 매주 루비 500개",
+    "flash.title": "앞으로 몇 시간만, 더 좋은 가격",
+    "flash.body": "똑같은 PRO입니다. 다만 이 가격은 내일이면 없습니다.",
+    "flash.cta": "이 가격으로 시작",
+    "flash.later": "괜찮아요",
+    "flash.off": "{{n}}% 할인",
+    "flash.unavailable": "이 계정에서는 사용할 수 없는 혜택입니다.",
 };
 
 export default ko;

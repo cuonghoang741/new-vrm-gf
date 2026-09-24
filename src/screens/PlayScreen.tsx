@@ -33,6 +33,9 @@ import { chatService, ChatMessage, SuggestedAction } from "../services/chatServi
 import { supabase } from "../config/supabase";
 import { refreshRuby, setRuby as setRubyBalance, useRuby } from "../services/rubyStore";
 import { claimProWeekly } from "../services/economyService";
+import { flashSale, useFlashStage } from "../services/flashSale";
+import { FlashGift } from "../components/flash/FlashGift";
+import { FlashSaleSheet } from "../components/flash/FlashSaleSheet";
 import { track } from "../services/trackEvents";
 import { getBondState, trackBond } from "../services/bondService";
 import { getCheckinState } from "../services/checkinService";
@@ -97,6 +100,8 @@ export default function PlayScreen() {
     const isCacheRestored = useRef(false);
     const [settingsSheetOpen, setSettingsSheetOpen] = useState(false);
     const [subscriptionOpen, setSubscriptionOpen] = useState(false);
+    const [flashOpen, setFlashOpen] = useState(false);
+    const flashStage = useFlashStage();
     const [mediaSheetOpen, setMediaSheetOpen] = useState(false);
     const [checkinOpen, setCheckinOpen] = useState(false);
     const [questOpen, setQuestOpen] = useState(false);
@@ -984,6 +989,13 @@ export default function PlayScreen() {
         return () => { alive = false; };
     }, [characterId, bondOpen]);
 
+    // Pick up a window that was still running, and make sure a subscriber
+    // never sees an offer to become one.
+    useEffect(() => {
+        if (isPro) { void flashSale.end(); return; }
+        void flashSale.restore();
+    }, [isPro]);
+
     // This week's PRO ruby. Fire-and-forget on every arrival: the server pays
     // once per ISO week, so calling it again costs one cheap round trip and
     // never a double grant. Only the balance changes — see `claimProWeekly`.
@@ -1303,6 +1315,28 @@ export default function PlayScreen() {
                     await supabase.from("user_assets").delete().eq("user_id", user.id);
                     await supabase.from("user_preferences").delete().eq("user_id", user.id);
                     setIsOnboarded(false);
+                }}
+            />
+
+            {/* The offer, in the two states the play screen owns. `hidden`
+                draws nothing — the window keeps running and a relaunch
+                brings the gift back. */}
+            {!isPro && flashStage === "gift" && (
+                <FlashGift
+                    onPress={() => {
+                        void flashSale.setStage("banner");
+                        setFlashOpen(true);
+                    }}
+                />
+            )}
+
+            <FlashSaleSheet
+                visible={flashOpen}
+                onClose={() => setFlashOpen(false)}
+                onPurchased={() => {
+                    setFlashOpen(false);
+                    void flashSale.end();
+                    void refreshStatus();
                 }}
             />
 

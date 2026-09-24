@@ -399,6 +399,12 @@ const zh: Dict = {
     "media.one_video": "视频",
     "dance.trial_note": "在免费 3D 时间内，你可以试用免费舞蹈。",
     "sub.b7": "成为 PRO，每周赠送 500 红宝石",
+    "flash.title": "接下来几小时的优惠价",
+    "flash.body": "还是那个 PRO，内容一样——只是这个价格明天就没有了。",
+    "flash.cta": "领取优惠",
+    "flash.later": "暂时不用",
+    "flash.off": "立省 {{n}}%",
+    "flash.unavailable": "你的账号无法使用此优惠。",
 };
 
 export default zh;

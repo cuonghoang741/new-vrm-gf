@@ -399,6 +399,12 @@ const de: Dict = {
     "media.one_video": "Video",
     "dance.trial_note": "Während deiner kostenlosen 3D-Minuten kannst du die kostenlosen Tänze ausprobieren.",
     "sub.b7": "500 Rubine jede Woche, allein fürs PRO-Sein",
+    "flash.title": "Ein besserer Preis, für die nächsten Stunden",
+    "flash.body": "Dasselbe PRO, alles gleich — nur dieser Preis ist morgen weg.",
+    "flash.cta": "Angebot sichern",
+    "flash.later": "Nein danke",
+    "flash.off": "{{n}}% SPAREN",
+    "flash.unavailable": "Dieses Angebot ist für dein Konto nicht verfügbar.",
 };
 
 export default de;
