@@ -17,6 +17,14 @@ const { withGradleProperties } = require('@expo/config-plugins');
  * one variable away:
  *
  *     TRUEMATE_ABIS=armeabi-v7a,arm64-v8a,x86,x86_64 npx expo prebuild -p android
+ *
+ * ⚠️ APKs only. An AAB must be built with ALL FOUR, because Play serves each
+ * device only the split that matches it — extra ABIs cost the user nothing and
+ * only make the upload bigger. Shipping an arm-only bundle crashes every
+ * x86_64 install (Chromebook, Windows Subsystem for Android, emulators) at
+ * launch with `SoLoaderDSONotFoundError: couldn't find DSO to load:
+ * libreactnative.so`, because SoLoader looks in `lib/x86_64` inside the splits
+ * and the bundle has nothing there. That has already happened once.
  */
 const DEFAULT_ABIS = 'arm64-v8a';
 

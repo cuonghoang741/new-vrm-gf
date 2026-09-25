@@ -171,12 +171,27 @@ keytool -printcert -jarfile app-release.aab | grep SHA1
 
 **ABIs.** `plugins/withAbiFilter.js` pins `arm64-v8a` because prebuild
 otherwise restores all four and the x86 emulator libraries are 72 MB of a
-179 MB APK that no phone can use. For an AAB pass
-`TRUEMATE_ABIS=armeabi-v7a,arm64-v8a` — Play serves only the matching split, so
-including 32-bit costs users nothing.
+179 MB APK that no phone can use. That is right for a sideloaded APK and
+**wrong for an AAB**:
+
+```bash
+TRUEMATE_ABIS=armeabi-v7a,arm64-v8a,x86,x86_64   # every AAB, no exceptions
+```
+
+Play serves each device only its matching split, so extra ABIs cost the user
+nothing and only enlarge the upload. An arm-only bundle crashes every x86_64
+install — Chromebook, Windows Subsystem for Android, emulators — at launch:
+
+```
+SoLoaderDSONotFoundError: couldn't find DSO to load: libreactnative.so
+  DirectApkSoSource[root = [ … split_config.arm64_v8a.apk!/lib/x86_64 , … ]]
+```
+
+SoLoader looks in `lib/x86_64` inside the splits and finds nothing. This
+shipped once and crashed on first launch.
 
 **versionCode** is minutes-since-epoch, automatic. Last built: **29837817**
-(APK) / **29837813** (AAB).
+(APK, arm64) / **29838436** (AAB, all four ABIs).
 
 ### Hosting
 
