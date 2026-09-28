@@ -11,7 +11,11 @@ import PlayScreen from "../screens/PlayScreen";
 import LanguageScreen from "../screens/LanguageScreen";
 import WelcomeBackScreen from "../screens/WelcomeBackScreen";
 import { initI18n, hasChosenLanguage, setAppLanguage, currentLang } from "../i18n";
-import { markAppOpened, isReturningSession } from "../services/session";
+import {
+    markAppOpened,
+    isReturningSession,
+    markWelcomePaywallPending,
+} from "../services/session";
 import { analyticsService } from "../services/AnalyticsService";
 import { LoadingScreen } from "../screens/LoadingScreen";
 import { useSplashAd } from "../hooks/useSplashAd";
@@ -88,6 +92,8 @@ export default function AppNavigator() {
     const handleOnboardingComplete = useCallback(() => {
         setJustOnboarded(true);
         setIsOnboarded(true);
+        // Arm the welcome paywall; the Play screen presents it once it is up.
+        void markWelcomePaywallPending();
     }, [setIsOnboarded]);
 
     const handleLanguageDone = useCallback(async () => {

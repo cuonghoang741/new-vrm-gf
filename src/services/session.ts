@@ -80,3 +80,35 @@ export function getPreviousOpenAt(): number | null {
 export function isSessionReady(): boolean {
     return _ready;
 }
+
+// ── welcome paywall ─────────────────────────────────────────────────────────
+/**
+ * The paywall shown once, the first time the user lands on the Play screen
+ * after onboarding — the Yuuki flow. It is a flag rather than "show it if this
+ * is launch #1" because onboarding can be finished on a later launch (quit
+ * halfway, come back), and the welcome paywall should follow the onboarding,
+ * not the install.
+ *
+ * `take` consumes the flag as it reads, so a kill mid-present cannot make the
+ * paywall reappear on the next launch: one onboarding, one welcome paywall.
+ */
+const K_WELCOME_PAYWALL = "pending_welcome_paywall";
+
+export async function markWelcomePaywallPending(): Promise<void> {
+    try {
+        await SecureStore.setItemAsync(K_WELCOME_PAYWALL, "1");
+    } catch {
+        /* no flag → no welcome paywall; never a crash on the way into the app */
+    }
+}
+
+export async function takeWelcomePaywallPending(): Promise<boolean> {
+    try {
+        const v = await SecureStore.getItemAsync(K_WELCOME_PAYWALL);
+        if (v !== "1") return false;
+        await SecureStore.deleteItemAsync(K_WELCOME_PAYWALL);
+        return true;
+    } catch {
+        return false;
+    }
+}
