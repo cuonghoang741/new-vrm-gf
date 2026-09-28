@@ -18,19 +18,30 @@ const { withGradleProperties } = require('@expo/config-plugins');
  *
  *     TRUEMATE_ABIS=armeabi-v7a,arm64-v8a,x86,x86_64 npx expo prebuild -p android
  *
- * ⚠️ APKs only. An AAB must be built with ALL FOUR, because Play serves each
- * device only the split that matches it — extra ABIs cost the user nothing and
- * only make the upload bigger. Shipping an arm-only bundle crashes every
- * x86_64 install (Chromebook, Windows Subsystem for Android, emulators) at
- * launch with `SoLoaderDSONotFoundError: couldn't find DSO to load:
- * libreactnative.so`, because SoLoader looks in `lib/x86_64` inside the splits
- * and the bundle has nothing there. That has already happened once.
+ * ⚠️ APKs only. An AAB must carry ALL FOUR, because Play serves each device
+ * only the split that matches it — extra ABIs cost the user nothing and only
+ * make the upload bigger. An arm-only bundle crashes every x86_64 install
+ * (Chromebook, Windows Subsystem for Android, emulators) at launch with
+ * `SoLoaderDSONotFoundError`, because SoLoader looks in `lib/x86_64` inside the
+ * splits and the bundle has nothing there.
+ *
+ * That shipped twice. The first fix only wrote the warning above, leaving the
+ * default arm-only and the correctness of every bundle resting on whoever ran
+ * the build remembering an environment variable. So the profile now decides,
+ * and an unrecognised one gets the four that always work: a forgotten variable
+ * now costs upload size, never a launch crash.
  */
-const DEFAULT_ABIS = 'arm64-v8a';
+const ALL_ABIS = 'armeabi-v7a,arm64-v8a,x86,x86_64';
+const SLIM_ABIS = 'arm64-v8a';
+
+// `buildType: "apk"` in eas.json. Everything else builds an app-bundle.
+const APK_PROFILES = new Set(['development', 'apk', 'qa-apk']);
 
 module.exports = (config) =>
   withGradleProperties(config, (config) => {
-    const value = process.env.TRUEMATE_ABIS || DEFAULT_ABIS;
+    const profile = process.env.EAS_BUILD_PROFILE;
+    const value =
+      process.env.TRUEMATE_ABIS || (APK_PROFILES.has(profile) ? SLIM_ABIS : ALL_ABIS);
     const key = 'reactNativeArchitectures';
 
     const existing = config.modResults.find(

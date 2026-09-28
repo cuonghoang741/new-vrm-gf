@@ -18,6 +18,11 @@ const { withAppBuildGradle } = require('@expo/config-plugins');
 const EXCLUDES = [
   { group: 'com.google.mlkit', module: 'barcode-scanning' },
   { group: 'com.google.android.gms', module: 'play-services-mlkit-barcode-scanning' },
+  // A third artefact, missed the first time: it declares
+  // GmsBarcodeScanningDelegateActivity, which hands the scan off to Play
+  // Services. On a device whose GMS does not answer that intent the activity
+  // dies with ActivityNotFoundException the moment it is started.
+  { group: 'com.google.android.gms', module: 'play-services-code-scanner' },
 ];
 
 const MARKER = '// slim-build (withSlimBuild)';

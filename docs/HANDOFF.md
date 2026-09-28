@@ -162,12 +162,26 @@ cd android && ./gradlew bundleRelease \
 ```
 
 Always verify the signer before handing a file over — a build signed with the
-debug key is what Play rejects:
+debug key is what Play rejects. The tool differs by artefact, and using the
+wrong one looks like a signing failure when nothing is wrong:
 
 ```bash
+# AAB — jar-signed, so keytool reads it
 keytool -printcert -jarfile app-release.aab | grep SHA1
-# must be 9A:C2:5A:5F:EC:E8:D7:44:A7:3D:F3:AF:E3:7B:2A:95:31:1B:75:CE
+
+# APK — signed with scheme v2/v3 only, so keytool says "Not a signed jar file"
+~/Library/Android/sdk/build-tools/36.0.0/apksigner verify --print-certs \
+  app-release.apk | grep "SHA-1"
+
+# both must be 9A:C2:5A:5F:EC:E8:D7:44:A7:3D:F3:AF:E3:7B:2A:95:31:1B:75:CE
 ```
+
+**Pass the passwords as separate variables.** This shell is zsh, where an
+unquoted `$VAR` does *not* word-split as it does in bash, so the usual
+`set -- $(…)` trick puts all three values into `$1` and leaves the alias empty.
+Gradle then fails with `Failed to read key  from store … password was
+incorrect`, which sends you looking at the keystore instead of the shell. The
+double space in that message is the alias that never arrived.
 
 **ABIs.** `plugins/withAbiFilter.js` pins `arm64-v8a` because prebuild
 otherwise restores all four and the x86 emulator libraries are 72 MB of a
@@ -190,8 +204,9 @@ SoLoaderDSONotFoundError: couldn't find DSO to load: libreactnative.so
 SoLoader looks in `lib/x86_64` inside the splits and finds nothing. This
 shipped once and crashed on first launch.
 
-**versionCode** is minutes-since-epoch, automatic. Last built: **29837817**
-(APK, arm64) / **29838436** (AAB, all four ABIs).
+**versionCode** is minutes-since-epoch, automatic — and because it is a
+timestamp it also tells you which build a given number is: `date -r $((vc*60))`.
+Last built: **29838888** (APK, arm64) / **29838804** (AAB, all four ABIs).
 
 ### Hosting
 
