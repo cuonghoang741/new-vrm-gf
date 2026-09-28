@@ -85,6 +85,32 @@ Which bucket is which:
 Character and costume art is spread across all four. There is no single place
 that holds it all.
 
+#### `R2_PRESIGN_TOKEN` — uploading builds and art
+
+`tools/vroid/pushbuild.sh` and the `art-gen` caller both send this in
+`x-presign-token`; it is checked by plain equality against the secret of the
+same name on the **Yuuki** project (`hpjhqezgfqztcafaknzk`). Writes are limited
+to `qa-builds/` and `app-art/`. The R2 keys themselves stay server-side, which
+is the whole point of going through the edge function.
+
+The value lives in `SECRETS.local.md`, never here — this file is committed to a
+public repository, and the token is a bearer credential: anyone holding it can
+write to `qa-builds/` and `app-art/`.
+
+**The Management API cannot give it back:**
+`GET /v1/projects/{ref}/secrets` returns a SHA-256 digest for every secret, not
+the value — `R2_BUCKET` comes back as 64 hex characters too, which is how to
+tell. On 2026-09-25 the token existed only in a previous session's shell, so it
+was unrecoverable and had to be rotated to ship a build. Rotating is harmless
+(nothing in either app calls `r2-presign` at runtime) but it silently breaks any
+script still holding the old value:
+
+```bash
+curl -X POST "https://api.supabase.com/v1/projects/hpjhqezgfqztcafaknzk/secrets" \
+  -H "Authorization: Bearer $SUPABASE_PAT" -H "Content-Type: application/json" \
+  -d '[{"name":"R2_PRESIGN_TOKEN","value":"<new>"}]'
+```
+
 ### OpenRouter — image generation
 
 Only needed for regenerating character/costume art, never at runtime.

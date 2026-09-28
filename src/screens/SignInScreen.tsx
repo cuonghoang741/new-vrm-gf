@@ -357,9 +357,9 @@ export default function SignInScreen() {
 
                     <Text style={styles.termsText}>
                         {t("signin.terms_prefix")}{" "}
-                        <Text style={styles.termsLink} onPress={() => openBrowserSafe("https://personal-muse-3d.lovable.app/terms")}>{t("signin.tos")}</Text>,{" "}
-                        <Text style={styles.termsLink} onPress={() => openBrowserSafe("https://personal-muse-3d.lovable.app/privacy")}>{t("signin.privacy")}</Text> {t("signin.terms_and")}{" "}
-                        <Text style={styles.termsLink} onPress={() => openBrowserSafe("https://personal-muse-3d.lovable.app/eula")}>{t("signin.eula")}</Text>
+                        <Text style={styles.termsLink} onPress={() => openBrowserSafe("https://truemate.netlify.app/terms")}>{t("signin.tos")}</Text>,{" "}
+                        <Text style={styles.termsLink} onPress={() => openBrowserSafe("https://truemate.netlify.app/privacy")}>{t("signin.privacy")}</Text> {t("signin.terms_and")}{" "}
+                        <Text style={styles.termsLink} onPress={() => openBrowserSafe("https://truemate.netlify.app/eula")}>{t("signin.eula")}</Text>
                     </Text>
 
                     {/* Below the terms, deliberately clear of the sign-in

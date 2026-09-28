@@ -786,15 +786,15 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                                 <Text style={styles.footerLink}>{t("sub.restore")}</Text>
                             </Pressable>
                             <Text style={styles.footerDot}>•</Text>
-                            <Pressable onPress={() => openBrowserSafe("https://personal-muse-3d.lovable.app/terms")}>
+                            <Pressable onPress={() => openBrowserSafe("https://truemate.netlify.app/terms")}>
                                 <Text style={styles.footerLink}>Terms</Text>
                             </Pressable>
                             <Text style={styles.footerDot}>•</Text>
-                            <Pressable onPress={() => openBrowserSafe("https://personal-muse-3d.lovable.app/privacy")}>
+                            <Pressable onPress={() => openBrowserSafe("https://truemate.netlify.app/privacy")}>
                                 <Text style={styles.footerLink}>Privacy</Text>
                             </Pressable>
                             <Text style={styles.footerDot}>•</Text>
-                            <Pressable onPress={() => openBrowserSafe("https://personal-muse-3d.lovable.app/eula")}>
+                            <Pressable onPress={() => openBrowserSafe("https://truemate.netlify.app/eula")}>
                                 <Text style={styles.footerLink}>EULA</Text>
                             </Pressable>
                         </View>
