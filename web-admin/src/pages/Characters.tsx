@@ -9,12 +9,12 @@
 //   - Không có "nhân vật mặc định sau onboarding": app TrueFeel ghép nhân vật
 //     theo câu trả lời onboarding, không lấy người đứng đầu danh sách.
 //   - Xoá nhân vật CASCADE sang lịch sử chat (conversation) và tiến độ của
-//     người dùng (user_character). Trước khi xoá, hỏi DB xem sẽ mất gì
-//     (character_delete_impact) và bắt gõ lại tên nếu có dữ liệu người dùng.
+//     người dùng (user_character) — một confirm là xong, như các trang khác.
+//     Muốn nhân vật biến khỏi app mà giữ lịch sử thì tắt is_public/available.
 
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { mediaUrl, supabase } from '../lib/supabase';
+import { mediaUrl } from '../lib/supabase';
 import { deleteOne, errMsg, insertOne, parsePrice, selectAll, updateOne } from '../lib/db';
 import { BackgroundPicker } from '../components/BackgroundPicker';
 import VrmPreviewModal from '../components/VrmPreviewModal';
@@ -39,11 +39,6 @@ function sortChars(list: Character[]): Character[] {
   );
 }
 
-type Impact = {
-  conversations: number; user_links: number; costumes: number;
-  medias: number; translations: number; blockers: number;
-};
-
 export default function Characters() {
   const [chars, setChars] = useState<Character[]>([]);
   const [backgrounds, setBackgrounds] = useState<Background[]>([]);
@@ -54,7 +49,6 @@ export default function Characters() {
   const [newName, setNewName] = useState('');
   const [bgPickFor, setBgPickFor] = useState<Character | null>(null);
   const [previewing, setPreviewing] = useState<Character | null>(null);
-  const [deleting, setDeleting] = useState<{ c: Character; impact: Impact } | null>(null);
 
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
@@ -171,23 +165,16 @@ export default function Characters() {
     setBusyId(null);
   }
 
-  async function askDelete(c: Character) {
-    setBusyId(c.id);
-    const { data, error } = await supabase.rpc('character_delete_impact', { cid: c.id });
-    setBusyId(null);
-    if (error) return setErr(error.message);
-    if (!data) return setErr('Không đọc được mức ảnh hưởng — tài khoản chưa có quyền admin?');
-    setDeleting({ c, impact: data as Impact });
-  }
-
-  async function confirmDelete(c: Character) {
+  async function remove(c: Character) {
+    if (!confirm(`Xoá "${c.name}"? Lịch sử chat và tiến độ quan hệ của người dùng với nhân vật này mất theo. Không hoàn tác được.`)) return;
     setBusyId(c.id);
     try {
       await deleteOne('characters', c.id);
       setChars((p) => p.filter((x) => x.id !== c.id));
-      setDeleting(null);
       setErr('');
     } catch (e) {
+      // Quest / collection / thông báo đã lên lịch trỏ tới nhân vật này không
+      // CASCADE, nên Postgres chặn bằng lỗi khoá ngoại — hiện nguyên văn.
       setErr(errMsg(e));
     }
     setBusyId(null);
@@ -362,7 +349,7 @@ export default function Characters() {
                     🧍
                   </button>
                   <Link className="ghost small" to={`/characters/${c.id}`} style={{ flex: 1, textAlign: 'center', textDecoration: 'none' }}>Sửa</Link>
-                  <button className="danger small" disabled={busy} title="Xoá nhân vật" onClick={() => void askDelete(c)}>🗑</button>
+                  <button className="danger small" disabled={busy} title="Xoá nhân vật" onClick={() => void remove(c)}>🗑</button>
                 </div>
               </div>
             );
@@ -383,75 +370,6 @@ export default function Characters() {
         <VrmPreviewModal url={mediaUrl(previewing.base_model_url)} title={previewing.name} onClose={() => setPreviewing(null)} />
       )}
 
-      {deleting && (
-        <DeleteCharacterModal
-          c={deleting.c}
-          impact={deleting.impact}
-          busy={busyId === deleting.c.id}
-          onHide={() => { void quick(deleting.c, { is_public: false, available: false }); setDeleting(null); }}
-          onConfirm={() => void confirmDelete(deleting.c)}
-          onClose={() => setDeleting(null)}
-        />
-      )}
-    </div>
-  );
-}
-
-/// Xoá nhân vật là thao tác phá dữ liệu NGƯỜI DÙNG (lịch sử chat, tiến độ quan
-/// hệ) chứ không chỉ dữ liệu CMS. Nên: nói rõ con số, gợi ý ẩn thay vì xoá, và
-/// khi có dữ liệu người dùng thì bắt gõ lại đúng tên — một cú bấm nhầm không đủ.
-function DeleteCharacterModal({
-  c, impact, busy, onHide, onConfirm, onClose,
-}: {
-  c: Character;
-  impact: Impact;
-  busy: boolean;
-  onHide: () => void;
-  onConfirm: () => void;
-  onClose: () => void;
-}) {
-  const [typed, setTyped] = useState('');
-  const userData = impact.conversations + impact.user_links;
-  const needTyping = userData > 0;
-  const canDelete = impact.blockers === 0 && (!needTyping || typed.trim() === c.name);
-
-  return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-content" style={{ maxWidth: 520 }} onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3 style={{ margin: 0, textTransform: 'none', letterSpacing: 0, fontSize: 16 }}>Xoá “{c.name}”?</h3>
-          <button className="ghost small" onClick={onClose}>Đóng</button>
-        </div>
-
-        <div className={userData > 0 ? 'error' : 'card'} style={{ marginBottom: 12 }}>
-          Xoá sẽ kéo theo <b>vĩnh viễn</b>:
-          <ul style={{ margin: '6px 0 0 18px' }}>
-            <li><b>{impact.conversations.toLocaleString()}</b> tin nhắn chat của người dùng</li>
-            <li><b>{impact.user_links.toLocaleString()}</b> người dùng đang gắn với nhân vật này (tiến độ quan hệ)</li>
-            <li>{impact.costumes} trang phục · {impact.medias} media · {impact.translations} bản dịch</li>
-          </ul>
-        </div>
-
-        {impact.blockers > 0 && (
-          <div className="error" style={{ marginBottom: 12 }}>
-            Không xoá được: còn {impact.blockers} dòng (quest / collection / thông báo đã lên lịch) trỏ tới nhân vật này. Gỡ chúng trước, hoặc chỉ ẩn nhân vật.
-          </div>
-        )}
-
-        <p className="muted small">Thường chỉ cần <b>ẩn</b>: nhân vật biến khỏi app nhưng lịch sử của người dùng còn nguyên, bật lại lúc nào cũng được.</p>
-
-        {needTyping && impact.blockers === 0 && (
-          <label>
-            <span>Gõ lại đúng tên <b>{c.name}</b> để xác nhận xoá</span>
-            <input value={typed} onChange={(e) => setTyped(e.target.value)} autoFocus />
-          </label>
-        )}
-
-        <div className="actions">
-          <button className="primary" disabled={busy} onClick={onHide}>🚫 Chỉ ẩn khỏi app</button>
-          <button className="danger" disabled={busy || !canDelete} onClick={onConfirm}>🗑 Xoá vĩnh viễn</button>
-        </div>
-      </div>
     </div>
   );
 }
