@@ -267,7 +267,8 @@ serve(async (req) => {
                 const { data: authUser } = await supabase.auth.admin.getUserById(userId).then(res => res.data).catch(() => ({ user: null }));
                 
                 const userName = profile?.display_name || authUser?.user?.email || 'N/A';
-                const country = profile?.country || 'N/A';
+                // Lấy country từ profile, nếu không có thì lấy từ IP address header
+                let country = profile?.country || req.headers.get('cf-ipcountry') || 'N/A';
                 let daysUsed = 0;
                 if (stats?.created_at) {
                     daysUsed = Math.floor((Date.now() - new Date(stats.created_at).getTime()) / (1000 * 60 * 60 * 24));

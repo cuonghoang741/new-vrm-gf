@@ -24,7 +24,7 @@ async function sendTelegramNotification(message: string) {
 serve(async (req) => {
     try {
         const payload = await req.json();
-        const record = payload.record; 
+        const record = payload.record;
 
         if (!record) {
             return new Response("No record found", { status: 400 });
@@ -32,7 +32,12 @@ serve(async (req) => {
 
         const userId = record.id;
         const displayName = record.display_name || 'Người dùng mới';
-        const country = record.country || 'N/A';
+
+        // Lấy country từ IP address hoặc từ record
+        let country = record.country || 'N/A';
+        if (country === 'N/A' && req.headers.get('cf-ipcountry')) {
+            country = req.headers.get('cf-ipcountry') || 'N/A';
+        }
         const createdAt = record.created_at ? new Date(record.created_at).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }) : 'N/A';
 
         const message = `👋 <b>NGƯỜI DÙNG MỚI ĐĂNG KÝ</b>\n\n👤 Tên: <b>${displayName}</b>\n🌍 Quốc gia: <code>${country}</code>\n⏰ Thời gian: <code>${createdAt}</code>\n🆔 ID: <code>${userId}</code>`;
