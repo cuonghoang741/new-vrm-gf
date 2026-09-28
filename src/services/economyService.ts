@@ -89,18 +89,19 @@ export const unlockWithAd = (type: AssetType, id: string) =>
  *
  * Granted rather than claimed: it is part of what the subscription is, not a
  * reason to open a particular screen, so nobody should lose it for missing a
- * card. Safe to call on every launch — the server pays once per ISO week.
+ * card. Safe to call on every launch — the server pays once per rolling 7 days
+ * (it used to be the ISO week, which paid a Sunday subscriber twice).
  */
 export const claimProWeekly = () =>
     rpc<{
         granted: boolean;
-        /** How many weeks were paid on this call — more than one after a gap. */
-        weeks: number;
-        /** Total handed over now; `weekly` × `weeks`. */
+        /** Why not, when `granted` is false: `not_pro` | `already`. */
+        reason?: string;
+        /** The weekly amount, whether or not it was handed over now. */
         amount: number;
-        weekly: number;
         ruby: number;
-        week: string;
+        /** When the next grant becomes due. */
+        next_at: string | null;
     }>("app_pro_weekly");
 
 export async function getRuby(): Promise<number> {

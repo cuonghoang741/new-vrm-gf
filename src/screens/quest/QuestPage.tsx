@@ -247,8 +247,11 @@ export function QuestPage({ visible, onClose, isPro, sceneImage, onOpenSubscript
                         if (here !== tab) setTab(here);
                     }}
                 >
-                    {/* PRO */}
+                    {/* PRO — the daily bonus card only exists while the server still
+                        pays a daily amount. That ruby now arrives with the weekly PRO
+                        grant, so `amount` is 0 and the card is gone. */}
                     {isPro ? (
+                        (state?.proBonus.amount ?? 0) > 0 ? (
                         <View style={[styles.card, styles.proCard]}>
                             <LinearGradient colors={SHEET.goldGradient} style={styles.cardIcon}>
                                 <IconCrown size={22} color="#fff" />
@@ -275,6 +278,7 @@ export function QuestPage({ visible, onClose, isPro, sceneImage, onOpenSubscript
                                 )}
                             </Pressable>
                         </View>
+                        ) : null
                     ) : (
                         <Pressable onPress={onOpenSubscription} style={({ pressed }) => [pressed && { opacity: 0.92 }]}>
                             <LinearGradient colors={["#3B2300", "#2A1440"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.card, styles.proCard]}>
@@ -283,7 +287,7 @@ export function QuestPage({ visible, onClose, isPro, sceneImage, onOpenSubscript
                                 </LinearGradient>
                                 <View style={{ flex: 1 }}>
                                     <Text style={styles.cardTitle}>{t("quest.pro_title")}</Text>
-                                    <Text style={styles.cardBody}>{t("quest.pro_body_x2", { n: state?.proBonus.amount ?? 30 })}</Text>
+                                    <Text style={styles.cardBody}>{t("quest.pro_body_x2")}</Text>
                                 </View>
                                 <Ionicons name="chevron-forward" size={20} color={SHEET.gold} />
                             </LinearGradient>

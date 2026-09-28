@@ -1027,12 +1027,17 @@ export default function PlayScreen() {
     // never sees an offer to become one.
     useEffect(() => {
         if (isPro) { void flashSale.end(); return; }
-        void flashSale.restore();
+        // Pick up a running window first; if there is none, see whether one is
+        // due — a decline lasts a day, and after that nothing else would ever
+        // bring the offer back unless the user reopened the paywall.
+        void flashSale.restore().then(() => flashSale.maybeStart());
     }, [isPro]);
 
-    // This week's PRO ruby. Fire-and-forget on every arrival: the server pays
-    // once per ISO week, so calling it again costs one cheap round trip and
-    // never a double grant. Only the balance changes — see `claimProWeekly`.
+    // This week's PRO ruby. Fire-and-forget on every arrival, and again the
+    // moment `isPro` flips, so it lands right after a purchase rather than on
+    // the next app launch. The server pays once per rolling 7 days, so calling
+    // it again costs one cheap round trip and never a double grant. Only the
+    // balance changes — see `claimProWeekly`.
     useEffect(() => {
         if (!isPro || !user?.id) return;
         let alive = true;
@@ -1371,6 +1376,12 @@ export default function PlayScreen() {
             <FlashSaleSheet
                 visible={flashOpen}
                 onClose={() => setFlashOpen(false)}
+                onDecline={() => {
+                    setFlashOpen(false);
+                    // Gone for a day, gift box and banner both — then it comes
+                    // back on its own if the account is still eligible.
+                    void flashSale.snooze();
+                }}
                 onPurchased={() => {
                     setFlashOpen(false);
                     void flashSale.end();
