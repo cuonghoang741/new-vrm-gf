@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import * as SecureStore from "expo-secure-store";
 import { flashSaleTestMode } from "./remoteConfig";
+import { FLASH_OFFERING_ID, isFlashPackage } from "../components/flash/ids";
 
 /**
  * A discounted PRO window that opens once a day, right after the paywall is
@@ -30,9 +31,20 @@ import { flashSaleTestMode } from "./remoteConfig";
 const DEADLINE_KEY = "flash_deadline_ms";
 const SHOWN_DAY_KEY = "flash_shown_day";
 const STAGE_KEY = "flash_stage";
+const SNOOZE_KEY = "flash_snooze_until_ms";
 
 /** How long the window stays open. The on-screen clock counts this down. */
 const WINDOW_MS = 3 * 60 * 60 * 1000;
+
+/**
+ * How long "no thanks" lasts.
+ *
+ * Declining in the sheet is a real answer and it is respected, but it is not
+ * permanent: the offer comes back a day later on its own. Measured from the
+ * press rather than snapped to the next calendar day, so declining at 23:00
+ * does not bring the gift back an hour later.
+ */
+const SNOOZE_MS = 24 * 60 * 60 * 1000;
 
 /**
  * What the play screen should be painting.
@@ -96,6 +108,31 @@ async function hasEverPurchased(): Promise<boolean> {
         );
     } catch {
         return false;
+    }
+}
+
+/**
+ * Is there actually a flash package to sell?
+ *
+ * `true` / `false` when RevenueCat answered, `null` when it could not be asked.
+ * The distinction is the point: a gift box that opens onto "no offer" has
+ * happened here before — the package existed in the dashboard with no product
+ * attached, so the app was handed an offering with nothing in it. An answered
+ * "no package" must hide the gift. A network failure must not, or one slow
+ * response hides the offer from everybody.
+ */
+async function hasFlashPackage(): Promise<boolean | null> {
+    try {
+        const Purchases = (await import("react-native-purchases")).default;
+        const offerings = await Purchases.getOfferings();
+        const dedicated = offerings.all[FLASH_OFFERING_ID];
+        const pool = [
+            ...(dedicated?.availablePackages ?? []),
+            ...(offerings.current?.availablePackages ?? []),
+        ];
+        return pool.some(isFlashPackage) || (dedicated?.availablePackages.length ?? 0) > 0;
+    } catch {
+        return null;
     }
 }
 
@@ -219,12 +256,19 @@ class FlashSale {
         const testing = flashSaleTestMode();
 
         if (!testing && (await this.shownToday())) return false;
+        // Declined in the sheet within the last day. Checked before the two
+        // network gates below so a "no thanks" costs nothing to honour.
+        if (!testing && (await this.isSnoozed())) return false;
         // Anyone who has ever bought anything is out. The price behind this is
         // an introductory offer, and the stores only honour those for eligible
         // accounts — showing the gift, the countdown and the discounted card
         // to someone who would then be charged full price is the "paywall
         // price does not match the store" rejection, written down.
         if (!testing && (await hasEverPurchased())) return false;
+        // And there has to be something to sell. `false` only when RevenueCat
+        // answered and had no flash package; an unreachable store still opens
+        // the window — see `hasFlashPackage`.
+        if (!testing && (await hasFlashPackage()) === false) return false;
 
         this.deadlineMs = Date.now() + WINDOW_MS;
         await write(DEADLINE_KEY, String(this.deadlineMs));
@@ -234,6 +278,49 @@ class FlashSale {
         this.setStageLocal("gift");
         this.emit();
         return true;
+    }
+
+    /** Declined in the sheet, and the decline has not expired yet. */
+    async isSnoozed(): Promise<boolean> {
+        const raw = await read(SNOOZE_KEY);
+        const until = raw ? Number(raw) : NaN;
+        if (!Number.isFinite(until)) return false;
+        if (until <= Date.now()) {
+            await drop(SNOOZE_KEY);
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * "No thanks": take the whole offer off the screen for a day.
+     *
+     * Different from closing the ribbon, which only hides it until the next
+     * launch. This ends the running window too — leaving a banner up after an
+     * explicit decline is nagging, and the discount is meant to feel like a
+     * moment, not a fixture. `maybeStart` brings it back once `SNOOZE_MS` is up,
+     * provided the account is still eligible.
+     */
+    async snooze(): Promise<void> {
+        await write(SNOOZE_KEY, String(Date.now() + SNOOZE_MS));
+        // Clear today's marker: the snooze is now the gate, and leaving both in
+        // place would push the return to whichever is later for no reason.
+        await drop(SHOWN_DAY_KEY);
+        await this.end();
+    }
+
+    /**
+     * Open a window without the user having touched the paywall.
+     *
+     * The paywall close is the best moment for this offer, but it cannot be the
+     * only one: after a decline, or a window that simply expired, nothing would
+     * ever bring the gift back unless the user happened to open and close the
+     * paywall again. Called at boot; every gate in `start` still applies, so on
+     * any day the offer is not due this is one cheap read and nothing else.
+     */
+    async maybeStart(): Promise<boolean> {
+        if (this.isActive) return false;
+        return this.start();
     }
 
     /** They bought, or they were PRO all along. */
@@ -269,7 +356,7 @@ class FlashSale {
 
     /** Wipe everything, so the flow can be run again from the top. */
     async reset(): Promise<void> {
-        await Promise.all([drop(DEADLINE_KEY), drop(SHOWN_DAY_KEY), drop(STAGE_KEY)]);
+        await Promise.all([drop(DEADLINE_KEY), drop(SHOWN_DAY_KEY), drop(STAGE_KEY), drop(SNOOZE_KEY)]);
         this.deadlineMs = null;
         this.stopTicker();
         this.setStageLocal("none");

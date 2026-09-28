@@ -31,10 +31,18 @@ import { FLASH_OFFERING_ID, isFlashPackage } from "./ids";
 export function FlashSaleSheet({
     visible,
     onClose,
+    onDecline,
     onPurchased,
 }: {
     visible: boolean;
+    /** Backdrop, X, or the back gesture: put it away, keep the offer running. */
     onClose: () => void;
+    /**
+     * The "not now" button — an answer, not a dismissal, and it silences the
+     * offer for a day. Falls back to `onClose` so the sheet keeps working if a
+     * caller has not wired it.
+     */
+    onDecline?: () => void;
     onPurchased: () => void;
 }) {
     const { t } = useTranslation();
@@ -178,7 +186,7 @@ export function FlashSaleSheet({
                         </>
                     )}
 
-                    <Pressable onPress={onClose} hitSlop={8} style={styles.later}>
+                    <Pressable onPress={onDecline ?? onClose} hitSlop={8} style={styles.later}>
                         <Text style={styles.laterText}>{t("flash.later")}</Text>
                     </Pressable>
                 </Animated.View>
