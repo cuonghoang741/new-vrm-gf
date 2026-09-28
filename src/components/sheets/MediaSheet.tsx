@@ -212,7 +212,10 @@ const MediaSheet = forwardRef<MediaSheetRef, MediaSheetProps>(
                             style={styles.mediaThumbnail}
                             contentFit="cover"
                             transition={200}
-                            blurRadius={isLocked ? 28 : 0}
+                            // Đủ để không xem được chi tiết, vẫn thấy được đây
+                            // là ảnh gì — 28 trên ô nhỏ này là một vệt màu, nhìn
+                            // như ảnh lỗi chứ không như nội dung đang bị khoá.
+                            blurRadius={isLocked ? 12 : 0}
                         />
 
                         {/* Video indicator */}
@@ -227,7 +230,9 @@ const MediaSheet = forwardRef<MediaSheetRef, MediaSheetProps>(
                             150 ruby sends the user to the wrong screen. */}
                         {isLocked && (
                             <View style={styles.lockedOverlay}>
-                                <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(10,6,20,0.4)" }]} />
+                                {/* Chỉ để badge và giá đọc được trên ảnh sáng.
+                                    Lớp này cộng với blur, nên 0.4 là quá dày. */}
+                                <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(10,6,20,0.28)" }]} />
                                 <View style={styles.lockBadge}>
                                     {state === "ad" ? (
                                         <Ionicons name="play" size={15} color="#fff" />
@@ -406,23 +411,32 @@ const MediaSheet = forwardRef<MediaSheetRef, MediaSheetProps>(
                                     />
                                 )}
                             </View>
+
+                            {/* Inside the lightbox Modal on purpose. As a sibling of
+                                it, iOS refused to present this dialog while the
+                                lightbox was up: the flag button did nothing, and the
+                                dialog then popped on its own the moment the lightbox
+                                was closed. A modal presented from INSIDE the visible
+                                modal is allowed, so it now opens over the photo. */}
+                            <ReportDialog
+                                visible={reportOpen}
+                                kind="media"
+                                targetId={selectedMedia?.id}
+                                snapshot={selectedMedia?.url}
+                                onClose={() => setReportOpen(false)}
+                                onReported={() => {
+                                    setReportedNow(true);
+                                    // Close this dialog before the lightbox that hosts
+                                    // it goes away, so it is never torn off screen
+                                    // mid-dismiss.
+                                    setReportOpen(false);
+                                    setSelectedMedia(null);
+                                }}
+                            />
                         </BlurView>
                     </Modal>
 
                     {unlock.dialogs}
-
-                    <ReportDialog
-                        visible={reportOpen}
-                        kind="media"
-                        targetId={selectedMedia?.id}
-                        snapshot={selectedMedia?.url}
-                        onClose={() => setReportOpen(false)}
-                        onReported={() => {
-                            setReportedNow(true);
-                            // Take it off the screen it was reported from.
-                            setSelectedMedia(null);
-                        }}
-                    />
                 </View>
             </BottomSheet>
         );

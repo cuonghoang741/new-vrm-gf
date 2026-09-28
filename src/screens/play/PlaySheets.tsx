@@ -137,6 +137,7 @@ export function PlaySheets(p: PlaySheetsProps) {
                 }}
                 isPro={p.isPro}
                 onOpenSubscription={openSubscription}
+                onOpenQuests={openQuests}
                 userId={p.user?.id}
             />
             <CostumeSheet

@@ -426,7 +426,7 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                                     onPress={() => {
                                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                         analyticsService.logEvent('open_privacy_policy');
-                                        openBrowserSafe("https://personal-muse-3d.lovable.app/privacy");
+                                        openBrowserSafe("https://truemate.netlify.app/privacy");
                                     }}
                                 />
                                 <View style={styles.separator} />
@@ -435,7 +435,7 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                                     label={t("signin.tos")}
                                     onPress={() => {
                                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                        openBrowserSafe("https://personal-muse-3d.lovable.app/terms");
+                                        openBrowserSafe("https://truemate.netlify.app/terms");
                                     }}
                                 />
                                 <View style={styles.separator} />
@@ -444,7 +444,7 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                                     label={t("signin.eula")}
                                     onPress={() => {
                                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                        openBrowserSafe("https://personal-muse-3d.lovable.app/eula");
+                                        openBrowserSafe("https://truemate.netlify.app/eula");
                                     }}
                                 />
                                 <View style={styles.separator} />
@@ -572,21 +572,22 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                         Alert.alert("✅", t("priv.success"));
                     }}
                 />
+
+                {/* Same reason as the two above: opened from a row in this sheet,
+                    so they have to live inside it or iOS never presents them. */}
+                <RatingDialog visible={ratingOpen} onClose={() => setRatingOpen(false)} />
+                <ReportDialog
+                    visible={reportOpen}
+                    kind="character"
+                    onClose={() => setReportOpen(false)}
+                />
+                <QualityPickerDialog
+                    visible={qualityOpen}
+                    value={quality}
+                    onPick={setQualityState}
+                    onClose={() => setQualityOpen(false)}
+                />
             </BottomSheet>
-
-            <RatingDialog visible={ratingOpen} onClose={() => setRatingOpen(false)} />
-            <ReportDialog
-                visible={reportOpen}
-                kind="character"
-                onClose={() => setReportOpen(false)}
-            />
-
-            <QualityPickerDialog
-                visible={qualityOpen}
-                value={quality}
-                onPick={setQualityState}
-                onClose={() => setQualityOpen(false)}
-            />
 
             {/* ─── Edit Profile sub-sheet ─── */}
         </>

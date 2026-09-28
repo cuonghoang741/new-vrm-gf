@@ -22,7 +22,7 @@ import * as Haptics from "expo-haptics";
 import { useRewardedAd } from "../../hooks/useRewardedAd";
 import { AdGateDialog } from "../AdGateDialog";
 import { AdUnlockBadge } from "../ads/AdUnlockBadge";
-import { consumeNoFillGrant, loadUnlocks, markUnlocked, requiresAd, subscribeUnlocks } from "../../services/unlockService";
+import { consumeNoFillGrant, isUnlocked, loadUnlocks, markOwned, markUnlocked, requiresAd, subscribeUnlocks } from "../../services/unlockService";
 import { AdUnits } from "../../config/ads";
 import { supabase } from "../../config/supabase";
 import { localizeCharacters } from "../../cache/charactersCache";
@@ -30,7 +30,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { BottomSheetRef } from "../common/BottomSheet";
 import { LinearGradient } from 'expo-linear-gradient';
 import { purchaseItem } from "../../services/checkinService";
+import { UnlockDialog } from "../shop/UnlockDialog";
+import { refreshRuby, setRuby, useRuby } from "../../services/rubyStore";
 import LockIcon from "../icons/LockIcon";
+import RubyIcon from "../icons/RubyIcon";
 import { track } from "../../services/trackEvents";
 
 const BG = "#0F0A1E";
@@ -42,6 +45,8 @@ const ACCENT = "#FF4D8D";
  */
 const GRID_COLUMNS = 3;
 const GRID_PADDING = 16;
+/** No HOT badge below this many outfits, however thin the catalogue is. */
+const HOT_MIN_COSTUMES = 4;
 const GRID_GAP = 10;
 const TILE_W =
     (Dimensions.get("window").width - GRID_PADDING * 2 - GRID_GAP * (GRID_COLUMNS - 1)) / GRID_COLUMNS;
@@ -59,6 +64,8 @@ interface Character {
     tier: string | null;
     available?: boolean;
     price_ruby?: number | null;
+    /** How many outfits she has — the only real number in the stats row. */
+    total_costumes?: number | null;
     data?: {
         /** Flagged teaser: shown with a SOON badge, never selectable. */
         coming_soon?: boolean;
@@ -75,10 +82,32 @@ interface CharacterSheetProps {
     onSelect: (character: Character) => void;
     isPro?: boolean;
     onOpenSubscription?: () => void;
+    /** Where "get more ruby" goes. The paywall is not the answer to that. */
+    onOpenQuests?: () => void;
     userId?: string;
 }
 
 export type CharacterSheetRef = BottomSheetRef;
+
+/**
+ * Social proof on the hero card, the way yuuki does it.
+ *
+ * Chats and hearts are invented, but derived from the character id, so a given
+ * character always shows the same numbers — on every screen, every launch and
+ * every device. A random number here would flicker on each render and read as
+ * broken. The outfit count is real: `total_costumes` is maintained in the DB.
+ */
+function idHash(id: string): number {
+    let h = 0;
+    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) & 0x7fffffff;
+    return h;
+}
+
+function compactCount(n: number): string {
+    if (n >= 1000000) return (n / 1000000).toFixed(1).replace(/\.0$/, "") + "M";
+    if (n >= 1000) return Math.round(n / 1000) + "K";
+    return String(n);
+}
 
 const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
     isOpened,
@@ -87,6 +116,7 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
     onSelect,
     isPro = false,
     onOpenSubscription,
+    onOpenQuests,
     userId,
 }, ref) => {
     const { t } = useTranslation();
@@ -97,12 +127,22 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
     const { showForGate } = useRewardedAd(AdUnits.rewarded, "change_character");
     /** Character awaiting the user's answer in the ad-gate dialog. */
     const [gateFor, setGateFor] = useState<Character | null>(null);
+    /**
+     * Character awaiting a PRO/ruby decision. Was three `Alert.alert` chains,
+     * which on Android is a grey system box with stacked buttons — nothing like
+     * the unlock prompt every other picker shows. `UnlockDialog` is that prompt.
+     */
+    const [buyFor, setBuyFor] = useState<{ char: Character; kind: "pro" | "pro_or_ruby" | "ruby" } | null>(null);
+    const [buyBusy, setBuyBusy] = useState(false);
+    const rubyBalance = useRuby();
     /** Bumped whenever something unlocks, so the badges disappear immediately. */
-    const [, setUnlockTick] = useState(0);
+    const [unlockTick, setUnlockTick] = useState(0);
     useEffect(() => {
         loadUnlocks(userId);
         return subscribeUnlocks(() => setUnlockTick((n) => n + 1));
-    }, []);
+        // `userId` arrives after the first render, so an empty dep list loaded
+        // the anonymous set and never replaced it with the signed-in one.
+    }, [userId]);
     /** Tile being previewed in the hero — not yet the active character. */
     const [focusedId, setFocusedId] = useState<string | null>(null);
     /** True once her demo clip has a frame to show; gates the crossfade. */
@@ -124,7 +164,7 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
         try {
             const { data, error } = await supabase
                 .from("characters")
-                .select("id, name, thumbnail_url, avatar, description, tier, data, available, price_ruby, video_url, small_thumb_url, small_avatar")
+                .select("id, name, thumbnail_url, avatar, description, tier, data, available, price_ruby, video_url, small_thumb_url, small_avatar, total_costumes")
                 .eq("is_public", true)
                 // Available characters, plus the ones deliberately flagged as
                 // coming soon. Everything else unavailable stays hidden — that
@@ -198,26 +238,44 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
         setTimeout(() => onOpenSubscription?.(), 300);
     }, [onIsOpenedChange, onOpenSubscription]);
 
-    const doBuy = useCallback(
-        async (char: Character, price: number) => {
-            if (!userId) return;
+    /** Confirmed in `UnlockDialog`; takes the ruby and switches to her. */
+    const doBuy = useCallback(async () => {
+        const char = buyFor?.char;
+        if (!char || !userId || buyBusy) return;
+        setBuyBusy(true);
+        try {
             const res = await purchaseItem(userId, "character", char.id);
             if (res.ok) {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 setTempUnlocked((prev) => new Set(prev).add(char.id));
+                // So she stays unlocked after this sheet unmounts, and so the
+                // next `loadUnlocks` re-reads the server rather than trusting a
+                // cache filled before the purchase.
+                markOwned("character", char.id);
+                refreshRuby();
+                setBuyFor(null);
                 applySelection(char);
-            } else if (res.error === "insufficient") {
-                Alert.alert(
-                    t("common.not_enough_ruby"),
-                    `You need ${res.need} ruby but have ${res.have}. Check in daily to earn more!`,
-                    [{ text: "OK" }, { text: t("common.upgrade_pro"), onPress: goPro }]
-                );
-            } else {
-                Alert.alert(t("common.purchase_failed"), res.error || t("common.try_again"));
+                return;
             }
-        },
-        [userId, applySelection, goPro]
-    );
+            if (res.error === "insufficient") {
+                // No alert: correcting the balance is enough, because the dialog
+                // turns its buy button into "get more ruby" as soon as the
+                // balance is below the price. The old code reported "you need N
+                // but have M" in hardcoded English to a ten-language app.
+                setRuby((res.have as number) ?? 0);
+                track.heartsInsufficient("character", char.price_ruby ?? 0, (res.have as number) ?? 0);
+                return;
+            }
+            if (res.error === "owned") {
+                setBuyFor(null);
+                applySelection(char);
+                return;
+            }
+            Alert.alert(t("common.purchase_failed"), t("common.try_again"));
+        } finally {
+            setBuyBusy(false);
+        }
+    }, [buyFor, userId, buyBusy, applySelection, t]);
 
     /**
      * Switching to an already-owned/free character costs a rewarded ad. The
@@ -258,27 +316,41 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
      *   pro  + no price → PRO
      *   pro  + price    → PRO first, then ruby
      *
-     * It used to offer "upgrade OR pay ruby" on a priced PRO character, which
-     * showed a non-subscriber two different prices for the same person.
+     * A PRO character that also carries a ruby price is `pro_or_ruby`: both
+     * ways in are real, and the tile says so. Showing a bare "PRO" was how
+     * people ended up subscribing and only then finding out it still cost ruby.
      */
     const lockOf = useCallback(
-        (c: Character): "free" | "ad" | "pro" | "ruby" => {
+        (c: Character): "free" | "ad" | "pro" | "pro_or_ruby" | "ruby" => {
             if (c.id === currentCharacterId) return "free";
+            // Owned is owned, by whatever route. `ownedIds` is `user_assets`
+            // (bought) and `tempUnlocked` is this session's purchases, but an
+            // ad unlock only ever lands in `unlockService` — so a character
+            // unlocked by watching an ad was shown locked again, and a purchase
+            // came back locked on the next launch until `user_assets` was
+            // re-read. `lockStateOf` in `useItemUnlock` asks this first for the
+            // same reason; this sheet never did.
+            if (isUnlocked("character", c.id)) return "free";
             if (ownedIds.has(c.id) || tempUnlocked.has(c.id)) return "free";
             const price = c.price_ruby ?? 0;
             if (c.tier === "pro") {
-                if (!isPro) return "pro";
+                if (!isPro) return price > 0 ? "pro_or_ruby" : "pro";
                 return price > 0 ? "ruby" : "free";
             }
             if (price > 0) return "ruby";
             return isPro ? "free" : "ad";
         },
-        [isPro, ownedIds, tempUnlocked, currentCharacterId]
+        // `unlockTick` is in here on purpose: the unlock cache is module state,
+        // so nothing else tells this callback to rebuild when an ad unlock lands.
+        [isPro, ownedIds, tempUnlocked, currentCharacterId, unlockTick]
     );
 
     /** Blur/veil the art for anything that cannot be used right now. */
     const isLockedFor = useCallback(
-        (c: Character) => lockOf(c) === "pro" || lockOf(c) === "ruby",
+        (c: Character) => {
+            const l = lockOf(c);
+            return l === "pro" || l === "pro_or_ruby" || l === "ruby";
+        },
         [lockOf]
     );
 
@@ -290,31 +362,21 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
             // to the rewarded gate below.
             const lock = lockOf(char);
 
-            // PRO is the gate, and it is the only offer — never a second price
-            // alongside it.
-            if (lock === "pro") {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-                track.unlockSelect("character", char.id, 0, "pro");
-                Alert.alert(t("char.locked"), t("char.need_pro", { name: char.name }), [
-                    { text: t("common.cancel"), style: "cancel" },
-                    { text: t("common.upgrade_pro"), onPress: goPro },
-                ]);
-                return;
-            }
-
-            // Priced: confirm the spend before taking the ruby.
-            if (lock === "ruby") {
+            // PRO, ruby, or both: one dialog handles all three, the same one the
+            // costume/background/dance pickers use. It decides what to offer
+            // from `kind`, so there is no branching left here — and it reads the
+            // live ruby balance, which the old alerts only learned about by
+            // failing the purchase and reporting "you need N but have M".
+            if (lock === "pro" || lock === "pro_or_ruby" || lock === "ruby") {
                 const price = char.price_ruby ?? 0;
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                track.unlockSelect("character", char.id, price, "hearts");
-                Alert.alert(
-                    t("char.buy_title", { name: char.name }),
-                    t("char.buy_body", { name: char.name, n: price }),
-                    [
-                        { text: t("common.cancel"), style: "cancel" },
-                        { text: t("char.buy_confirm", { n: price }), onPress: () => doBuy(char, price) },
-                    ]
+                Haptics.notificationAsync(
+                    lock === "ruby"
+                        ? Haptics.NotificationFeedbackType.Success
+                        : Haptics.NotificationFeedbackType.Warning
                 );
+                track.unlockSelect("character", char.id, price, lock === "ruby" ? "hearts" : "pro");
+                refreshRuby();
+                setBuyFor({ char, kind: lock });
                 return;
             }
 
@@ -345,6 +407,35 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
     }, []);
 
     /**
+     * What the unlock dialog keeps showing while it fades out.
+     *
+     * `visible` goes false one render before the modal finishes animating, so
+     * reading `buyFor?.kind` directly turns a ruby dialog into the PRO upgrade
+     * dialog for the length of the fade — cancelling a purchase flashes a
+     * paywall. Holding the last value keeps the closing frame identical to the
+     * open one. Same fix as `useItemUnlock`.
+     */
+    const lastBuy = useRef<typeof buyFor>(null);
+    if (buyFor) lastBuy.current = buyFor;
+    const shownBuy = buyFor ?? lastBuy.current;
+
+    /**
+     * "HOT" = she has noticeably more outfits than the rest, so the badge stays
+     * meaningful as the catalogue grows instead of being a fixed threshold that
+     * one import turns into every tile. The cut is the 75th percentile, floored
+     * at HOT_MIN so a thin catalogue doesn't badge someone with two outfits.
+     */
+    const hotFrom = React.useMemo(() => {
+        const counts = characters
+            .map((c) => c.total_costumes ?? 0)
+            .filter((n) => n > 0)
+            .sort((a, b) => a - b);
+        if (counts.length < 4) return Infinity;
+        const p75 = counts[Math.floor(counts.length * 0.75)];
+        return Math.max(HOT_MIN_COSTUMES, p75);
+    }, [characters]);
+
+    /**
      * PRO-locked, i.e. behind the paywall or a ruby purchase.
      *
      * This used to ignore `tier` entirely and treat every character the user
@@ -361,7 +452,9 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
             const isFocused = item.id === focusedId;
             const isCurrent = item.id === currentCharacterId;
             const isAvailable = item.available !== false;
+            const lock = lockOf(item);
             const locked = isLockedFor(item);
+            const tilePrice = item.price_ruby ?? 0;
 
             return (
                 <Pressable
@@ -407,9 +500,22 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
                         style={styles.tileScrim}
                     />
 
+                    {/* What it costs, not just that it costs something: PRO, a
+                        ruby price, or — when the character is behind both — the
+                        two side by side. */}
                     {locked && isAvailable && (
-                        <View style={styles.tileLock}>
-                            <LockIcon size={16} color="#fff" />
+                        <View style={styles.tileBadges}>
+                            {(lock === "pro" || lock === "pro_or_ruby") && (
+                                <View style={styles.tileProBadge}>
+                                    <Text style={styles.tileProBadgeText}>PRO</Text>
+                                </View>
+                            )}
+                            {(lock === "ruby" || lock === "pro_or_ruby") && tilePrice > 0 && (
+                                <View style={styles.tileRubyBadge}>
+                                    <RubyIcon size={10} color="#fff" />
+                                    <Text style={styles.tileRubyBadgeText}>{tilePrice}</Text>
+                                </View>
+                            )}
                         </View>
                     )}
                     {!locked && isAvailable && requiresAd("character", item.id, !!isPro) && (
@@ -428,13 +534,23 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
                         </View>
                     )}
 
+                    {/* Sits above the name rather than in a corner: both top
+                        corners are taken (checkmark/SOON left, PRO/ruby/ad
+                        right) and HOT stacking onto a price is unreadable. */}
+                    {isAvailable && (item.total_costumes ?? 0) >= hotFrom && (
+                        <View style={styles.tileHot}>
+                            <Ionicons name="flame" size={9} color="#fff" />
+                            <Text style={styles.tileHotText}>HOT</Text>
+                        </View>
+                    )}
+
                     <Text style={styles.tileName} numberOfLines={1}>
                         {item.name}
                     </Text>
                 </Pressable>
             );
         },
-        [focusedId, currentCharacterId, focus, isLockedFor]
+        [focusedId, currentCharacterId, focus, isLockedFor, hotFrom, isPro, unlockTick]
     );
 
     /**
@@ -576,11 +692,20 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
                             <Text style={styles.heroName} numberOfLines={1}>
                                 {focusedChar.name}
                             </Text>
-                            {focusedChar.tier === "pro" && !isPro && (
+                            {(heroLock === "pro" || heroLock === "pro_or_ruby") && (
                                 <View style={styles.proPill}>
                                     <Text style={styles.proPillText}>PRO</Text>
                                 </View>
                             )}
+                            {(heroLock === "ruby" || heroLock === "pro_or_ruby") &&
+                                (focusedChar.price_ruby ?? 0) > 0 && (
+                                    <View style={styles.heroRubyPill}>
+                                        <RubyIcon size={12} color="#fff" />
+                                        <Text style={styles.heroRubyPillText}>
+                                            {focusedChar.price_ruby}
+                                        </Text>
+                                    </View>
+                                )}
                         </View>
 
                         <View style={styles.heroChips}>
@@ -604,6 +729,34 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
                                 </View>
                             )}
                         </View>
+
+                        {(() => {
+                            const h = idHash(focusedChar.id);
+                            const chats = 12000 + (h % 320) * 1000;
+                            const hearts = 800 + ((h >> 7) % 240) * 100;
+                            const outfits = focusedChar.total_costumes ?? 0;
+                            return (
+                                <View style={styles.heroStats}>
+                                    <View style={styles.heroStat}>
+                                        <Ionicons name="chatbubble" size={12} color="rgba(255,255,255,0.75)" />
+                                        <Text style={styles.heroStatValue}>{compactCount(chats)}</Text>
+                                        <Text style={styles.heroStatLabel}>{t("char.stat_chats")}</Text>
+                                    </View>
+                                    <View style={styles.heroStat}>
+                                        <Ionicons name="heart" size={12} color="#FF6FA5" />
+                                        <Text style={styles.heroStatValue}>{compactCount(hearts)}</Text>
+                                        <Text style={styles.heroStatLabel}>{t("char.stat_hearts")}</Text>
+                                    </View>
+                                    {outfits > 0 && (
+                                        <View style={styles.heroStat}>
+                                            <Ionicons name="shirt" size={12} color="rgba(255,255,255,0.75)" />
+                                            <Text style={styles.heroStatValue}>{outfits}</Text>
+                                            <Text style={styles.heroStatLabel}>{t("char.stat_outfits")}</Text>
+                                        </View>
+                                    )}
+                                </View>
+                            );
+                        })()}
 
                         {!!focusedChar.description && (
                             <Text style={styles.heroStory} numberOfLines={4}>
@@ -717,6 +870,23 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
                 }}
                 onCancel={() => setGateFor(null)}
             />
+            <UnlockDialog
+                visible={buyFor !== null}
+                kind={shownBuy?.kind ?? "pro"}
+                itemName={shownBuy?.char.name ?? ""}
+                image={shownBuy?.char.thumbnail_url ?? shownBuy?.char.avatar ?? null}
+                price={shownBuy?.char.price_ruby ?? 0}
+                balance={rubyBalance}
+                busy={buyBusy}
+                onBuy={doBuy}
+                onUpgrade={() => { setBuyFor(null); goPro(); }}
+                onGetRuby={() => {
+                    setBuyFor(null);
+                    onIsOpenedChange(false);
+                    setTimeout(() => onOpenQuests?.(), 300);
+                }}
+                onCancel={() => { if (!buyBusy) setBuyFor(null); }}
+            />
             </View>
         </Modal>
     );
@@ -756,6 +926,14 @@ const styles = StyleSheet.create({
         flexShrink: 1, textShadowColor: "rgba(0,0,0,0.7)", textShadowRadius: 8,
     },
     heroChips: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 12 },
+    heroStats: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 10 },
+    heroStat: {
+        flexDirection: "row", alignItems: "center", gap: 4,
+        paddingHorizontal: 9, paddingVertical: 5, borderRadius: 10,
+        backgroundColor: "rgba(255,255,255,0.12)",
+    },
+    heroStatValue: { color: "#fff", fontSize: 12, fontWeight: "800" },
+    heroStatLabel: { color: "rgba(255,255,255,0.6)", fontSize: 10, fontWeight: "600" },
     heroStory: {
         color: "rgba(255,255,255,0.92)", fontSize: 13.5, lineHeight: 19,
         marginTop: 12, textShadowColor: "rgba(0,0,0,0.6)", textShadowRadius: 6,
@@ -783,6 +961,13 @@ const styles = StyleSheet.create({
         position: "absolute", left: 7, right: 7, bottom: 7,
         color: "#fff", fontSize: 12, fontWeight: "700",
     },
+    tileHot: {
+        position: "absolute", left: 7, bottom: 24,
+        flexDirection: "row", alignItems: "center", gap: 2,
+        paddingHorizontal: 5, paddingVertical: 1.5, borderRadius: 6,
+        backgroundColor: "rgba(255,92,46,0.95)",
+    },
+    tileHotText: { color: "#fff", fontSize: 8, fontWeight: "900", letterSpacing: 0.3 },
     tileLock: {
         position: "absolute", top: 6, right: 6,
         width: 26, height: 26, borderRadius: 13,
@@ -790,6 +975,29 @@ const styles = StyleSheet.create({
         backgroundColor: "rgba(0,0,0,0.5)",
     },
     tileAdBadge: { position: "absolute", top: 6, right: 6 },
+    tileBadges: {
+        position: "absolute", top: 6, right: 6,
+        alignItems: "flex-end", gap: 4,
+    },
+    tileProBadge: {
+        paddingHorizontal: 6, paddingVertical: 2, borderRadius: 7,
+        backgroundColor: "rgba(255,176,32,0.92)",
+    },
+    tileProBadgeText: { fontSize: 9, fontWeight: "900", color: "#2A1A00" },
+    // Hồng như giá ruby trong shop (`ItemTile.gateRuby`) — trước đây là kính
+    // đen nên giá ruby trông xám, không nhận ra là cùng một loại tiền.
+    tileRubyBadge: {
+        flexDirection: "row", alignItems: "center", gap: 3,
+        paddingHorizontal: 6, paddingVertical: 2, borderRadius: 7,
+        backgroundColor: "rgba(214,51,108,0.92)",
+    },
+    tileRubyBadgeText: { fontSize: 9, fontWeight: "800", color: "#fff" },
+    heroRubyPill: {
+        flexDirection: "row", alignItems: "center", gap: 4,
+        paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8,
+        marginLeft: 8, backgroundColor: "rgba(214,51,108,0.92)",
+    },
+    heroRubyPillText: { fontSize: 11, fontWeight: "800", color: "#fff" },
     tileCurrent: {
         position: "absolute", top: 6, left: 6,
         width: 22, height: 22, borderRadius: 11,
