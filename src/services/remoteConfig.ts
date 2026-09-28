@@ -76,6 +76,23 @@ const DEFAULTS = {
      * behind it is still whatever the store will actually honour.
      */
     flash_sale_test_mode: false,
+    /**
+     * The onboarding questionnaire. Off sends a new account straight to the
+     * play screen.
+     *
+     * Onboarding is not only a questionnaire: it is where the first character
+     * is granted, and `isOnboarded` is read from the database as "owns a
+     * character". Skipping it therefore grants one instead of dropping the
+     * account on a play screen with nothing to open — see
+     * `grantStarterCharacter`.
+     */
+    onboarding_enabled: true,
+    /**
+     * Which character that skip grants. Empty picks the first the catalogue
+     * returns, which is `characters.order` ascending — so the default can be
+     * changed from the CMS without touching this value at all.
+     */
+    onboarding_default_character_id: "",
 };
 
 export type AdFlag =
@@ -86,8 +103,31 @@ export type AdFlag =
     | "ads_app_open_enabled";
 
 let ready = false;
+let initPromise: Promise<void> | null = null;
 
-export async function initRemoteConfig(): Promise<void> {
+/** Idempotent: every caller awaits the same first fetch. */
+export function initRemoteConfig(): Promise<void> {
+    if (!initPromise) initPromise = runInit();
+    return initPromise;
+}
+
+/**
+ * Resolves once the first fetch has landed, or after `timeoutMs`, whichever
+ * comes first; the boolean says which.
+ *
+ * Flags are read straight from `DEFAULTS` until the fetch returns, which is
+ * fine for a kill switch — it defaults to the business staying on — but not
+ * for anything routing a first launch, where the fetch and the decision race
+ * and the decision usually wins. Callers in that position wait here instead.
+ */
+export function whenRemoteConfigReady(timeoutMs = 2500): Promise<boolean> {
+    return Promise.race([
+        initRemoteConfig().then(() => ready),
+        new Promise<boolean>((resolve) => setTimeout(() => resolve(ready), timeoutMs)),
+    ]);
+}
+
+async function runInit(): Promise<void> {
     try {
         const c = rc();
         if (!c) return;
@@ -126,6 +166,15 @@ function num(key: keyof typeof DEFAULTS): number {
     }
 }
 
+function str(key: keyof typeof DEFAULTS): string {
+    if (!ready) return DEFAULTS[key] as string;
+    try {
+        return rc()?.getValue(key).asString() ?? (DEFAULTS[key] as string);
+    } catch {
+        return DEFAULTS[key] as string;
+    }
+}
+
 /** The master switch and the per-format one both have to be on. */
 export function adsAllowed(flag: AdFlag): boolean {
     return bool("ads_enabled") && bool(flag);
@@ -136,6 +185,11 @@ export const chatV2Enabled = () => bool("chat_v2_enabled");
 export const chatInlinePhotoEnabled = () => bool("chat_inline_photo_enabled");
 export const chatSafeMode = () => bool("chat_safe_mode");
 export const flashSaleTestMode = () => bool("flash_sale_test_mode");
+
+/** Whether a new account is asked the onboarding questions at all. */
+export const onboardingEnabled = () => bool("onboarding_enabled");
+export const onboardingDefaultCharacterId = () =>
+    str("onboarding_default_character_id").trim();
 
 export const interstitialMinGapMs = () => num("ads_interstitial_min_gap_seconds") * 1000;
 export const interstitialMaxPerDay = () => num("ads_interstitial_max_per_day");

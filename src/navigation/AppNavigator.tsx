@@ -20,6 +20,8 @@ import { analyticsService } from "../services/AnalyticsService";
 import { LoadingScreen } from "../screens/LoadingScreen";
 import { useSplashAd } from "../hooks/useSplashAd";
 import { clearResume, isResumePending, subscribeResume } from "../services/resumeGate";
+import { onboardingEnabled, whenRemoteConfigReady } from "../services/remoteConfig";
+import { grantStarterCharacter } from "../services/starterCharacter";
 
 export type RootStackParamList = {
     Splash: undefined;
@@ -40,7 +42,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 const SPLASH_MIN_MS = 2800;
 
 export default function AppNavigator() {
-    const { isLoggedIn, isLoading, isOnboarded, isOnboardedKnown, setIsOnboarded } = useAuth();
+    const { user, isLoggedIn, isLoading, isOnboarded, isOnboardedKnown, setIsOnboarded } = useAuth();
     /** open_splash / inter_splash — holds the boot screen until the ad closes. */
     const { splashAdDone } = useSplashAd();
 
@@ -88,6 +90,42 @@ export default function AppNavigator() {
             }
         })();
     }, []);
+
+    /**
+     * `onboarding_enabled` off: grant the starter character and go straight to
+     * play. Held on the boot screen while that runs, so the questionnaire
+     * never shows for the frame it takes.
+     *
+     * The welcome paywall is armed here too. It is a separate surface that
+     * happens to be triggered at the end of onboarding, and switching off the
+     * questions should not quietly switch off the offer that follows them.
+     *
+     * If the grant fails — no catalogue, no network — nothing is skipped and
+     * the real onboarding runs. Better a questionnaire than a play screen with
+     * no character on it.
+     */
+    const [skippingOnboarding, setSkippingOnboarding] = useState(false);
+    /** Whose skip has been tried — by id, so signing into a second account in
+     *  the same session is not treated as the first one's second attempt. */
+    const skipAttemptedFor = useRef<string | null>(null);
+
+    useEffect(() => {
+        if (!isLoggedIn || !isOnboardedKnown || isOnboarded) return;
+        if (!user?.id || skipAttemptedFor.current === user.id) return;
+        skipAttemptedFor.current = user.id;
+        setSkippingOnboarding(true);
+        (async () => {
+            // The flag arrives from a network fetch, and this runs on a new
+            // account's first launch — the one launch it has to be right on.
+            // Waiting costs nothing the splash was not already spending.
+            await whenRemoteConfigReady();
+            if (!onboardingEnabled() && (await grantStarterCharacter(user.id))) {
+                await markWelcomePaywallPending();
+                setIsOnboarded(true);
+            }
+            setSkippingOnboarding(false);
+        })();
+    }, [isLoggedIn, isOnboardedKnown, isOnboarded, user?.id, setIsOnboarded]);
 
     const handleOnboardingComplete = useCallback(() => {
         setJustOnboarded(true);
@@ -145,7 +183,7 @@ export default function AppNavigator() {
                     before landing where it belonged. Waiting on the boot
                     screen is the honest answer to "we do not know yet". */}
                 {!booted || isLoading || !minDwellDone || !splashAdDone ||
-                 (isLoggedIn && !isOnboardedKnown) ? (
+                 (isLoggedIn && !isOnboardedKnown) || skippingOnboarding ? (
                     <Stack.Screen name="Splash" component={LoadingScreen} />
                 ) : needsLanguage ? (
                     <Stack.Screen name="Language">
