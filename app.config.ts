@@ -17,8 +17,14 @@ const ANDROID_ICON_FOREGROUND = "./assets/adaptive-icon.png";
 const SCHEME = "truefeel";
 
 // Analytics & SDK Configs (Placeholders)
-const FB_APP_ID = "1390680469942660";
-const FB_CLIENT_TOKEN = "bc1d93ee330bef3066ad2333b41c808e";
+//
+// Both of these ship inside the binary and are meant to be public — they
+// identify the app to Meta and authorise nothing a user could not do anyway.
+// The app **secret** is a different thing entirely: it is server-side only,
+// never belongs in a client or in this repository, and lives in
+// SECRETS.local.md.
+const FB_APP_ID = "1099623312560517";
+const FB_CLIENT_TOKEN = "8b85db0d07730e44e5fc7eed24672834";
 const APPSFLYER_DEV_KEY = "9PnQZkZDCb8dXSaRinRZAN";
 const APPSFLYER_APP_ID = "6760695348";
 
