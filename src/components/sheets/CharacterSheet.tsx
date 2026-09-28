@@ -13,7 +13,7 @@ import {
     Modal,
 } from "react-native";
 import { Image } from "expo-image";
-import { Video, ResizeMode } from "expo-av";
+import { useVideoPlayer, VideoView } from "expo-video";
 import MaskedView from "@react-native-masked-view/masked-view";
 import { IconWoman } from "@tabler/icons-react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -401,6 +401,21 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
         characters.find((c) => c.id === currentCharacterId) ??
         characters[0];
 
+    // Locked characters stay on the blurred still — a clip cannot be blurred
+    // the way the image is, so playing it would leak the art.
+    //
+    // Resolved up here, not in `renderContent`, because expo-video builds its
+    // player with a hook and that function sits behind early returns.
+    const heroVideo =
+        focusedChar && !isLockedFor(focusedChar)
+            ? focusedChar.video_url || null
+            : null;
+    const heroPlayer = useVideoPlayer(heroVideo, (p) => {
+        p.loop = true;
+        p.muted = true;
+        p.play();
+    });
+
     const focus = useCallback((c: Character) => {
         Haptics.selectionAsync();
         setFocusedId(c.id);
@@ -609,9 +624,6 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
         const heroLocked = isLockedFor(focusedChar);
         const heroImg =
             focusedChar.avatar ?? focusedChar.thumbnail_url ?? undefined;
-        // Locked characters stay on the blurred still — a clip cannot be
-        // blurred the way the image is, so playing it would leak the art.
-        const heroVideo = heroLocked ? null : (focusedChar.video_url || null);
         const heroLock = lockOf(focusedChar);
         const ctaLabel =
             heroLock === "pro" ? t("char.unlock_pro")
@@ -649,16 +661,12 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
                             then the still above is what shows, so the hero is
                             never blank while the video loads. */}
                         {!!heroVideo && (
-                            <Video
-                                key={heroVideo}
-                                source={{ uri: heroVideo }}
+                            <VideoView
+                                player={heroPlayer}
                                 style={[StyleSheet.absoluteFill, !videoReady && { opacity: 0 }]}
-                                resizeMode={ResizeMode.COVER}
-                                shouldPlay
-                                isLooping
-                                isMuted
-                                onReadyForDisplay={() => setVideoReady(true)}
-                                onError={() => setVideoReady(false)}
+                                contentFit="cover"
+                                nativeControls={false}
+                                onFirstFrameRender={() => setVideoReady(true)}
                             />
                         )}
                     </MaskedView>

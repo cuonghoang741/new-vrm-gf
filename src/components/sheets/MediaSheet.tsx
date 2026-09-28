@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { Image } from "expo-image";
 import { BlurView } from "expo-blur";
-import { Video, ResizeMode } from "expo-av";
+import { useVideoPlayer, VideoView } from "expo-video";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { IconFlag, IconPhoto, IconVideo, IconX } from "@tabler/icons-react-native";
 import * as Haptics from "expo-haptics";
@@ -84,6 +84,15 @@ const MediaSheet = forwardRef<MediaSheetRef, MediaSheetProps>(
         const [loading, setLoading] = useState(false);
         const [errorMessage, setErrorMessage] = useState<string | null>(null);
         const [selectedMedia, setSelectedMedia] = useState<MediaItem | null>(null);
+        // The one clip in the app that plays with sound: the lightbox is a
+        // deliberate full-screen open, not a thumbnail that started itself.
+        const lightboxPlayer = useVideoPlayer(
+            selectedMedia?.media_type === "video" ? selectedMedia.url : null,
+            (p) => {
+                p.muted = false;
+                p.play();
+            }
+        );
         const [reportOpen, setReportOpen] = useState(false);
         const [reportedNow, setReportedNow] = useState(false);
         const shimmerOpacity = useRef(new Animated.Value(0.3)).current;
@@ -399,15 +408,11 @@ const MediaSheet = forwardRef<MediaSheetRef, MediaSheetProps>(
                                         contentFit="contain"
                                     />
                                 ) : (
-                                    <Video
-                                        source={{ uri: selectedMedia?.url || "" }}
-                                        rate={1.0}
-                                        volume={1.0}
-                                        isMuted={false}
-                                        resizeMode={ResizeMode.CONTAIN}
-                                        shouldPlay
-                                        useNativeControls
+                                    <VideoView
+                                        player={lightboxPlayer}
                                         style={styles.lightboxVideo}
+                                        contentFit="contain"
+                                        nativeControls
                                     />
                                 )}
                             </View>

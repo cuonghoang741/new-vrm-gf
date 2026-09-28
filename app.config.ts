@@ -118,6 +118,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
 
     plugins: [
         './withCustomPodfile',
+        'expo-video',
         "./plugins/withFirebaseSetup",
         "./plugins/withAndroidBackupRulesFix",
         "./plugins/withCopyIndexHtml",

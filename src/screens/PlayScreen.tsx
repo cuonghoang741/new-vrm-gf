@@ -23,7 +23,6 @@ import { LiquidGlassView, isLiquidGlassSupported } from "@callstack/liquid-glass
 import { IconSend, IconMessageCircle, IconX, IconMusic, IconUser, IconHanger, IconPhoto, IconSettings, IconCrown, IconPhotoFilled, IconCube, IconPhoneCall, IconVideo, IconPhone, IconBadge3d } from "@tabler/icons-react-native";
 
 import { CameraView } from "expo-camera";
-import { Video, ResizeMode } from "expo-av";
 import { useAuth } from "../hooks/useAuth";
 import { useAppVoiceCall } from "../hooks/useAppVoiceCall";
 import { VoiceLoadingOverlay } from "../components/common/VoiceLoadingOverlay";

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
     View,
@@ -13,7 +13,7 @@ import {
     Image,
     ImageBackground,
 } from "react-native";
-import { Video, ResizeMode } from "expo-av";
+import { useVideoPlayer, VideoView } from "expo-video";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
 import {
@@ -67,7 +67,6 @@ export default function SignInScreen() {
     const [isGoogleLoading, setIsGoogleLoading] = useState(false);
     const [characters, setCharacters] = useState<CharacterPreview[]>([]);
     const [selectedIndex, setSelectedIndex] = useState(0);
-    const videoRef = useRef<Video>(null);
 
     // Fetch public characters and cache for onboarding reuse
     useEffect(() => {
@@ -173,6 +172,13 @@ export default function SignInScreen() {
 
     const isLoading = isAppleLoading || isGoogleLoading;
     const selectedChar = characters[selectedIndex];
+    // Recreated whenever the uri changes — swiping to another character gets
+    // her clip, and the previous player is released.
+    const previewPlayer = useVideoPlayer(selectedChar?.video_url ?? null, (p) => {
+        p.loop = true;
+        p.muted = true;
+        p.play();
+    });
 
     return (
         <View style={styles.container}>
@@ -190,14 +196,11 @@ export default function SignInScreen() {
             {/* Character video preview */}
             {selectedChar?.video_url && (
                 <View style={styles.videoContainer}>
-                    <Video
-                        ref={videoRef}
-                        source={{ uri: selectedChar.video_url }}
+                    <VideoView
+                        player={previewPlayer}
                         style={styles.video}
-                        resizeMode={ResizeMode.COVER}
-                        shouldPlay
-                        isLooping
-                        isMuted
+                        contentFit="cover"
+                        nativeControls={false}
                     />
                 </View>
             )}

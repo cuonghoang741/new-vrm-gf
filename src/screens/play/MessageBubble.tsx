@@ -4,7 +4,7 @@ import * as Haptics from "expo-haptics";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTranslation } from "react-i18next";
 import { Image } from "expo-image";
-import { Video, ResizeMode } from "expo-av";
+import { useVideoPlayer, VideoView } from "expo-video";
 import { LiquidGlassView, isLiquidGlassSupported } from "@callstack/liquid-glass";
 import type { ChatMessage } from "../../services/chatService";
 import type { SurfaceTokens } from "../../theme/surface";
@@ -62,6 +62,19 @@ export function MessageBubble({
     // the fallback for messages that predate it.
     const lockState = lock ?? (item.mediaTier === "pro" && !isPro ? "pro" : "free");
     const isLocked = lockState !== "free";
+
+    const videoUri = item.mediaType === "video" ? item.mediaUrl ?? null : null;
+    const videoPlayer = useVideoPlayer(videoUri, (p) => {
+        p.loop = true;
+        p.muted = true;
+    });
+    // Playback follows the lock, which can be lifted while the bubble is on
+    // screen — the setup callback above only runs when the player is built.
+    React.useEffect(() => {
+        if (!videoUri) return;
+        if (isLocked) videoPlayer.pause();
+        else videoPlayer.play();
+    }, [isLocked, videoUri, videoPlayer]);
     // Only her side is reportable: reporting your own typing helps nobody.
     const canReport = isAI && !!onReport;
     const report = () => {
@@ -93,13 +106,11 @@ export function MessageBubble({
                     style={[styles.mediaContainer, { marginBottom: hasText ? 6 : 0 }]}
                 >
                     {item.mediaType === "video" ? (
-                        <Video
-                            source={{ uri: item.mediaUrl }}
+                        <VideoView
+                            player={videoPlayer}
                             style={styles.messageMedia}
-                            resizeMode={ResizeMode.COVER}
-                            isMuted
-                            shouldPlay={!isLocked}
-                            isLooping
+                            contentFit="cover"
+                            nativeControls={false}
                         />
                     ) : (
                         <Image
