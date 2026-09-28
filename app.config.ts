@@ -248,12 +248,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
                 "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to enable video calls with your AI.",
                 "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone to enable voice and video calls with your AI."
             }
-        ],
-        [
-            "expo-av",
-            {
-                "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone to enable voice and video calls with your AI."
-            }
         ]
     ],
 
