@@ -23,6 +23,10 @@ export type UnlockDialogProps = {
     onUpgrade: () => void;
     onGetRuby: () => void;
     onCancel: () => void;
+    /** Replaces the default copy for `kind`, for prompts that are not an item. */
+    body?: string;
+    /** Replaces the lock on the badge. */
+    icon?: React.ComponentProps<typeof Ionicons>["name"];
 };
 
 export function UnlockDialog(p: UnlockDialogProps) {
@@ -36,16 +40,16 @@ export function UnlockDialog(p: UnlockDialogProps) {
                 <Pressable style={StyleSheet.absoluteFill} onPress={p.busy ? undefined : p.onCancel} />
                 <View style={styles.card}>
                     <LinearGradient colors={p.kind === "ruby" ? SHEET.accentGradient : SHEET.goldGradient} style={styles.badge}>
-                        {p.kind === "ruby" ? <RubyIcon size={28} color="#fff" /> : <Ionicons name="lock-closed" size={26} color="#fff" />}
+                        {p.kind === "ruby" ? <RubyIcon size={28} color="#fff" /> : <Ionicons name={p.icon ?? "lock-closed"} size={26} color="#fff" />}
                     </LinearGradient>
 
                     <Text style={styles.title} numberOfLines={2}>{p.itemName}</Text>
                     <Text style={styles.body}>
-                        {p.kind === "pro"
+                        {p.body ?? (p.kind === "pro"
                             ? t("shop.unlock_pro_body")
                             : p.kind === "pro_or_ruby"
                                 ? t("shop.unlock_pro_or_ruby_body", { price: p.price })
-                                : t("shop.unlock_ruby_body", { price: p.price })}
+                                : t("shop.unlock_ruby_body", { price: p.price }))}
                     </Text>
 
                     {canBuy && (

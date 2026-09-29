@@ -9,6 +9,11 @@ import { StyleSheet, View, Platform } from "react-native";
 import { WebView, WebViewMessageEvent } from "react-native-webview";
 
 // ─── Public handle exposed via ref ───
+/** Body region a tap on the 3D model resolved to. */
+export type TouchPart = "head" | "face" | "hand" | "belly" | "chest" | "hips" | "legs";
+
+const TOUCH_PARTS: readonly TouchPart[] = ["head", "face", "hand", "belly", "chest", "hips", "legs"];
+
 export interface VRMViewerHandle {
     /** Load a VRM model by catalog name, e.g. "001/001_vrm/001_01.vrm" */
     loadModelByName: (name: string) => void;
@@ -54,6 +59,10 @@ export interface VRMViewerHandle {
     triggerLove: () => void;
     /** Trigger a dance animation */
     triggerDance: () => void;
+    /** Let taps on the model through as touch events. Off by default. */
+    setTouchEnabled: (enabled: boolean) => void;
+    /** Play her reaction to being touched there. */
+    playTouchReaction: (part: TouchPart) => void;
     /** Run arbitrary JS inside the webview */
     injectJS: (js: string) => void;
 }
@@ -72,6 +81,11 @@ export interface VRMViewerProps {
     onModelLoaded?: () => void;
     /** Called for any message from the WebView */
     onMessage?: (message: string) => void;
+    /**
+     * A tap landed on her. Coordinates are in the WebView's CSS pixels, which
+     * match this view's layout, so they can position an overlay directly.
+     */
+    onTouch?: (part: TouchPart, x: number, y: number) => void;
     /** Whether the WebView canvas is transparent */
     transparent?: boolean;
     /** Container style override */
@@ -94,6 +108,7 @@ const VRMViewer = forwardRef<VRMViewerHandle, VRMViewerProps>(
             onReady,
             onModelLoaded,
             onMessage,
+            onTouch,
             transparent = true,
             style,
             sourceUri,
@@ -228,6 +243,13 @@ const VRMViewer = forwardRef<VRMViewerHandle, VRMViewerProps>(
                 triggerDance: () => {
                     injectJS(`window.triggerDance && window.triggerDance()`);
                 },
+                setTouchEnabled: (enabled: boolean) => {
+                    injectJS(`window.setTouchEnabled && window.setTouchEnabled(${enabled ? "true" : "false"})`);
+                },
+                playTouchReaction: (part: TouchPart) => {
+                    if (!TOUCH_PARTS.includes(part)) return;
+                    injectJS(`window.playTouchReaction && window.playTouchReaction(${JSON.stringify(part)})`);
+                },
                 injectJS,
             }),
             [injectJS]
@@ -238,6 +260,16 @@ const VRMViewer = forwardRef<VRMViewerHandle, VRMViewerProps>(
             (event: WebViewMessageEvent) => {
                 const msg = event.nativeEvent.data;
                 onMessage?.(msg);
+
+                if (msg.startsWith("{")) {
+                    try {
+                        const data = JSON.parse(msg);
+                        if (data?.type === "touch" && TOUCH_PARTS.includes(data.part)) {
+                            onTouch?.(data.part, Number(data.x) || 0, Number(data.y) || 0);
+                        }
+                    } catch { /* not ours */ }
+                    return;
+                }
 
                 if (msg === "initialReady") {
                     setIsReady(true);
@@ -253,7 +285,7 @@ const VRMViewer = forwardRef<VRMViewerHandle, VRMViewerProps>(
                     console.log(`[VRMViewer] ${msg}`);
                 }
             },
-            [onReady, onModelLoaded, onMessage]
+            [onReady, onModelLoaded, onMessage, onTouch]
         );
 
         // ─── Injected JS that runs before page load ───

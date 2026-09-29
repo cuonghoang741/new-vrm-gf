@@ -24,7 +24,7 @@ import { analyticsService } from "../../services/AnalyticsService";
 import * as WebBrowser from "expo-web-browser";
 import { openBrowserSafe } from "../../utils/openBrowserSafe";
 import { AdsManager } from "../../services/AdsManager";
-import { IconX, IconCube3dSphere, IconVideo, IconUsers, IconSparkles, IconHeart, IconMusic, IconChevronLeft, IconChevronRight, IconCrown, IconAdOff, IconMessageHeart, IconBolt, IconGift } from "@tabler/icons-react-native";
+import { IconX, IconCube3dSphere, IconVideo, IconUsers, IconSparkles, IconHeart, IconMusic, IconChevronLeft, IconChevronRight, IconCrown, IconAdOff, IconMessageHeart, IconBolt, IconGift, IconTrendingUp, IconHandFinger } from "@tabler/icons-react-native";
 import { useSubscription } from "../../contexts/SubscriptionContext";
 import VRMViewer, { VRMViewerHandle } from "../VRMViewer";
 import { getCharacters } from "../../cache/charactersCache";
@@ -48,8 +48,12 @@ const FEATURES = [
     // says what PRO hands over before it says what it unlocks.
     { icon: IconGift, text: "sub.b7", color: "#FF6FA5", highlight: true },
     { icon: IconBolt, text: "sub.b6_x2", color: "#F2C14E", highlight: true },
+    { icon: IconTrendingUp, text: "sub.b9_bond_x2", color: "#F2C14E", highlight: true },
     { icon: IconAdOff, text: "sub.b1", color: "#FF6FA5" },
     { icon: IconMessageHeart, text: "sub.b2", color: "#FF8FB8" },
+    // Free accounts get three touches a day; the prompt that follows the
+    // third opens this sheet, so it has to say what PRO changes about it.
+    { icon: IconHandFinger, text: "sub.b8_touch", color: "#FF8FB8" },
     { icon: IconCube3dSphere, text: "sub.b3", color: "#C8A8F0" },
     { icon: IconUsers, text: "sub.b4", color: "#4CAF50" },
     { icon: IconSparkles, text: "sub.b5", color: "#2196F3" },

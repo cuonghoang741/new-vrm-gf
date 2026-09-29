@@ -2090,6 +2090,182 @@
             window.triggerDance = function () {
                 try { window.loadNextAnimation && window.loadNextAnimation(); } catch { }
             };
+            // ─── Touching her ─────────────────────────────────────────────
+            // A tap on the model is raycast onto her mesh, mapped to the
+            // nearest body region and reported to the app. The app decides
+            // whether the touch is allowed (free accounts get three a day)
+            // and, if so, calls playTouchReaction. Off until the play screen
+            // turns it on: this page also renders the paywall preview.
+            //
+            // Reactions to chest, hips and legs are a startled, playful step
+            // back, never anything that reads as sexual. That is her character,
+            // and it is also a Play policy line.
+            const TOUCH_BASE_URL = 'https://pub-2682fd3d83e342588016f364737f5758.r2.dev/app-art/anim/touch/';
+            const TOUCH_REACTIONS = {
+                head:  { anims: ['Head Nod Yes.fbx', 'Happy.fbx', 'Bashful.fbx'], expr: [['happy', 0.8]] },
+                face:  { anims: ['Bashful.fbx', 'Blow A Kiss.fbx'], expr: [['happy', 0.6], ['relaxed', 0.5]] },
+                hand:  { anims: ['Waving.fbx', 'Thankful.fbx', 'Hand Raising.fbx', 'Standing Greeting.fbx'], expr: [['happy', 0.7]] },
+                belly: { anims: ['Laughing.fbx', 'Happy.fbx'], expr: [['happy', 0.9]] },
+                chest: { anims: ['Reacting.fbx', 'Dismissing Gesture.fbx', 'Bashful.fbx'], expr: [['surprised', 0.8], ['oh', 0.4]] },
+                hips:  { anims: ['Reacting.fbx', 'Annoyed Head Shake.fbx', 'Bashful.fbx'], expr: [['surprised', 0.8], ['oh', 0.4]] },
+                legs:  { anims: ['Surprised.fbx', 'Reacting.fbx', 'Bashful.fbx'], expr: [['surprised', 0.7], ['oh', 0.3]] },
+            };
+            // Hosted separately from the base catalogue. Each is checked once,
+            // because a missing clip stops her current one and leaves her
+            // frozen mid-pose (loadFBX stops the old action before loading).
+            const TOUCH_EXTRA = new Set([
+                'Head Nod Yes.fbx', 'Waving.fbx', 'Thankful.fbx', 'Laughing.fbx', 'Reacting.fbx',
+                'Dismissing Gesture.fbx', 'Annoyed Head Shake.fbx', 'Surprised.fbx',
+            ]);
+            const __touchAvailable = new Map();
+            let __touchEnabled = false;
+
+            function __probeTouchAnims() {
+                for (const name of TOUCH_EXTRA) {
+                    if (__touchAvailable.has(name)) continue;
+                    __touchAvailable.set(name, false);
+                    fetch(TOUCH_BASE_URL + encodeURI(name), { method: 'HEAD' })
+                        .then(r => __touchAvailable.set(name, !!r.ok))
+                        .catch(() => { });
+                }
+            }
+
+            async function __touchAnimURL(name) {
+                if (TOUCH_EXTRA.has(name)) {
+                    return __touchAvailable.get(name) ? TOUCH_BASE_URL + encodeURI(name) : null;
+                }
+                return fbxFiles.includes(name) ? await getAnimationURL(name) : null;
+            }
+
+            // Raw bones, not normalized ones: the raw skeleton is what the
+            // skinned mesh is drawn with, so its positions match the hit point.
+            const TOUCH_BONES = [
+                ['head', 'face'], ['neck', 'face'],
+                ['upperChest', 'chest'], ['chest', 'chest'], ['spine', 'belly'], ['hips', 'hips'],
+                ['leftShoulder', 'hand'], ['rightShoulder', 'hand'],
+                ['leftUpperArm', 'hand'], ['rightUpperArm', 'hand'],
+                ['leftLowerArm', 'hand'], ['rightLowerArm', 'hand'],
+                ['leftHand', 'hand'], ['rightHand', 'hand'],
+                ['leftUpperLeg', 'legs'], ['rightUpperLeg', 'legs'],
+                ['leftLowerLeg', 'legs'], ['rightLowerLeg', 'legs'],
+                ['leftFoot', 'legs'], ['rightFoot', 'legs'],
+            ];
+            const __touchRay = new THREE.Raycaster();
+            const __touchNdc = new THREE.Vector2();
+            const __touchBonePos = new THREE.Vector3();
+
+            function __touchRegionAt(clientX, clientY) {
+                const vrm = currentVrm;
+                if (!vrm || !vrm.humanoid) return null;
+                const rect = renderer.domElement.getBoundingClientRect();
+                __touchNdc.set(
+                    ((clientX - rect.left) / rect.width) * 2 - 1,
+                    -((clientY - rect.top) / rect.height) * 2 + 1
+                );
+                __touchRay.setFromCamera(__touchNdc, camera);
+                const hit = __touchRay.intersectObject(vrm.scene, true)
+                    .find(h => h.object && h.object.isMesh && h.object.visible);
+                if (!hit) return null;
+
+                let best = null, bestD = Infinity;
+                for (const [bone, region] of TOUCH_BONES) {
+                    const node = vrm.humanoid.getRawBoneNode(bone);
+                    if (!node) continue;
+                    node.getWorldPosition(__touchBonePos);
+                    const d = __touchBonePos.distanceToSquared(hit.point);
+                    if (d < bestD) { bestD = d; best = region; }
+                }
+                // The head bone sits at the base of the skull, so the top of
+                // her head (a pat) is well above it and the face is just above.
+                if (best === 'face') {
+                    const head = vrm.humanoid.getRawBoneNode('head');
+                    if (head) {
+                        head.getWorldPosition(__touchBonePos);
+                        if (hit.point.y > __touchBonePos.y + 0.13) best = 'head';
+                    }
+                }
+                return best;
+            }
+
+            // A tap, not a drag: the same finger orbits the camera at Lv5, and
+            // a second finger (pinch or pan) cancels it.
+            let __tapStart = null;
+            renderer.domElement.addEventListener('pointerdown', (e) => {
+                if (!e.isPrimary) { __tapStart = null; return; }
+                __tapStart = __touchEnabled ? { x: e.clientX, y: e.clientY, t: performance.now() } : null;
+            });
+            renderer.domElement.addEventListener('pointercancel', () => { __tapStart = null; });
+            renderer.domElement.addEventListener('pointerup', (e) => {
+                const s = __tapStart;
+                __tapStart = null;
+                if (!s || !__touchEnabled || __callMode || !e.isPrimary) return;
+                if (performance.now() - s.t > 350) return;
+                if (Math.hypot(e.clientX - s.x, e.clientY - s.y) > 12) return;
+                const part = __touchRegionAt(e.clientX, e.clientY);
+                if (!part) return;
+                try {
+                    window.ReactNativeWebView && window.ReactNativeWebView.postMessage(
+                        JSON.stringify({ type: 'touch', part, x: e.clientX, y: e.clientY })
+                    );
+                } catch { }
+            });
+
+            function __pulseExpressions(pairs, durationS) {
+                const vrm = currentVrm;
+                if (!vrm || !vrm.expressionManager) return;
+                const t0 = performance.now();
+                const apply = (k) => {
+                    for (const [name, peak] of pairs) {
+                        try { vrm.expressionManager.setValue(name, peak * k); } catch { }
+                    }
+                };
+                const step = (ts) => {
+                    const p = (ts - t0) / (durationS * 1000);
+                    if (p >= 1 || currentVrm !== vrm) { apply(0); return; }
+                    apply(Math.sin(Math.PI * p));
+                    requestAnimationFrame(step);
+                };
+                requestAnimationFrame(step);
+            }
+
+            window.setTouchEnabled = function (on) {
+                __touchEnabled = !!on;
+                if (__touchEnabled) __probeTouchAnims();
+            };
+
+            window.playTouchReaction = async function (part) {
+                const cfg = TOUCH_REACTIONS[part];
+                if (!cfg || !currentVrm || !currentMixer) return;
+                __pulseExpressions(cfg.expr, 1.6);
+
+                const options = [];
+                for (const name of cfg.anims) {
+                    const url = await __touchAnimURL(name);
+                    if (url) options.push([name, url]);
+                }
+                if (!options.length) return;
+                const [name, url] = options[Math.floor(Math.random() * options.length)];
+
+                loadFBX(url, name, 0.3);
+                const token = __danceToken;
+                // Back to her resting pose once the reaction has played through,
+                // unless something newer (a dance, another touch) took over.
+                const started = performance.now();
+                const settle = () => {
+                    if (__danceToken !== token) return;
+                    const clip = __clipCache.get(url);
+                    if (!clip) {
+                        if (performance.now() - started < 8000) setTimeout(settle, 150);
+                        return;
+                    }
+                    const ms = Math.max(1200, Math.min(6000, clip.duration * 1000));
+                    setTimeout(() => {
+                        if (__danceToken === token) window.stopAnimation();
+                    }, ms);
+                };
+                settle();
+            };
+
             window.triggerLove = function () {
                 if (!currentVrm || !currentVrm.expressionManager) return;
                 const names = ['happy', 'joy', 'fun', 'relaxed'];

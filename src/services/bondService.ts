@@ -65,7 +65,8 @@ export type BondEvent =
     | "change_background"
     | "dance"
     | "open_gallery"
-    | "checkin";
+    | "checkin"
+    | "touch";
 
 export async function getBondState(characterId: string): Promise<BondState | null> {
     const { data, error } = await supabase.rpc("app_bond_state", { p_character_id: characterId });
@@ -89,10 +90,33 @@ export async function getBondState(characterId: string): Promise<BondState | nul
 export type BondTrackResult = {
     xp: number;
     granted: number;
+    /** 2 for PRO, who earn double bond XP. */
+    multiplier: number;
     level: number;
     leveledUp: boolean;
     capped: boolean;
 } | null;
+
+function toTrackResult(data: any, characterId: string): BondTrackResult {
+    if (!data || data.error) return null;
+    // Reported here rather than at each call site so no path can level someone
+    // up without Meta and the other analytics hearing about it — it is the
+    // clearest retention signal this app produces.
+    if (data.leveled_up) {
+        void analyticsService.logEvent("bond_level_up", {
+            level: data.level ?? 1,
+            character_id: characterId,
+        });
+    }
+    return {
+        xp: data.xp ?? 0,
+        granted: data.granted ?? 0,
+        multiplier: data.multiplier ?? 1,
+        level: data.level ?? 1,
+        leveledUp: !!data.leveled_up,
+        capped: !!data.capped,
+    };
+}
 
 /**
  * Report something the user did. Fire-and-forget by default: losing one of
@@ -110,23 +134,34 @@ export async function trackBond(
         p_event: event,
         p_amount: amount,
     });
+    if (error) return null;
+    return toTrackResult(data, characterId);
+}
+
+/** `left` is null when the account has no limit (PRO). */
+export type TouchQuota = { pro: boolean; limit: number; left: number | null };
+
+export async function getTouchQuota(): Promise<TouchQuota | null> {
+    const { data, error } = await supabase.rpc("app_touch_quota");
     if (error || !data || data.error) return null;
-    // Reported here rather than at each call site so no path can level someone
-    // up without Meta and the other analytics hearing about it — it is the
-    // clearest retention signal this app produces.
-    if (data.leveled_up) {
-        void analyticsService.logEvent("bond_level_up", {
-            level: data.level ?? 1,
-            character_id: characterId,
-        });
-    }
-    return {
-        xp: data.xp ?? 0,
-        granted: data.granted ?? 0,
-        level: data.level ?? 1,
-        leveledUp: !!data.leveled_up,
-        capped: !!data.capped,
-    };
+    return { pro: !!data.pro, limit: data.limit ?? 3, left: data.left ?? null };
+}
+
+export type TouchResult =
+    | { ok: true; left: number | null; bond: BondTrackResult }
+    | { ok: false; reason: "daily_limit" | "error" };
+
+/**
+ * Spend one touch. The server keeps the daily count, so a free account cannot
+ * buy more by clearing the app, and grants the XP (doubled for PRO).
+ */
+export async function touchCharacter(characterId: string): Promise<TouchResult> {
+    if (!characterId) return { ok: false, reason: "error" };
+    const { data, error } = await supabase.rpc("app_touch", { p_character_id: characterId });
+    if (error || !data) return { ok: false, reason: "error" };
+    if (data.ok === false && data.error === "daily_limit") return { ok: false, reason: "daily_limit" };
+    if (!data.ok) return { ok: false, reason: "error" };
+    return { ok: true, left: data.left ?? null, bond: toTrackResult(data.bond, characterId) };
 }
 
 export async function claimBondQuest(questId: string, characterId: string) {

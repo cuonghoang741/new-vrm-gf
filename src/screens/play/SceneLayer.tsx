@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Animated, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -7,7 +7,8 @@ import { CameraView } from "expo-camera";
 import { LiquidGlassView, isLiquidGlassSupported } from "@callstack/liquid-glass";
 import { IconBadge3d, IconCrown, IconFlame, IconPhone } from "@tabler/icons-react-native";
 import { useTranslation } from "react-i18next";
-import VRMViewer, { VRMViewerHandle } from "../../components/VRMViewer";
+import VRMViewer, { VRMViewerHandle, type TouchPart } from "../../components/VRMViewer";
+import { region2D } from "./touchRegions";
 import { CharacterCard } from "../../components/CharacterCard";
 import RubyIcon from "../../components/icons/RubyIcon";
 import type { SurfaceTokens } from "../../theme/surface";
@@ -90,6 +91,13 @@ export interface SceneLayerProps {
      */
     trialRemaining: number;
     setSubscriptionOpen: (open: boolean) => void;
+    /**
+     * A tap on her, from the 2D art or the 3D model, in this layer's
+     * coordinates. Omitted, the character does not respond to touch.
+     */
+    onTouchCharacter?: (part: TouchPart, x: number, y: number, mode: "2d" | "3d") => void;
+    /** 0 at rest, 1 at the peak of the 2D art's little bounce when touched. */
+    touchBounce?: Animated.Value;
 }
 
 export function SceneLayer({
@@ -127,8 +135,11 @@ export function SceneLayer({
     needsCheckin,
     trialRemaining,
     setSubscriptionOpen,
+    onTouchCharacter,
+    touchBounce,
 }: SceneLayerProps) {
     const { t } = useTranslation();
+    const [artSize, setArtSize] = useState({ width: 0, height: 0 });
 
     return (
         <>
@@ -147,16 +158,43 @@ export function SceneLayer({
                         />
                     )}
                     {(characterAvatarNoBg ?? characterAvatar) && (
-                        <Image
-                            source={{ uri: (characterAvatarNoBg ?? characterAvatar)! }}
-                            style={styles.staticCharacter}
-                            // Costume art is a full illustration with its own
-                            // scenery; "contain" left the scene background
-                            // showing above it. Fill the screen, keep the face.
-                            contentFit="cover"
-                            contentPosition="top center"
-                            blurRadius={blurScene ? 30 : 0}
-                        />
+                        <Pressable
+                            style={StyleSheet.absoluteFill}
+                            disabled={!onTouchCharacter}
+                            accessible={false}
+                            onLayout={(e) => setArtSize({
+                                width: e.nativeEvent.layout.width,
+                                height: e.nativeEvent.layout.height,
+                            })}
+                            onPress={(e) => {
+                                const { locationX: x, locationY: y } = e.nativeEvent;
+                                const part = region2D(x, y, artSize.width, artSize.height);
+                                if (part) onTouchCharacter?.(part, x, y, "2d");
+                            }}
+                        >
+                            <Animated.View
+                                style={[
+                                    StyleSheet.absoluteFill,
+                                    touchBounce && {
+                                        transform: [
+                                            { translateY: touchBounce.interpolate({ inputRange: [0, 1], outputRange: [0, -8] }) },
+                                            { scale: touchBounce.interpolate({ inputRange: [0, 1], outputRange: [1, 1.03] }) },
+                                        ],
+                                    },
+                                ]}
+                            >
+                                <Image
+                                    source={{ uri: (characterAvatarNoBg ?? characterAvatar)! }}
+                                    style={styles.staticCharacter}
+                                    // Costume art is a full illustration with its own
+                                    // scenery; "contain" left the scene background
+                                    // showing above it. Fill the screen, keep the face.
+                                    contentFit="cover"
+                                    contentPosition="top center"
+                                    blurRadius={blurScene ? 30 : 0}
+                                />
+                            </Animated.View>
+                        </Pressable>
                     )}
                 </View>
             )}
@@ -175,7 +213,13 @@ export function SceneLayer({
                 <VRMViewer
                     ref={vrmRef}
                     transparent={false}
-                    onReady={() => setVrmReady(true)}
+                    onReady={() => {
+                        setVrmReady(true);
+                        // Also on a page reload, which fires onReady again with
+                        // the page's state reset to off.
+                        vrmRef.current?.setTouchEnabled(!!onTouchCharacter);
+                    }}
+                    onTouch={(part, x, y) => onTouchCharacter?.(part, x, y, "3d")}
                 />
             </View>
         </View>

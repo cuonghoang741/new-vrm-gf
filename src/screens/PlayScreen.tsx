@@ -75,6 +75,13 @@ import { get3dTrial, start3dTrial } from "../services/trial3d";
 import { Trial3dDialog } from "../components/sheets/Trial3dDialog";
 import { FREE_MESSAGE_LIMIT, REWARD_MESSAGE_BONUS } from "../config/limits";
 import { Alert } from "react-native";
+import { useCharacterTouch } from "../hooks/useCharacterTouch";
+import { TouchFeedback, type TouchFeedbackHandle } from "../components/touch/TouchFeedback";
+import { TOUCH_EMOJI } from "./play/touchRegions";
+import { UnlockDialog } from "../components/shop/UnlockDialog";
+import type { TouchPart } from "../components/VRMViewer";
+import type { BondTrackResult } from "../services/bondService";
+import { hasSeen, markSeen } from "../services/seenOnce";
 
 import * as SecureStore from "expo-secure-store";
 import RubyIcon from "../components/icons/RubyIcon";
@@ -135,6 +142,8 @@ export default function PlayScreen() {
     const [bondProgress, setBondProgress] = useState<number | null>(null);
     /** Her quests have something finished and waiting — a dot on her card. */
     const [bondClaimable, setBondClaimable] = useState(false);
+    /** Bumped when a touch earns XP, so her card's bar moves while she reacts. */
+    const [bondTick, setBondTick] = useState(0);
     const ruby = useRuby() ?? 0;
 
     const { isPro, isLoading: subscriptionLoading, refreshStatus } = useSubscription();
@@ -200,6 +209,56 @@ export default function PlayScreen() {
     const [vrmReady, setVrmReady] = useState(false);
     const [is3DMode, setIs3DMode] = useState(false); // Only PRO can enable
     const dance = useDance({ vrmRef, is3DMode, setIs3DMode, characterId });
+
+    // ─── Touching her ───────────────────────────────────────────────────
+    // Free accounts get three a day, PRO has no limit and earns double XP.
+    // The count lives on the server; see useCharacterTouch.
+    const touchFeedbackRef = useRef<TouchFeedbackHandle>(null);
+    const touchBounce = useRef(new Animated.Value(0)).current;
+    const [touchLimitOpen, setTouchLimitOpen] = useState(false);
+    const onTouchReact = useCallback((part: TouchPart, x: number, y: number) => {
+        touchFeedbackRef.current?.emoji(x, y, TOUCH_EMOJI[part]);
+        if (is3DMode) {
+            vrmRef.current?.playTouchReaction(part);
+            return;
+        }
+        touchBounce.setValue(0);
+        Animated.sequence([
+            Animated.timing(touchBounce, { toValue: 1, duration: 120, useNativeDriver: true }),
+            Animated.spring(touchBounce, { toValue: 0, friction: 4, tension: 120, useNativeDriver: true }),
+        ]).start();
+    }, [is3DMode, touchBounce]);
+    const onTouchGranted = useCallback(
+        (_part: TouchPart, x: number, y: number, bond: BondTrackResult) => {
+            if (bond && bond.granted > 0) {
+                touchFeedbackRef.current?.xp(x, y, bond.granted, bond.multiplier);
+                setBondTick((n) => n + 1);
+            }
+        },
+        []
+    );
+    const onTouchLimit = useCallback(() => setTouchLimitOpen(true), []);
+    const { touch: touchCharacter } = useCharacterTouch({
+        characterId,
+        isPro,
+        onReact: onTouchReact,
+        onGranted: onTouchGranted,
+        onLimit: onTouchLimit,
+    });
+
+    // Once per install: say that she can be touched. A reaction nobody knows
+    // to ask for is never seen, and neither is the offer behind the third one.
+    useEffect(() => {
+        if (!characterId) return;
+        let cancelled = false;
+        const timer = setTimeout(async () => {
+            if (cancelled || (await hasSeen("touch_hint"))) return;
+            const { width, height } = Dimensions.get("window");
+            touchFeedbackRef.current?.hint(width / 2, height * 0.3, t("touch.hint"));
+            void markSeen("touch_hint");
+        }, 2500);
+        return () => { cancelled = true; clearTimeout(timer); };
+    }, [characterId, t]);
     const [agentElevenlabsId, setAgentElevenlabsId] = useState<string | null>(null);
 
     const [userProfile, setUserProfile] = useState<{ display_name?: string; country?: string } | null>(null);
@@ -1020,7 +1079,7 @@ export default function PlayScreen() {
             );
         });
         return () => { alive = false; };
-    }, [characterId, bondOpen]);
+    }, [characterId, bondOpen, bondTick]);
 
     // Pick up a window that was still running, and make sure a subscriber
     // never sees an offer to become one.
@@ -1155,6 +1214,30 @@ export default function PlayScreen() {
                     setQuestOpen(true);
                 }}
                 setSubscriptionOpen={setSubscriptionOpen}
+                // Not while she is dancing or on a call: a reaction would cut
+                // into either one.
+                onTouchCharacter={dance.isDancing || voiceState.isConnected ? undefined : touchCharacter}
+                touchBounce={touchBounce}
+            />
+
+            <TouchFeedback ref={touchFeedbackRef} />
+
+            <UnlockDialog
+                visible={touchLimitOpen}
+                kind="pro"
+                icon="heart"
+                itemName={t("touch.limit_title")}
+                body={t("touch.limit_body", { n: 3 })}
+                price={0}
+                balance={null}
+                onBuy={() => setTouchLimitOpen(false)}
+                onGetRuby={() => setTouchLimitOpen(false)}
+                onUpgrade={() => {
+                    setTouchLimitOpen(false);
+                    analyticsService.logEvent("character_touch_upgrade");
+                    setSubscriptionOpen(true);
+                }}
+                onCancel={() => setTouchLimitOpen(false)}
             />
 
             {/* ─── Top right bubble actions ─── */}
