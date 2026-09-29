@@ -373,6 +373,8 @@ export function SceneLayer({
         </View>
 
         <View style={styles.leftFloatingContainer}>
+            {/* A Live2D girl has one mode, so there is nothing to switch. */}
+            {!live2d && (
             <LiquidGlassView
                 style={[
                     styles.liquidToggleWrapper,
@@ -383,13 +385,6 @@ export function SceneLayer({
                 interactive
                 tintColor={surface.glass}
             >
-                {live2d ? (
-                    <View style={styles.toggleRow}>
-                        <View style={[styles.toggleOption, styles.toggleOptionActive, { flex: 1 }]}>
-                            <Text style={[styles.toggleLabel, styles.toggleLabelActive]}>LIVE2D</Text>
-                        </View>
-                    </View>
-                ) : (
                 <View style={styles.toggleRow}>
                     <TouchableOpacity
                         onPress={() => {
@@ -424,8 +419,8 @@ export function SceneLayer({
                         ]}>3D</Text>
                     </TouchableOpacity>
                 </View>
-                )}
             </LiquidGlassView>
+            )}
 
             {/* The clock sits under the toggle rather than inside it: the pill
                 is 110pt wide and already carries two labels. */}

@@ -11,6 +11,7 @@ import { useVrmPreviewLoader } from "../../hooks/useVrmPreviewLoader";
 import { Live2DView, type Live2DEvent, type Live2DHandle } from "../../live2d/Live2DView";
 import { parseLive2d } from "../../live2d/types";
 import { pick } from "../../live2d/reactions";
+import { openBrowserSafe } from "../../utils/openBrowserSafe";
 import { currentLang } from "../../i18n";
 import RubyIcon from "../icons/RubyIcon";
 import { SHEET } from "../../theme/sheet";
@@ -248,6 +249,13 @@ export function CharacterPreview({
                     {!!character.description && (
                         <Text style={styles.tagline} numberOfLines={2}>{character.description}</Text>
                     )}
+                    {!!live2d && (
+                        // Her model is Live2D Inc.'s, not ours: the licence's own notice, verbatim,
+                        // where she is shown (one string in every language on purpose).
+                        <Pressable onPress={() => openBrowserSafe("https://truemate.netlify.app/credits")} hitSlop={6}>
+                            <Text style={styles.credit} numberOfLines={2}>{t("char.live2d_credit")}</Text>
+                        </Pressable>
+                    )}
 
                     <ScrollView style={styles.details} contentContainerStyle={{ paddingBottom: 6 }} showsVerticalScrollIndicator={false}>
                         {facts.length > 0 && (
@@ -346,6 +354,7 @@ const styles = StyleSheet.create({
     },
     rubyPillText: { color: "#fff", fontSize: 12, fontWeight: "800" },
     tagline: { color: SHEET.textMuted, fontSize: 14.5, lineHeight: 20, marginTop: 6 },
+    credit: { color: SHEET.textMuted, fontSize: 11.5, marginTop: 6, opacity: 0.8 },
     details: { marginTop: 12, flexGrow: 0 },
     chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     chip: {

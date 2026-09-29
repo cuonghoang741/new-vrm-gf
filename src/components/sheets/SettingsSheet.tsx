@@ -27,6 +27,7 @@ import {
     IconShieldCheck,
     IconLanguage,
     IconCube,
+    IconCopyright,
 } from "@tabler/icons-react-native";
 import { PrivilegeAuthDialog } from "./PrivilegeAuthDialog";
 import { LanguagePickerDialog } from "./LanguagePickerDialog";
@@ -445,6 +446,19 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                                     onPress={() => {
                                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                         openBrowserSafe("https://truemate.netlify.app/eula");
+                                    }}
+                                />
+                                <View style={styles.separator} />
+                                {/* The Live2D girls are Live2D Inc.'s sample
+                                    models; their licence forbids passing them
+                                    off as ours, so the credit is one tap away. */}
+                                <SettingItem
+                                    icon={<IconCopyright size={20} color="#C4B5FD" />}
+                                    label={t("set.credits")}
+                                    subtitle={t("set.credits_desc")}
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        openBrowserSafe("https://truemate.netlify.app/credits");
                                     }}
                                 />
                                 <View style={styles.separator} />

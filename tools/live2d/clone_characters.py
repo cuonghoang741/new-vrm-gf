@@ -29,6 +29,10 @@ SRC_BASE = f"https://{SRC_REF}.supabase.co/storage/v1/object/public/live2d/"
 DST = "https://kwqqmjfsrgoczbutuisx.supabase.co/storage/v1/object"
 DST_PUBLIC = DST + "/public/live2d/"
 
+# Live2D "Collaboration Characters" may not be used commercially at all.
+# https://www.live2d.com/eula/live2d-sample-model-terms_en.html
+NOT_COMMERCIAL = {"natori", "tsumiki"}
+
 CT = {
     ".json": "application/json",
     ".moc3": "application/octet-stream",
@@ -67,8 +71,8 @@ def referenced_files(model3: dict) -> list:
         for m in group:
             if m.get("File"):
                 out.append(m["File"])
-            if m.get("Sound"):
-                out.append(m["Sound"])
+            # m["Sound"] is skipped: the Free Material License does not cover
+            # the sample models' sound data, and the viewer never plays it.
     return sorted(set(out))
 
 
@@ -91,7 +95,8 @@ def main():
     if not pat or not key:
         sys.exit("set LIVE2D_PAT and TRUEMATE_SERVICE_KEY")
 
-    chars = [c for c in source_characters(pat) if not args.only or c["slug"] in args.only]
+    chars = [c for c in source_characters(pat)
+             if c["slug"] not in NOT_COMMERCIAL and (not args.only or c["slug"] in args.only)]
     total = 0
     for c in chars:
         model_path = c["model_path"]

@@ -64,6 +64,8 @@
   .spot ul { padding-left: 18px; margin: 14px 0 0; }
   .spot li { margin: 6px 0; }
 
+  .grid.two { grid-template-columns: repeat(2, 1fr); }
+  .fine a { color: #ffc2da; }
   .final { text-align: center; }
   .final .stores { justify-content: center; }
 
@@ -76,7 +78,7 @@
     .phone { width: 180px; }
     .phone.center { width: 210px; }
     .phone.left { left: -10px; } .phone.right { right: -10px; }
-    .grid { grid-template-columns: 1fr; }
+    .grid, .grid.two { grid-template-columns: 1fr; }
     .spot { grid-template-columns: 1fr; padding: 26px 20px; text-align: center; }
     .spot ul { text-align: left; display: inline-block; }
   }
@@ -131,7 +133,7 @@
       <div>
         <span class="tag">LIVE2D</span>
         <h2>Meet Hiyori — she's free</h2>
-        <p>Our first Live2D girl is on the house, so you can see what a character that truly moves feels like before anything else.</p>
+        <p>Hiyori, one of Live2D Inc.'s official Cubism sample models, is free for everyone, so you can see what a character that truly moves feels like before anything else.</p>
         <ul>
           <li>Preview every character in full before you choose</li>
           <li>3D girls you can turn around, Live2D girls who follow your finger</li>
@@ -139,6 +141,17 @@
         </ul>
       </div>
     </div>
+  </section>
+
+  <section id="characters">
+    <h2 class="sec">Where the characters come from</h2>
+    <p class="sub">We think you should know who made the girl you are talking to.</p>
+    <div class="grid two">
+      <div class="feat"><div class="ic">✦</div><h3>Live2D girls</h3><p>Hiyori, Mao, Haru and Rice are official Live2D Cubism sample models, created by and &copy; Live2D Inc., used under the Live2D Free Material License. Their personalities and conversations in TrueMate are written for the app. TrueMate is not affiliated with Live2D Inc.</p></div>
+      <div class="feat"><div class="ic">🧊</div><h3>3D girls</h3><p>The 3D characters are VRM models with their own outfits and scenes, licensed to or created for TrueMate.</p></div>
+    </div>
+    <p class="fine" style="text-align:center;margin:18px auto 0;max-width:720px">This content uses sample data owned and copyrighted by Live2D Inc. The sample data are utilized in accordance with terms and conditions set by Live2D Inc. This content itself is created at the author’s sole discretion.</p>
+    <p class="fine" style="text-align:center;margin-top:18px"><a href="/credits">Full credits &amp; licenses →</a></p>
   </section>
 
   <section class="final">
@@ -156,8 +169,8 @@
   </section>
 
   <footer>
-    <a href="/privacy">Privacy Policy</a><a href="/terms">Terms of Service</a><a href="/eula">EULA</a><a href="/data-deletion">Delete My Data</a>
-    <p>&copy; 2026 TrueMate. Google Play and the Google Play logo are trademarks of Google LLC. App Store is a service mark of Apple Inc.</p>
+    <a href="/privacy">Privacy Policy</a><a href="/terms">Terms of Service</a><a href="/eula">EULA</a><a href="/credits">Credits</a><a href="/data-deletion">Delete My Data</a>
+    <p>&copy; 2026 TrueMate. Live2D sample models &copy; Live2D Inc. Google Play and the Google Play logo are trademarks of Google LLC. App Store is a service mark of Apple Inc.</p>
   </footer>
 </div>
 <script>
