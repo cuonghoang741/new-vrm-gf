@@ -1,19 +1,169 @@
-<!doctype html><html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<link rel="icon" href="/icon.png"><link rel="stylesheet" href="/style.css">
-<title>TrueMate — AI Companion in 3D</title><meta name="description" content="TrueMate is an AI companion app with fully animated 3D characters. Chat by text or voice, customise your companion, and build a bond over time.">
-<meta property="og:title" content="TrueMate — AI Companion in 3D"><meta property="og:description" content="TrueMate is an AI companion app with fully animated 3D characters. Chat by text or voice, customise your companion, and build a bond over time."><meta property="og:type" content="website">
-</head><body>
-<div class="wrap"><header><a class="brand" href="/"><img src="/icon.png" alt="TrueMate"><b>TrueMate</b></a></header>
-<h1>TrueMate</h1>
-<p class="upd">AI companion, in full 3D.</p>
-<p>TrueMate pairs you with an animated 3D companion you can talk to by text or voice, dress, customise, and get to know over time. Built for adults who want easy conversation and company.</p>
-<div class="box">
-<p><b>Legal &amp; support</b></p>
-<p><a href="/privacy">Privacy Policy</a> &middot; <a href="/terms">Terms of Service</a> &middot; <a href="/eula">End User License Agreement</a> &middot; <a href="/data-deletion">Delete my account and data</a></p>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TrueMate — Your AI companion, alive in 3D &amp; Live2D</title>
+<meta name="description" content="Download TrueMate: AI companions in 3D and Live2D who move, blush and react to your touch. Chat, call, and grow closer. Free on Google Play and the App Store.">
+<meta property="og:title" content="TrueMate — Your AI companion, alive in 3D &amp; Live2D">
+<meta property="og:description" content="AI companions who move, blush and react to your touch. Free on Google Play and the App Store.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://truemate.netlify.app/">
+<meta property="og:image" content="https://truemate.netlify.app/img/shot-preview-live2d.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/icon.png">
+<link rel="stylesheet" href="/style.css">
+<style>
+  body { overflow-x: hidden; }
+  .glow { position: fixed; z-index: -1; filter: blur(90px); opacity: .55; border-radius: 50%; pointer-events: none; }
+  .glow.a { width: 420px; height: 420px; background: #ff4d8d; top: -140px; left: -120px; }
+  .glow.b { width: 380px; height: 380px; background: #7c5cff; top: 320px; right: -160px; opacity: .4; }
+  .page { max-width: 1080px; margin: 0 auto; padding: 22px 20px 60px; }
+  .top { display: flex; align-items: center; justify-content: space-between; }
+  .top .brand img { width: 38px; height: 38px; }
+  .top a.small { color: var(--mut); font-size: 14px; text-decoration: none; }
+
+  .hero { display: grid; grid-template-columns: 1.05fr 1fr; gap: 36px; align-items: center; margin-top: 44px; }
+  .eyebrow { display: inline-flex; gap: 8px; align-items: center; padding: 6px 12px; border-radius: 999px;
+    background: rgba(255,77,141,.12); border: 1px solid rgba(255,77,141,.35); color: #ffc2da; font-size: 13px; font-weight: 700; }
+  h1.big { font-size: 50px; line-height: 1.05; letter-spacing: -1.2px; margin: 18px 0 16px; }
+  h1.big em { font-style: normal; background: linear-gradient(90deg,#ff6fa3,#a56bff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .lede { font-size: 18px; color: #d7d2e0; max-width: 520px; margin: 0; }
+  .stores { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 28px; }
+  .stores a { display: inline-block; line-height: 0; border-radius: 10px; transition: transform .15s ease; }
+  .stores a:hover { transform: translateY(-2px); }
+  .stores .gp img { height: 62px; margin: -9px -8px; }   /* Google's badge carries its own padding */
+  .stores .as img { height: 44px; }
+  body.is-ios .stores .as { order: -1; }
+  .fine { color: var(--mut); font-size: 13px; margin-top: 14px; }
+
+  .phones { position: relative; height: 560px; }
+  .phone { position: absolute; width: 230px; border-radius: 34px; padding: 8px; background: #0a0810;
+    border: 1px solid rgba(255,255,255,.12); box-shadow: 0 30px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(0,0,0,.4) inset; }
+  .phone img { display: block; width: 100%; border-radius: 27px; }
+  .phone.center { left: 50%; top: 0; transform: translateX(-50%); z-index: 3; width: 250px; }
+  .phone.left { left: 0; top: 70px; transform: rotate(-7deg); z-index: 2; opacity: .92; }
+  .phone.right { right: 0; top: 70px; transform: rotate(7deg); z-index: 2; opacity: .92; }
+
+  section { margin-top: 90px; }
+  h2.sec { font-size: 32px; line-height: 1.15; letter-spacing: -.6px; text-align: center; margin: 0 0 10px; }
+  p.sub { text-align: center; color: var(--mut); margin: 0 auto 34px; max-width: 560px; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .feat { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 22px; }
+  .feat .ic { width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
+    font-size: 21px; background: rgba(255,77,141,.12); margin-bottom: 14px; }
+  .feat h3 { margin: 0 0 6px; font-size: 17px; color: #fff; }
+  .feat p { margin: 0; font-size: 14.5px; color: #cfc8da; }
+
+  .spot { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center;
+    background: linear-gradient(135deg, rgba(255,111,163,.12), rgba(165,107,255,.10)); border: 1px solid var(--line); border-radius: 26px; padding: 36px; }
+  .spot .phone { position: relative; margin: 0 auto; transform: none; width: 240px; }
+  .tag { display: inline-block; padding: 4px 10px; border-radius: 8px; font-size: 12px; font-weight: 900; letter-spacing: .6px;
+    background: linear-gradient(90deg,#ff6fa3,#a56bff); color: #fff; }
+  .spot h2 { font-size: 30px; line-height: 1.15; margin: 14px 0 12px; letter-spacing: -.5px; }
+  .spot ul { padding-left: 18px; margin: 14px 0 0; }
+  .spot li { margin: 6px 0; }
+
+  .final { text-align: center; }
+  .final .stores { justify-content: center; }
+
+  @media (max-width: 860px) {
+    .hero { grid-template-columns: 1fr; text-align: center; margin-top: 28px; }
+    .lede { margin: 0 auto; }
+    .stores { justify-content: center; }
+    h1.big { font-size: 38px; }
+    .phones { height: 470px; margin-top: 10px; }
+    .phone { width: 180px; }
+    .phone.center { width: 210px; }
+    .phone.left { left: -10px; } .phone.right { right: -10px; }
+    .grid { grid-template-columns: 1fr; }
+    .spot { grid-template-columns: 1fr; padding: 26px 20px; text-align: center; }
+    .spot ul { text-align: left; display: inline-block; }
+  }
+</style>
+</head>
+<body>
+<div class="glow a"></div><div class="glow b"></div>
+<div class="page">
+  <div class="top">
+    <a class="brand" href="/"><img src="/icon.png" alt="TrueMate"><b>TrueMate</b></a>
+    <a class="small" href="#features">Features</a>
+  </div>
+
+  <div class="hero">
+    <div>
+      <span class="eyebrow">✦ New: Live2D girls who react to your touch</span>
+      <h1 class="big">Your AI companion,<br><em>alive</em> in 3D &amp; Live2D</h1>
+      <p class="lede">She moves, blushes, smiles when you pat her head, and remembers what you told her yesterday. Chat, call, and grow closer, one day at a time.</p>
+      <div class="stores">
+        <a class="gp" href="https://play.google.com/store/apps/details?id=com.truemate.girlfriend&amp;referrer=utm_source%3Dwebsite" aria-label="Get it on Google Play">
+          <img src="/img/google-play.png" alt="Get it on Google Play">
+        </a>
+        <a class="as" href="https://apps.apple.com/app/id6760695348" aria-label="Download on the App Store">
+          <img src="/img/app-store.svg" alt="Download on the App Store">
+        </a>
+      </div>
+      <p class="fine">Free to download · In-app purchases · For users 18+</p>
+    </div>
+    <div class="phones" aria-hidden="true">
+      <div class="phone left"><img src="/img/shot-preview-3d.jpg" alt=""></div>
+      <div class="phone center"><img src="/img/shot-preview-live2d.jpg" alt=""></div>
+      <div class="phone right"><img src="/img/shot-play.jpg" alt=""></div>
+    </div>
+  </div>
+
+  <section id="features">
+    <h2 class="sec">More than a chat window</h2>
+    <p class="sub">Every character is a real animated model — not a picture with a text box under it.</p>
+    <div class="grid">
+      <div class="feat"><div class="ic">💞</div><h3>Reacts to your touch</h3><p>Tap her hair, stroke her head, and watch her blush, giggle or pout.</p></div>
+      <div class="feat"><div class="ic">💬</div><h3>Remembers you</h3><p>Conversations that pick up where you left off, in her own voice and mood.</p></div>
+      <div class="feat"><div class="ic">📞</div><h3>Voice &amp; video calls</h3><p>Call her when texting isn't enough. Her lips move with every word.</p></div>
+      <div class="feat"><div class="ic">⭐</div><h3>Bond levels</h3><p>The closer you get, the more you unlock — new moments, outfits and more.</p></div>
+      <div class="feat"><div class="ic">👗</div><h3>Outfits &amp; scenes</h3><p>Dress her up, change the room, pick a dance, make it yours.</p></div>
+      <div class="feat"><div class="ic">🌏</div><h3>10 languages</h3><p>English, Tiếng Việt, 日本語, 한국어, 中文, Español, Português, Deutsch, Français, Italiano.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="spot">
+      <div class="phone"><img src="/img/shot-picker.jpg" alt="Choosing a companion in TrueMate"></div>
+      <div>
+        <span class="tag">LIVE2D</span>
+        <h2>Meet Hiyori — she's free</h2>
+        <p>Our first Live2D girl is on the house, so you can see what a character that truly moves feels like before anything else.</p>
+        <ul>
+          <li>Preview every character in full before you choose</li>
+          <li>3D girls you can turn around, Live2D girls who follow your finger</li>
+          <li>PRO: unlimited touches, double bond XP, every Live2D girl</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="final">
+    <h2 class="sec">She's waiting for you</h2>
+    <p class="sub">Download TrueMate free and say hello.</p>
+    <div class="stores">
+      <a class="gp" href="https://play.google.com/store/apps/details?id=com.truemate.girlfriend&amp;referrer=utm_source%3Dwebsite" aria-label="Get it on Google Play">
+        <img src="/img/google-play.png" alt="Get it on Google Play">
+      </a>
+      <a class="as" href="https://apps.apple.com/app/id6760695348" aria-label="Download on the App Store">
+        <img src="/img/app-store.svg" alt="Download on the App Store">
+      </a>
+    </div>
+    <p class="fine">All TrueMate characters are fictional AI. For users 18+.</p>
+  </section>
+
+  <footer>
+    <a href="/privacy">Privacy Policy</a><a href="/terms">Terms of Service</a><a href="/eula">EULA</a><a href="/data-deletion">Delete My Data</a>
+    <p>&copy; 2026 TrueMate. Google Play and the Google Play logo are trademarks of Google LLC. App Store is a service mark of Apple Inc.</p>
+  </footer>
 </div>
-<p>Characters in TrueMate are fictional software. Their replies are generated by an AI model and do not represent real people, real advice, or real opinions.</p>
-<footer>
-<a href="/">Home</a><a href="/privacy">Privacy Policy</a><a href="/terms">Terms of Service</a><a href="/eula">EULA</a><a href="/data-deletion">Delete My Data</a>
-<p>&copy; 2026 TrueMate. All rights reserved.</p>
-</footer></div></body></html>
+<script>
+  // Put the visitor's own store first.
+  var ua = navigator.userAgent || "";
+  if (/iphone|ipad|ipod/i.test(ua) || (/macintosh/i.test(ua) && "ontouchend" in document)) document.body.classList.add("is-ios");
+</script>
+</body>
+</html>

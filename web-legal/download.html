@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Download TrueMate</title>
+<meta name="description" content="Opens TrueMate in your phone's app store.">
+<meta property="og:title" content="Download TrueMate">
+<meta property="og:description" content="Your AI companion, alive in 3D & Live2D. Free on Google Play and the App Store.">
+<meta property="og:image" content="https://truemate.netlify.app/img/shot-preview-live2d.jpg">
+<link rel="icon" href="/icon.png">
+<link rel="stylesheet" href="/style.css">
+<script>
+  // One link for every bio and post: phones go straight to their store,
+  // everything else gets the page with both badges.
+  (function () {
+    var ua = navigator.userAgent || "";
+    var play = "https://play.google.com/store/apps/details?id=com.truemate.girlfriend&referrer=utm_source%3Ddownload_link";
+    var appStore = "https://apps.apple.com/app/id6760695348";
+    if (/android/i.test(ua)) location.replace(play);
+    else if (/iphone|ipad|ipod/i.test(ua) || (/macintosh/i.test(ua) && "ontouchend" in document)) location.replace(appStore);
+    else location.replace("/");
+  })();
+</script>
+</head>
+<body>
+<div class="wrap" style="text-align:center;padding-top:80px">
+  <p>Opening your app store…</p>
+  <p><a href="https://play.google.com/store/apps/details?id=com.truemate.girlfriend">Google Play</a> · <a href="https://apps.apple.com/app/id6760695348">App Store</a></p>
+</div>
+</body>
+</html>
