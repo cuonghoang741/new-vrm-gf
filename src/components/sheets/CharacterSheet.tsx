@@ -30,6 +30,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { BottomSheetRef } from "../common/BottomSheet";
 import { LinearGradient } from 'expo-linear-gradient';
 import { isLive2dRow } from "../../live2d/types";
+import { CharacterPreview } from "./CharacterPreview";
 import { purchaseItem } from "../../services/checkinService";
 import { UnlockDialog } from "../shop/UnlockDialog";
 import { refreshRuby, setRuby, useRuby } from "../../services/rubyStore";
@@ -67,6 +68,9 @@ interface Character {
     price_ruby?: number | null;
     /** How many outfits she has — the only real number in the stats row. */
     total_costumes?: number | null;
+    /** For the preview: her VRM, and the scene she stands in. */
+    base_model_url?: string | null;
+    backgrounds?: { image?: string | null } | null;
     data?: {
         /** Flagged teaser: shown with a SOON badge, never selectable. */
         coming_soon?: boolean;
@@ -75,6 +79,14 @@ interface Character {
         height_cm?: number;
         rounds?: { r1: number; r2: number; r3: number };
         old?: number;
+        occupation?: string;
+        characteristics?: string;
+        hobbies?: string[];
+        dislikes?: string[];
+        bio?: string;
+        bio_vi?: string;
+        birthday?: string;
+        live2d?: unknown;
     };
 }
 
@@ -150,6 +162,8 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
     const [focusedId, setFocusedId] = useState<string | null>(null);
     /** True once her demo clip has a frame to show; gates the crossfade. */
     const [videoReady, setVideoReady] = useState(false);
+    /** The full-screen look at her: the real model and everything about her. */
+    const [previewOpen, setPreviewOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const shimmerOpacity = useRef(new Animated.Value(0.3)).current;
@@ -167,7 +181,7 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
         try {
             const { data, error } = await supabase
                 .from("characters")
-                .select("id, name, thumbnail_url, avatar, description, tier, data, available, price_ruby, video_url, small_thumb_url, small_avatar, total_costumes")
+                .select("id, name, thumbnail_url, avatar, description, tier, data, available, price_ruby, video_url, small_thumb_url, small_avatar, total_costumes, base_model_url, backgrounds!background_default_id(image)")
                 .eq("is_public", true)
                 // Available characters, plus the ones deliberately flagged as
                 // coming soon. Everything else unavailable stays hidden — that
@@ -647,7 +661,9 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
             focusedChar.avatar ?? focusedChar.thumbnail_url ?? undefined;
         const heroLock = lockOf(focusedChar);
         const ctaLabel =
-            heroLock === "pro" ? t("char.unlock_pro")
+            // pro_or_ruby used to fall through to "Start chatting" on a
+            // character the button could not open without the unlock dialog.
+            heroLock === "pro" || heroLock === "pro_or_ruby" ? t("char.unlock_pro")
             : heroLock === "ruby" ? t("char.buy_confirm", { n: focusedChar.price_ruby ?? 0 })
             : heroLock === "ad" ? t("char.watch_to_switch")
             : t("char.start_chatting");
@@ -709,6 +725,32 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
                         style={StyleSheet.absoluteFill}
                         pointerEvents="none"
                     />
+
+                    {/* The real model, not this picture of her. Tapping the
+                        portrait opens it too. */}
+                    <Pressable
+                        onPress={() => setPreviewOpen(true)}
+                        style={StyleSheet.absoluteFill}
+                        accessibilityRole="button"
+                        accessibilityLabel={t("char.preview")}
+                    />
+                    <Pressable
+                        onPress={() => setPreviewOpen(true)}
+                        hitSlop={8}
+                        style={({ pressed }) => [styles.previewPill, pressed && { opacity: 0.85 }]}
+                    >
+                        <LinearGradient
+                            colors={isLive2dRow(focusedChar) ? ["#FF6FA3", "#A56BFF"] : ["#7C5CFF", "#4FA3FF"]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.previewPillBg}
+                        >
+                            <Ionicons name="play" size={13} color="#fff" />
+                            <Text style={styles.previewPillText}>
+                                {t("char.preview")} · {isLive2dRow(focusedChar) ? "LIVE2D" : "3D"}
+                            </Text>
+                        </LinearGradient>
+                    </Pressable>
 
                     {heroLocked && (
                         <View style={styles.heroLockBadge}>
@@ -855,6 +897,26 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
                         </LinearGradient>
                     </Pressable>
                 </View>
+
+                <CharacterPreview
+                    visible={previewOpen}
+                    character={focusedChar}
+                    ctaLabel={ctaLabel}
+                    ctaIcon={heroLock === "pro" || heroLock === "pro_or_ruby" ? "lock-closed"
+                        : heroLock === "ruby" ? "diamond"
+                        : heroLock === "ad" ? "play"
+                        : "chatbubble-ellipses"}
+                    locked={heroLocked}
+                    showPro={heroLock === "pro" || heroLock === "pro_or_ruby"}
+                    rubyPrice={heroLock === "ruby" || heroLock === "pro_or_ruby" ? focusedChar.price_ruby ?? 0 : 0}
+                    onClose={() => setPreviewOpen(false)}
+                    onPrimary={() => {
+                        setPreviewOpen(false);
+                        // The unlock prompts are modals too; iOS will not
+                        // present one while this one is still animating out.
+                        setTimeout(() => handleSelect(focusedChar), 350);
+                    }}
+                />
             </View>
         );
     };
@@ -1014,6 +1076,9 @@ const styles = StyleSheet.create({
     },
     tileHotText: { color: "#fff", fontSize: 8, fontWeight: "900", letterSpacing: 0.3 },
     tileLive2d: { borderWidth: 1.5, borderColor: "rgba(255,111,163,0.85)" },
+    previewPill: { position: "absolute", right: 16, bottom: 26, borderRadius: 16, overflow: "hidden" },
+    previewPillBg: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 12, height: 32 },
+    previewPillText: { color: "#fff", fontSize: 12.5, fontWeight: "800", letterSpacing: 0.3 },
     tileLock: {
         position: "absolute", top: 6, right: 6,
         width: 26, height: 26, borderRadius: 13,

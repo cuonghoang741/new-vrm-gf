@@ -28,6 +28,9 @@ PLAN = {
     "wanko":  {"listed": False, "tier": "pro",  "price": 1000},
 }
 
+# Picker order within the Live2D group: the free one first, as the way in.
+ORDER = {"hiyori": "000", "mao": "0001", "haru": "0002", "rice": "0003"}
+
 # fi005 lays her out beside a side rail. TrueMate centres the character.
 OFFSET_X = {"rice": -0.55}
 
@@ -125,6 +128,14 @@ def main(path):
         plan = PLAN[slug]
         thumb = STORAGE + f"thumbs/{slug}.png"
         data = {
+            # The same profile fields the VRM characters carry, so the preview
+            # reads one shape for both kinds.
+            "old": c.get("age"),
+            "hobbies": c.get("likes") or [],
+            "dislikes": c.get("dislikes") or [],
+            "bio": c.get("bio"),
+            "bio_vi": c.get("bio_vi"),
+            "birthday": c.get("birthday"),
             "model_type": "live2d",
             "live2d_listed": plan["listed"],
             "live2d_source": f"fi005:{slug}",
@@ -150,13 +161,13 @@ def main(path):
             + ", ".join([
                 q(c["id"]), q(c["name"]), q(c["tagline"]), q(instruction(c)), "true", "false",
                 q(plan["tier"]), q(plan["price"]), q(thumb), q(thumb), q(thumb), q(thumb), q(thumb),
-                "null", q(DEFAULT_BACKGROUND), q("000"), "2", q(data),
+                "null", q(DEFAULT_BACKGROUND), q(ORDER.get(slug, "0009")), "2", q(data),
             ])
             + ")\non conflict (id) do update set name = excluded.name, description = excluded.description, "
             "instruction = excluded.instruction, tier = excluded.tier, price_ruby = excluded.price_ruby, "
             "thumbnail_url = excluded.thumbnail_url, small_thumb_url = excluded.small_thumb_url, "
             "avatar = excluded.avatar, small_avatar = excluded.small_avatar, avatar_nobg = excluded.avatar_nobg, "
-            "data = excluded.data;\n"
+            "\"order\" = excluded.\"order\", data = excluded.data;\n"
         )
         for lang, text in TAGLINES.get(slug, {}).items():
             out.append(

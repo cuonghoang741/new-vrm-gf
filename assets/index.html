@@ -1506,6 +1506,9 @@
                     newAction.reset();
                     newAction.play();
                     currentAction = newAction;
+                    // Lets a preview keep her covered until she is out of the
+                    // bind pose; a model is shown before its first clip lands.
+                    try { window.ReactNativeWebView && window.ReactNativeWebView.postMessage('animationApplied'); } catch { }
                     updateFileDisplay(document.getElementById('currentModel').textContent, animationName);
                     if (!initialAnimationApplied) {
                         initialAnimationApplied = true;
@@ -1745,6 +1748,37 @@
             // No HTML-side BGM initialization
         });
 
+        // ─── Turntable for the character preview ───────────────────────────
+        // Spins her slowly, and a horizontal drag turns her by hand. No zoom or
+        // pan: free camera is the Lv5 reward on the play screen, and this is a
+        // showcase, not that. The base rotation is kept per model because VRM0
+        // models arrive already turned 180°.
+        window.__turntable = 0;
+        let __turntableDragging = false;
+        let __turntableLastX = 0;
+        window.setTurntable = function (speed) {
+            window.__turntable = Number(speed) || 0;
+            if (!window.__turntable && currentVrm) {
+                const sc = currentVrm.scene;
+                if (sc.userData.__baseRotY !== undefined) sc.rotation.y = sc.userData.__baseRotY;
+            }
+        };
+        renderer.domElement.addEventListener('pointerdown', (e) => {
+            if (!window.__turntable || !e.isPrimary) return;
+            __turntableDragging = true;
+            __turntableLastX = e.clientX;
+        });
+        renderer.domElement.addEventListener('pointermove', (e) => {
+            if (!__turntableDragging || !currentVrm) return;
+            const sc = currentVrm.scene;
+            if (sc.userData.__baseRotY === undefined) sc.userData.__baseRotY = sc.rotation.y;
+            sc.rotation.y += (e.clientX - __turntableLastX) * 0.012;
+            __turntableLastX = e.clientX;
+        });
+        const __endTurntableDrag = () => { __turntableDragging = false; };
+        renderer.domElement.addEventListener('pointerup', __endTurntableDrag);
+        renderer.domElement.addEventListener('pointercancel', __endTurntableDrag);
+
         const clock = new THREE.Clock();
         // Paused while this viewer is pre-warmed behind the screen (the paywall
         // preview loads its model before it is opened). Draining the clock
@@ -1768,6 +1802,13 @@
             const deltaTime = clock.getDelta();
             if (currentMixer) { currentMixer.update(deltaTime); }
             if (currentVrm) { currentVrm.update(deltaTime); }
+            // Showcase turntable (character preview): the model turns, not the
+            // camera, which is eased back to its framing every frame.
+            if (window.__turntable && currentVrm && !__turntableDragging) {
+                const sc = currentVrm.scene;
+                if (sc.userData.__baseRotY === undefined) sc.userData.__baseRotY = sc.rotation.y;
+                sc.rotation.y += deltaTime * window.__turntable;
+            }
             // No HTML-side BGM ducking
             // Smoothly move camera and target towards desired state
             try {

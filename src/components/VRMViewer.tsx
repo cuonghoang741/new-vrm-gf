@@ -63,6 +63,8 @@ export interface VRMViewerHandle {
     setTouchEnabled: (enabled: boolean) => void;
     /** Play her reaction to being touched there. */
     playTouchReaction: (part: TouchPart) => void;
+    /** Showcase spin in radians/s (0 stops it); a horizontal drag also turns her. */
+    setTurntable: (speed: number) => void;
     /** Run arbitrary JS inside the webview */
     injectJS: (js: string) => void;
 }
@@ -249,6 +251,9 @@ const VRMViewer = forwardRef<VRMViewerHandle, VRMViewerProps>(
                 playTouchReaction: (part: TouchPart) => {
                     if (!TOUCH_PARTS.includes(part)) return;
                     injectJS(`window.playTouchReaction && window.playTouchReaction(${JSON.stringify(part)})`);
+                },
+                setTurntable: (speed: number) => {
+                    injectJS(`window.setTurntable && window.setTurntable(${Number(speed) || 0})`);
                 },
                 injectJS,
             }),

@@ -22,6 +22,13 @@ type Item = {
 };
 
 const ITEM_WIDTH = 120;
+/**
+ * The top bar (her name pill, the rails) ends about here. A touch on her head
+ * sits just under it, and a floater that rose from there covered her name, so
+ * where each kind can start is held low enough that its highest point clears it.
+ */
+const TOP_SAFE = 110;
+const START_MIN: Record<Item["kind"], number> = { emoji: TOP_SAFE + 24 + 90, xp: TOP_SAFE + 24 + 56, hint: 0 };
 const HINT_WIDTH = 280;
 let nextId = 1;
 
@@ -32,7 +39,8 @@ let nextId = 1;
 export const TouchFeedback = forwardRef<TouchFeedbackHandle>(function TouchFeedback(_, ref) {
     const [items, setItems] = useState<Item[]>([]);
 
-    const spawn = useCallback((x: number, y: number, kind: Item["kind"], text: string, gold = false) => {
+    const spawn = useCallback((x: number, rawY: number, kind: Item["kind"], text: string, gold = false) => {
+        const y = Math.max(rawY, START_MIN[kind]);
         const id = nextId++;
         const anim = new Animated.Value(0);
         // Capped so a run of taps cannot pile up views.
