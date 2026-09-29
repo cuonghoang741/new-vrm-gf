@@ -77,6 +77,9 @@ def upload(key, path, data):
     http(f"{DST}/live2d/{urllib.parse.quote(path)}", data=data, method="POST", headers={
         "Authorization": f"Bearer {key}", "apikey": key,
         "Content-Type": CT.get(ext, "application/octet-stream"), "x-upsert": "true",
+        # Models never change in place, and without this Supabase serves
+        # `no-cache`: every launch revalidated every file of a 5 MB model.
+        "cache-control": "max-age=2592000",
     })
 
 

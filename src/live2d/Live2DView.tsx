@@ -1,16 +1,22 @@
 // The Live2D engine page, taken from fi005-live2d-ai at e676abd (official
-// Cubism Web Framework 5, Cubism Core inlined, runs offline). Its window API is
-// documented in that repo's docs/CONTRACTS.md §1.
+// Cubism Web Framework 5). The Cubism Core is downloaded once and inlined, see
+// core.ts. Its window API is documented in that repo's docs/CONTRACTS.md §1.
 //
 // Calls made before the page reports `ready` are queued and flushed then, so
 // callers never have to time them. A page the OS kills reloads itself; the
 // parent reloads the model when it sees the next `ready`.
-import React, { forwardRef, useCallback, useImperativeHandle, useRef } from "react";
+import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { StyleSheet } from "react-native";
 import { WebView, type WebViewMessageEvent } from "react-native-webview";
 
 import { VIEWER_HTML } from "./viewerHtml";
+import { loadCubismCore, peekCubismCore } from "./core";
 import type { Live2DConfig, Live2DEffect, Live2DReaction } from "./types";
+
+/** The page's <script src> for the Core, swapped for the Core itself. */
+const CORE_TAG = /<script src="https:\/\/cubism\.live2d\.com[^>]*><\/script>/;
+/** Backoff while the Core has never been downloaded and the CDN is unreachable. */
+const CORE_RETRY_MS = [1500, 3000, 6000, 12000, 20000];
 
 export type Live2DWeather = "none" | "sakura" | "rain" | "snow" | "fireflies" | "stars";
 
@@ -44,6 +50,32 @@ export const Live2DView = forwardRef<Live2DHandle, { onEvent?: (e: Live2DEvent) 
         const ready = useRef(false);
         const queue = useRef<string[]>([]);
 
+        // The page is only built once the Core is in hand, and the Core is
+        // inlined, so the page itself never depends on the network for it.
+        const [core, setCore] = useState<string | null>(peekCubismCore);
+        useEffect(() => {
+            if (core) return;
+            let alive = true;
+            let attempt = 0;
+            let timer: ReturnType<typeof setTimeout> | null = null;
+            const tryLoad = () => {
+                loadCubismCore()
+                    .then((c) => { if (alive) setCore(c); })
+                    .catch(() => {
+                        if (!alive) return;
+                        timer = setTimeout(tryLoad, CORE_RETRY_MS[Math.min(attempt++, CORE_RETRY_MS.length - 1)]);
+                    });
+            };
+            tryLoad();
+            return () => { alive = false; if (timer) clearTimeout(timer); };
+        }, [core]);
+        // A replacer function, not a string: `$` sequences in the Core must not
+        // be read as replacement patterns.
+        const html = useMemo(
+            () => (core ? VIEWER_HTML.replace(CORE_TAG, () => `<script>${core}</script>`) : null),
+            [core]
+        );
+
         const inject = (code: string) => web.current?.injectJavaScript(`try{${code}}catch(e){};true;`);
         const run = useCallback((code: string) => {
             if (ready.current) inject(code);
@@ -73,10 +105,12 @@ export const Live2DView = forwardRef<Live2DHandle, { onEvent?: (e: Live2DEvent) 
 
         const onGone = () => { ready.current = false; web.current?.reload(); };
 
+        if (!html) return null;
+
         return (
             <WebView
                 ref={web}
-                source={{ html: VIEWER_HTML, baseUrl: "https://live2d.app/" }}
+                source={{ html, baseUrl: "https://live2d.app/" }}
                 originWhitelist={["*"]}
                 onMessage={onMessage}
                 javaScriptEnabled

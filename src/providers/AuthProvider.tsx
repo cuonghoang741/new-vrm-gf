@@ -25,39 +25,44 @@ export default function AuthProvider({ children }: PropsWithChildren) {
     const [isInitializing, setIsInitializing] = useState<boolean>(true);
     const isLoadingRef = useRef(true);
 
-    // Check onboarding status from database
-    const checkOnboarding = useCallback(async (userId: string, retries = 1) => {
-        try {
-            console.log(`[Auth] Checking onboarding for user: ${userId} (retries left: ${retries})`);
-            const { data, error } = await supabase
-                .from("user_assets")
-                .select("id")
-                .eq("user_id", userId)
-                .eq("item_type", "character")
-                .limit(1);
-
-            if (error && retries > 0) {
-                await new Promise(resolve => setTimeout(resolve, 500));
+    // Check onboarding status from database.
+    //
+    // A failed query is not an answer. It used to fall through to "not
+    // onboarded", so on a slow or flaky connection an existing user was sent
+    // back through onboarding, which grants another character and makes it
+    // current. Seen on a congested emulator: a QA account with two characters
+    // landed on "How old are you?". Now it retries with backoff, and if it
+    // still cannot read the answer it assumes onboarded: the play screen
+    // already heals an account with no character (it picks the first owned
+    // one, else the first public one), while the opposite mistake rewrites a
+    // real user's state.
+    const checkOnboarding = useCallback(async (userId: string) => {
+        const delays = [0, 600, 1500, 3000];
+        for (const delay of delays) {
+            if (delay) {
+                await new Promise((resolve) => setTimeout(resolve, delay));
                 // Ping session to ensure headers update
                 await supabase.auth.getSession();
-                return checkOnboarding(userId, retries - 1);
             }
-
-            if (!error && data && data.length > 0) {
-                setIsOnboarded(true);
-            } else {
-                console.log("[Auth] User NOT onboarded ❌");
-                setIsOnboarded(false);
+            try {
+                const { data, error } = await supabase
+                    .from("user_assets")
+                    .select("id")
+                    .eq("user_id", userId)
+                    .eq("item_type", "character")
+                    .limit(1);
+                if (!error) {
+                    setIsOnboarded(!!data && data.length > 0);
+                    return;
+                }
+                console.warn("[Auth] checkOnboarding query failed:", error.message);
+            } catch (e) {
+                console.warn("[Auth] checkOnboarding threw:", e);
             }
-        } catch (e) {
-            console.error("[Auth] checkOnboarding error:", e);
-            if (retries > 0) {
-                await new Promise(resolve => setTimeout(resolve, 500));
-                return checkOnboarding(userId, retries - 1);
-            }
-            setIsOnboarded(false);
         }
-    }, []);
+        console.warn("[Auth] onboarding status unreadable; assuming onboarded");
+        setIsOnboarded(true);
+    }, [setIsOnboarded]);
 
     useEffect(() => {
         let mounted = true;

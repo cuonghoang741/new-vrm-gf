@@ -223,6 +223,19 @@ export default function PlayScreen() {
     const live2dConfigRef = useRef<Live2DConfig | null>(null);
     live2dConfigRef.current = live2d;
     const live2dReadyRef = useRef(false);
+    /**
+     * What the page was last asked to load. Her config arrives twice on a
+     * cold start, from the cache and then from the database, as two objects
+     * with the same content. Loading on identity restarted a download that
+     * could take most of a minute on a slow network, so she never appeared.
+     */
+    const live2dLoadedKey = useRef<string | null>(null);
+    const loadLive2d = useCallback((cfg: Live2DConfig) => {
+        const key = `${cfg.modelUrl}|${cfg.scale}|${cfg.offsetX}|${cfg.offsetY}`;
+        if (key === live2dLoadedKey.current) return;
+        live2dLoadedKey.current = key;
+        live2dRef.current?.load(cfg);
+    }, []);
     const live2dResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const performLive2d = useCallback((emotion: Emotion, effect: Live2DEffect | null, talkMs: number) => {
         const cfg = live2dConfigRef.current;
@@ -239,12 +252,25 @@ export default function PlayScreen() {
         performLive2d(emotion, effectFor(emotion), Math.min(7000, Math.max(900, text.length * 55)));
     }, [performLive2d]);
 
+    // A Live2D character is never shown in 3D, however 3D was switched on.
+    // Guarding enter3D was not enough: on a cold start the 3D trial resumes
+    // (and calls it) before her config is restored from the cache, so the
+    // guard saw no Live2D, 3D stuck on, and she was replaced by an empty VRM
+    // scene with only its background showing.
+    useEffect(() => {
+        if (live2d && is3DMode) setIs3DMode(false);
+    }, [live2d, is3DMode]);
+
     // A new model once the page is up; the page's own `ready` covers the first
     // load and every reload after the OS kills it.
     useEffect(() => {
-        if (!live2d) { live2dReadyRef.current = false; return; }
-        if (live2dReadyRef.current) live2dRef.current?.load(live2d);
-    }, [live2d]);
+        if (!live2d) {
+            live2dReadyRef.current = false;
+            live2dLoadedKey.current = null;
+            return;
+        }
+        if (live2dReadyRef.current) loadLive2d(live2d);
+    }, [live2d, loadLive2d]);
 
     /** Set just before a completed head-stroke is spent as a touch. */
     const strokePendingRef = useRef(false);
@@ -451,8 +477,11 @@ export default function PlayScreen() {
         const cfg = live2dConfigRef.current;
         switch (e.type) {
             case "ready":
+                // A new page (first mount, or a reload after the OS killed
+                // it) has nothing loaded, whatever was loaded before.
                 live2dReadyRef.current = true;
-                if (cfg) live2dRef.current?.load(cfg);
+                live2dLoadedKey.current = null;
+                if (cfg) loadLive2d(cfg);
                 break;
             case "loaded": {
                 if (!cfg) break;
@@ -489,7 +518,7 @@ export default function PlayScreen() {
                 setTimeout(() => { strokingRef.current = false; strokeDoneRef.current = false; }, 700);
                 break;
         }
-    }, [touchCharacter, dance.isDancing, voiceState.isConnected]);
+    }, [touchCharacter, dance.isDancing, voiceState.isConnected, loadLive2d]);
 
     // Animations
     // Auto-enable 3D mode during voice/video calls (for all users, including free)
