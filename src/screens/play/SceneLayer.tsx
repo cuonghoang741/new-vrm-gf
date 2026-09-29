@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Animated, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useCallback, useEffect, useState } from "react";
+import { ActivityIndicator, Animated, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
@@ -154,6 +154,24 @@ export function SceneLayer({
     const { t } = useTranslation();
     const [artSize, setArtSize] = useState({ width: 0, height: 0 });
 
+    // A Live2D girl takes a few seconds to arrive (the Core on first launch,
+    // then a ~5 MB model), and until then the scene was an empty room with no
+    // sign anything was coming. A pill says she is on her way, or offers a retry.
+    const [l2dState, setL2dState] = useState<"loading" | "loaded" | "error">("loading");
+    const l2dUrl = live2d?.modelUrl ?? null;
+    useEffect(() => { setL2dState("loading"); }, [l2dUrl]);
+    const handleLive2dEvent = useCallback((e: Live2DEvent) => {
+        if (e.type === "loading") setL2dState("loading");
+        else if (e.type === "loaded") setL2dState("loaded");
+        else if (e.type === "error") setL2dState((s) => (s === "loaded" ? s : "error"));
+        onLive2dEvent?.(e);
+    }, [onLive2dEvent]);
+    const retryLive2d = () => {
+        if (!live2d) return;
+        setL2dState("loading");
+        live2dRef?.current?.load(live2d);
+    };
+
     return (
         <>
         {/* ─── Character Display Overlay ─── */}
@@ -174,7 +192,42 @@ export function SceneLayer({
                         // Transparent page over the scene; she takes her own
                         // taps and strokes and reports them up.
                         <View style={StyleSheet.absoluteFill}>
-                            <Live2DView ref={live2dRef} onEvent={onLive2dEvent} />
+                            <Live2DView ref={live2dRef} onEvent={handleLive2dEvent} />
+                            {l2dState !== "loaded" && (
+                                <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+                                    <View style={l2dCover.center} pointerEvents="box-none">
+                                        {(() => {
+                                            const body = l2dState === "error" ? (
+                                                <Text style={[l2dCover.text, { color: surface.icon }]}>{t("common.retry")}</Text>
+                                            ) : (
+                                                <>
+                                                    <ActivityIndicator color={surface.icon} size="small" />
+                                                    <Text style={[l2dCover.text, { color: surface.icon }]}>{t("char.loading_model")}</Text>
+                                                </>
+                                            );
+                                            const pill = isLiquidGlassSupported ? (
+                                                <LiquidGlassView
+                                                    style={[l2dCover.pill, { borderColor: surface.border }]}
+                                                    effect="regular"
+                                                    interactive
+                                                    tintColor={surface.glass}
+                                                >
+                                                    {body}
+                                                </LiquidGlassView>
+                                            ) : (
+                                                <View style={[l2dCover.pill, { backgroundColor: surface.glass, borderColor: surface.border }]}>
+                                                    {body}
+                                                </View>
+                                            );
+                                            return l2dState === "error" ? (
+                                                <TouchableOpacity onPress={retryLive2d} activeOpacity={0.8}>{pill}</TouchableOpacity>
+                                            ) : (
+                                                <View pointerEvents="none">{pill}</View>
+                                            );
+                                        })()}
+                                    </View>
+                                </View>
+                            )}
                         </View>
                     ) : (characterAvatarNoBg ?? characterAvatar) && (
                         <Pressable
@@ -431,3 +484,14 @@ export function SceneLayer({
         </>
     );
 }
+
+/** The stand-in shown while a Live2D model is on its way. */
+const l2dCover = StyleSheet.create({
+    center: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center" },
+    pill: {
+        flexDirection: "row", alignItems: "center", gap: 8,
+        paddingHorizontal: 16, paddingVertical: 10, borderRadius: 999,
+        borderWidth: StyleSheet.hairlineWidth, overflow: "hidden",
+    },
+    text: { fontSize: 14, fontWeight: "600" },
+});
