@@ -10,7 +10,7 @@ import { AdUnits } from "../../config/ads";
 import { analyticsService } from "../../services/AnalyticsService";
 import { takePreloadedNative } from "./nativeAdPreload";
 import { useSubscription } from "../../contexts/SubscriptionContext";
-import { adsAllowed } from "../../services/remoteConfig";
+import { adsAllowed, placementAllowed } from "../../services/remoteConfig";
 import { track } from "../../services/trackEvents";
 
 /**
@@ -68,6 +68,10 @@ export function NativeAdCard({
     ctaColor?: string;
 }) {
     const { isPro } = useSubscription();
+    // Checked before the request, not only before rendering: a native ad that
+    // is fetched and never shown still counts as a request with no impression.
+    const allowed = adsAllowed("ads_native_enabled") && placementAllowed(placement);
+
     const [ad, setAd] = useState<NativeAd | null>(null);
     const [failed, setFailed] = useState(false);
 
@@ -78,16 +82,16 @@ export function NativeAdCard({
      * long the space goes back to the screen.
      */
     useEffect(() => {
-        if (isPro || ad || failed) return;
+        if (isPro || !allowed || ad || failed) return;
         const t = setTimeout(() => {
             setFailed(true);
             analyticsService.logAdLoadFailed("native", placement, "timeout");
         }, LOAD_TIMEOUT_MS);
         return () => clearTimeout(t);
-    }, [isPro, ad, failed, placement]);
+    }, [isPro, allowed, ad, failed, placement]);
 
     useEffect(() => {
-        if (isPro) return;
+        if (isPro || !allowed) return;
         const unit = adUnitId ?? AdUnits.native;
 
         // If something preloaded this unit, show it on the first frame — no
@@ -123,10 +127,10 @@ export function NativeAdCard({
             cancelled = true;
             loaded?.destroy();
         };
-    }, [isPro, adUnitId]);
+    }, [isPro, adUnitId, allowed]);
 
     if (isPro) return null;
-    if (!adsAllowed("ads_native_enabled")) return null;
+    if (!allowed) return null;
     // Nothing will ever arrive — give the space back rather than leaving a
     // skeleton shimmering forever.
     if (failed) return null;

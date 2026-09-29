@@ -4,8 +4,9 @@ import {
     AdEventType,
 } from "react-native-google-mobile-ads";
 import { AdUnits } from "../config/ads";
-import { AdsManager } from "./AdsManager";
+import { AdsManager, showSafely } from "./AdsManager";
 import { analyticsService } from "./AnalyticsService";
+import { adsAllowed, splashInterstitialEnabled } from "./remoteConfig";
 
 /**
  * The cold-start splash ad: `open_splash` (App Open) with `inter_splash`
@@ -79,6 +80,9 @@ export async function showSplashAd(
         await AdsManager.init();
         if (abandoned) return "none";
         if (AdsManager.isFullscreenAdShowing) return "none";
+        // The splash used to ignore the console's switches entirely, so
+        // turning App Open off in Firebase left the launch ad running.
+        if (!adsAllowed("ads_app_open_enabled")) return "none";
 
         const appOpen = await loadAppOpen();
         if (abandoned) return "none";
@@ -92,6 +96,8 @@ export async function showSplashAd(
         // staring at the boot screen for 5s. Only a fast, definite "no ad"
         // earns the fallback.
         if (appOpen.reason === "timeout") return "none";
+        // Off unless the console turns it on — see ads_splash_interstitial_enabled.
+        if (!splashInterstitialEnabled()) return "none";
 
         const interstitial = await loadInterstitial();
         if (abandoned) return "none";
@@ -202,10 +208,10 @@ function present(
         // hide app data behind the ad; behind this one is the boot screen —
         // a logo and a progress bar — and painting it dark would only add a
         // colour flash to the first second of every launch.
-        try {
-            ad.show();
-        } catch {
-            finish();
-        }
+        //
+        // The caller has already disarmed the boot screen's deadline by the
+        // time this runs, so this is the only thing that can end a show that
+        // never opens. Without it, that launch stayed on the splash for good.
+        showSafely(ad, finish);
     });
 }

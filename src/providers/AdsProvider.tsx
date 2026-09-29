@@ -2,7 +2,7 @@ import React, { ReactNode, useEffect, useRef } from "react";
 import { AppState, AppStateStatus } from "react-native";
 import { AppOpenAd, AdEventType } from "react-native-google-mobile-ads";
 import { AdUnits } from "../config/ads";
-import { AdsManager, RESUME_THRESHOLD_MS } from "../services/AdsManager";
+import { AdsManager, RESUME_THRESHOLD_MS, showSafely } from "../services/AdsManager";
 import { adsAllowed } from "../services/remoteConfig";
 import { markResumed, setResumeAdShower } from "../services/resumeGate";
 import { useSubscription } from "../contexts/SubscriptionContext";
@@ -25,6 +25,8 @@ export function AdsProvider({ children }: { children: ReactNode }) {
 
     const adRef = useRef<AppOpenAd | null>(null);
     const loadedRef = useRef(false);
+    /** A load in flight. Calling load() again would throw it away and restart. */
+    const loadingRef = useRef(false);
     const loadedAtRef = useRef(0);
     const appStateRef = useRef<AppStateStatus>(AppState.currentState);
     /** When the app last went to background — gates the resume ad. */
@@ -38,17 +40,23 @@ export function AdsProvider({ children }: { children: ReactNode }) {
         let mounted = true;
 
         const load = () => {
+            if (loadingRef.current) return;
             const ad = AppOpenAd.createForAdRequest(AdUnits.appOpen, {
                 requestNonPersonalizedAdsOnly: false,
             });
             adRef.current = ad;
             loadedRef.current = false;
+            loadingRef.current = true;
 
             const unsubLoaded = ad.addAdEventListener(AdEventType.LOADED, () => {
+                if (adRef.current !== ad) return; // a replaced ad reporting late
+                loadingRef.current = false;
                 loadedRef.current = true;
                 loadedAtRef.current = Date.now();
             });
             const unsubError = ad.addAdEventListener(AdEventType.ERROR, () => {
+                if (adRef.current !== ad) return;
+                loadingRef.current = false;
                 loadedRef.current = false;
             });
             ad.load();
@@ -93,11 +101,9 @@ export function AdsProvider({ children }: { children: ReactNode }) {
             AdsManager.setFullscreenAdShowing(true);
             AdsManager.registerFullScreenShown(); // full-screen gap applies cross-type
             AdsManager.showOpaqueOverlay();
-            try {
-                ad.show();
-            } catch {
-                finish();
-            }
+            // The ad is spent either way; the next show needs a fresh one.
+            loadedRef.current = false;
+            showSafely(ad, finish);
         });
 
         const init = async () => {

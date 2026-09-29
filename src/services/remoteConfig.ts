@@ -52,6 +52,26 @@ const DEFAULTS = {
     ads_interstitial_min_gap_seconds: 120,
     ads_interstitial_max_per_day: 6,
     /**
+     * The splash's interstitial fallback, used when the App Open ad does not
+     * fill. OFF by default: App Open is the format built for app launch, and
+     * an interstitial the moment the app opens is the placement Google's
+     * interstitial guidance tells publishers not to use. Kept switchable
+     * rather than deleted because the ad scenario asks for it.
+     */
+    ads_splash_interstitial_enabled: false,
+    /**
+     * Comma-separated `placement` names that never render an ad, e.g.
+     * "signin,splash". This is the switch to use when AdMob flags a single
+     * placement, so it can be removed without a release.
+     *
+     * The default blocks the two banners that sit on screens with no content
+     * of their own, the sign-in screen and the boot/loading screen. Login and
+     * loading screens are the standard examples of pages AdMob does not want
+     * ads on, and a banner next to the sign-in buttons also invites the
+     * accidental tap it counts as invalid traffic.
+     */
+    ads_blocked_placements: "signin,splash",
+    /**
      * Route chat through `gemini-chat-v2` — the version that sends her photos
      * in the same turn. Off falls back to `gemini-chat`, which is what is on
      * production today and stays untouched.
@@ -179,6 +199,18 @@ function str(key: keyof typeof DEFAULTS): string {
 export function adsAllowed(flag: AdFlag): boolean {
     return bool("ads_enabled") && bool(flag);
 }
+
+/** False when this placement is listed in `ads_blocked_placements`. */
+export function placementAllowed(placement: string): boolean {
+    const blocked = str("ads_blocked_placements")
+        .split(",")
+        .map((p) => p.trim())
+        .filter(Boolean);
+    return !blocked.includes(placement);
+}
+
+export const splashInterstitialEnabled = () =>
+    adsAllowed("ads_interstitial_enabled") && bool("ads_splash_interstitial_enabled");
 
 /** Which chat edge function this build talks to, and how. */
 export const chatV2Enabled = () => bool("chat_v2_enabled");

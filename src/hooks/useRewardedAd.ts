@@ -6,7 +6,7 @@ import {
     AdEventType,
 } from "react-native-google-mobile-ads";
 import { AdUnits } from "../config/ads";
-import { AdsManager } from "../services/AdsManager";
+import { AdsManager, showSafely } from "../services/AdsManager";
 import { adsAllowed } from "../services/remoteConfig";
 import { analyticsService } from "../services/AnalyticsService";
 
@@ -39,6 +39,12 @@ export function useRewardedAd(
 ) {
     const adRef = useRef<RewardedAd | null>(null);
     const loadedRef = useRef(false);
+    /**
+     * A load in flight. Without it there was no telling a loading ad from one
+     * whose load had already failed, and a tap on the failed one waited the
+     * full 8s timeout for a LOADED that could never come.
+     */
+    const loadingRef = useRef(false);
 
     const buildAndLoad = useCallback(() => {
         const ad = RewardedAd.createForAdRequest(adUnitId, {
@@ -46,15 +52,20 @@ export function useRewardedAd(
         });
         adRef.current = ad;
         loadedRef.current = false;
+        loadingRef.current = true;
 
         const unsubLoaded = ad.addAdEventListener(
             RewardedAdEventType.LOADED,
             () => {
+                if (adRef.current !== ad) return; // a replaced ad reporting late
+                loadingRef.current = false;
                 loadedRef.current = true;
                 analyticsService.logAdLoaded("rewarded", placement);
             }
         );
         const unsubError = ad.addAdEventListener(AdEventType.ERROR, (error: any) => {
+            if (adRef.current !== ad) return;
+            loadingRef.current = false;
             loadedRef.current = false;
             analyticsService.logAdLoadFailed(
                 "rewarded",
@@ -84,6 +95,7 @@ export function useRewardedAd(
                 unsubEarned();
                 unsubClosed();
                 unsubError();
+                unsubOpened();
             };
             const settle = (value: boolean) => {
                 if (settled) return;
@@ -113,16 +125,17 @@ export function useRewardedAd(
             const unsubError = ad.addAdEventListener(AdEventType.ERROR, () =>
                 settle(false)
             );
+            const unsubOpened = ad.addAdEventListener(AdEventType.OPENED, () =>
+                analyticsService.logAdImpression("rewarded", placement)
+            );
 
             AdsManager.setFullscreenAdShowing(true);
             AdsManager.registerFullScreenShown(); // full-screen gap applies cross-type
             AdsManager.hideLoadingOverlay();
-            analyticsService.logAdImpression("rewarded", placement);
-            try {
-                ad.show();
-            } catch {
-                settle(false);
-            }
+            loadedRef.current = false; // spent either way
+            // A failed show must still resolve: the unlock flow awaiting this
+            // promise used to hang on it, with its button stuck mid-tap.
+            showSafely(ad, () => settle(false));
         },
         [buildAndLoad, placement]
     );
@@ -147,7 +160,7 @@ export function useRewardedAd(
                 analyticsService.logAdSkipped("rewarded", placement, "overlap");
                 return resolve("unavailable");
             }
-            if (!adRef.current) buildAndLoad();
+            if (!adRef.current || (!loadedRef.current && !loadingRef.current)) buildAndLoad();
             const ad = adRef.current;
             if (!ad) {
                 analyticsService.logAdSkipped("rewarded", placement, "not_loaded");
@@ -209,8 +222,7 @@ export function useRewardedAd(
             }
 
             // Not ready yet — wait briefly while it loads (user opted in).
-            const pending = adRef.current ?? null;
-            if (!pending) {
+            if (!adRef.current || !loadingRef.current) {
                 buildAndLoad();
             }
             const waitAd = adRef.current;

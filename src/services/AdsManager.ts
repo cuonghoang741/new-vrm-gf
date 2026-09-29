@@ -1,6 +1,7 @@
 import { Platform } from "react-native";
 import { FacebookService } from "./FacebookService";
 import mobileAds, {
+    AdEventType,
     MaxAdContentRating,
 } from "react-native-google-mobile-ads";
 import {
@@ -38,6 +39,58 @@ export const RESUME_THRESHOLD_MS = 240_000; // 4 minutes away before a resume ad
 /** Load-failure backoff: attempt N waits retryBaseDelay * N (matches Yuuki). */
 export const AD_RETRY_BASE_DELAY_MS = 5_000;
 export const AD_MAX_LOAD_RETRIES = 3;
+
+/**
+ * How long a loaded ad may take between `show()` and OPENED before we give up
+ * on it. A loaded ad normally opens in well under a second.
+ */
+const SHOW_OPEN_TIMEOUT_MS = 5_000;
+/**
+ * The loading overlay's hard ceiling. It covers the whole app and takes every
+ * touch, so it must never outlive the ad that raised it. The longest
+ * legitimate wait is a rewarded load, which is 8s.
+ */
+const LOADING_OVERLAY_MAX_MS = 12_000;
+
+type ShowableAd = {
+    show: () => Promise<void> | void;
+    addAdEventListener: (type: any, listener: (...args: any[]) => void) => () => void;
+};
+
+/**
+ * Presents a loaded full-screen ad, and calls `onFail` if it never opens.
+ *
+ * `show()` returns a promise and fails by rejecting it, which a synchronous
+ * try/catch does not catch. Some failures also fire neither CLOSED nor ERROR.
+ * In both cases the caller's cleanup never ran: the full-screen lock stayed on,
+ * blocking every later ad, and whichever overlay was up stayed over the app.
+ * On the splash that meant a launch stuck on the boot screen, and after a call
+ * a "loading ad" screen that swallowed every touch.
+ *
+ * If the timeout fires and the ad opens late anyway, the user still sees it
+ * and closes it normally. The caller's cleanup is already idempotent.
+ */
+export function showSafely(ad: ShowableAd, onFail: () => void): void {
+    let done = false;
+    const unsubOpened = ad.addAdEventListener(AdEventType.OPENED, () => {
+        done = true;
+        clearTimeout(timer);
+        unsubOpened();
+    });
+    const fail = () => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        unsubOpened();
+        onFail();
+    };
+    const timer = setTimeout(fail, SHOW_OPEN_TIMEOUT_MS);
+    try {
+        Promise.resolve(ad.show()).catch(fail);
+    } catch {
+        fail();
+    }
+}
 
 const K_DAY_COUNT = "ads_day_interstitials";
 const K_DAY_STAMP = "ads_day_stamp";
@@ -196,7 +249,7 @@ class AdsManagerClass {
         // The console can switch this format off without a release.
         if (!adsAllowed("ads_interstitial_enabled")) return false;
         if (this.fullscreenAdShowing) return false;
-        // Cold-start grace: nothing in the first 20s after launch.
+        // Cold-start grace: nothing in the first COLD_START_GRACE_MS after launch.
         if (Date.now() - this.startedAt < COLD_START_GRACE_MS) return false;
         // Min gap after ANY full-screen ad (interstitial / rewarded / app-open).
         if (Date.now() - this.lastFullscreenAt < interstitialMinGapMs()) return false;
@@ -262,11 +315,25 @@ class AdsManagerClass {
         this.listeners.forEach((l) => l(this.overlay));
     }
 
+    private loadingWatchdog: ReturnType<typeof setTimeout> | null = null;
+
     showLoadingOverlay() {
         this.setOverlay({ loading: true });
+        // Defence in depth behind showSafely: whatever path raised it, this
+        // overlay comes down on its own rather than freezing the app.
+        if (this.loadingWatchdog) clearTimeout(this.loadingWatchdog);
+        this.loadingWatchdog = setTimeout(() => {
+            this.loadingWatchdog = null;
+            console.warn("[AdsManager] loading overlay outlived its ad — forcing it down");
+            this.setOverlay({ loading: false });
+        }, LOADING_OVERLAY_MAX_MS);
     }
 
     hideLoadingOverlay() {
+        if (this.loadingWatchdog) {
+            clearTimeout(this.loadingWatchdog);
+            this.loadingWatchdog = null;
+        }
         this.setOverlay({ loading: false });
     }
 

@@ -8,6 +8,7 @@ import {
     AdsManager,
     AD_RETRY_BASE_DELAY_MS,
     AD_MAX_LOAD_RETRIES,
+    showSafely,
 } from "../services/AdsManager";
 import { useSubscription } from "../contexts/SubscriptionContext";
 import { analyticsService } from "../services/AnalyticsService";
@@ -115,6 +116,9 @@ export function useInterstitialAd() {
 
             const unsubOpened = ad.addAdEventListener(AdEventType.OPENED, () => {
                 AdsManager.hideLoadingOverlay();
+                // Counted when it is on screen, not when we tried: a show that
+                // failed used to spend one of the day's six anyway.
+                AdsManager.registerInterstitialShown();
                 analyticsService.logAdImpression("interstitial", PLACEMENT);
             });
             const unsubClosed = ad.addAdEventListener(AdEventType.CLOSED, () => {
@@ -133,14 +137,15 @@ export function useInterstitialAd() {
 
             // Show the brief loading screen, then present the ad (rule 1/3).
             AdsManager.setFullscreenAdShowing(true);
-            AdsManager.registerInterstitialShown(); // bump session/day caps + gap
             AdsManager.showLoadingOverlay();
+            loadedRef.current = false; // spent either way
             setTimeout(() => {
-                try {
-                    ad.show();
-                } catch {
+                showSafely(ad, () => {
+                    unsubOpened();
+                    unsubClosed();
+                    unsubError();
                     finish();
-                }
+                });
             }, LOADING_SCREEN_MS);
         },
         [isPro, load]
