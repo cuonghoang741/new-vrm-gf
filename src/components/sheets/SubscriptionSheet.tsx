@@ -49,6 +49,8 @@ const FEATURES = [
     { icon: IconGift, text: "sub.b7", color: "#FF6FA5", highlight: true },
     { icon: IconBolt, text: "sub.b6_x2", color: "#F2C14E", highlight: true },
     { icon: IconTrendingUp, text: "sub.b9_bond_x2", color: "#F2C14E", highlight: true },
+    // New, and the reason the three PRO Live2D girls are locked.
+    { icon: IconSparkles, text: "sub.b10_live2d", color: "#C8A8F0" },
     { icon: IconAdOff, text: "sub.b1", color: "#FF6FA5" },
     { icon: IconMessageHeart, text: "sub.b2", color: "#FF8FB8" },
     // Free accounts get three touches a day; the prompt that follows the

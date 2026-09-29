@@ -46,6 +46,8 @@ interface ActionsBubbleProps {
     isCameraMode: boolean;
     onOpenCharacter: () => void;
     onOpenCostume: () => void;
+    /** False for a Live2D character, who has no costume catalogue. */
+    showCostume?: boolean;
     onOpenScene: () => void;
     onOpenGallery: () => void;
     onToggleDance: () => void;
@@ -74,6 +76,7 @@ export default function ActionsBubble({
     chatVisible,
     onOpenCharacter,
     onOpenCostume,
+    showCostume = true,
     onOpenScene,
     onOpenGallery,
     onToggleDance,
@@ -181,7 +184,7 @@ export default function ActionsBubble({
                         {t("act.settings")}
                     </Button>
 
-                    <View>
+                    {showCostume && <View>
                         <Button
                             variant="liquid"
                             size="sm"
@@ -196,7 +199,7 @@ export default function ActionsBubble({
                             {t("act.costume")}
                         </Button>
                         <View style={[styles.notificationDot, { backgroundColor: surface.accent, borderColor: surface.glass, shadowColor: surface.accent }]} />
-                    </View>
+                    </View>}
                     {/* <Button
                         variant="liquid"
                         size="sm"

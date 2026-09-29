@@ -3,6 +3,7 @@ import { chatService, ChatMessage } from "../../services/chatService";
 import { analyticsService } from "../../services/AnalyticsService";
 import type { VRMViewerHandle } from "../../components/VRMViewer";
 import type { CachedCharacter } from "./cache";
+import { parseLive2d, type Live2DConfig } from "../../live2d/types";
 
 /**
  * What switching to another character is allowed to touch.
@@ -33,6 +34,8 @@ export interface CharacterSelectDeps {
     setCharacterModelUrl: (v: string | null) => void;
     setBaseModelUrl: (v: string | null) => void;
     setAgentElevenlabsId: (v: string | null) => void;
+    /** Null for a VRM character. */
+    setLive2d: (v: Live2DConfig | null) => void;
     setBackgroundId: (v: string | null) => void;
     setBackgroundUrl: (v: string | null) => void;
     setBackgroundName: (v: string | null) => void;
@@ -49,7 +52,7 @@ export async function selectCharacter(char: any, deps: CharacterSelectDeps) {
         backgroundUrl, backgroundId, agentElevenlabsId, isBackgroundDark,
         setCharacterId, setCharacterName, setCharacterThumbnail, setCharacterThumbnailSmall,
         setCharacterAvatar, setCharacterAvatarNoBg, setCharacterAvatarSmall, setCharacterModelUrl, setBaseModelUrl,
-        setAgentElevenlabsId, setBackgroundId, setBackgroundUrl, setBackgroundName,
+        setAgentElevenlabsId, setLive2d, setBackgroundId, setBackgroundUrl, setBackgroundName,
         setIsBackgroundDark, setIsNudeBlurred, setIs3DMode, setMessages,
     } = deps;
     const user = userId ? { id: userId } : null;
@@ -62,9 +65,14 @@ export async function selectCharacter(char: any, deps: CharacterSelectDeps) {
     // Fetch full detail for the character (including avatar/vrm/background)
     const { data: fullChar } = await supabase
         .from("characters")
-        .select("base_model_url, background_default_id, thumbnail_url, avatar, avatar_nobg, small_thumb_url, small_avatar")
+        .select("base_model_url, background_default_id, thumbnail_url, avatar, avatar_nobg, small_thumb_url, small_avatar, data")
         .eq("id", char.id)
         .single();
+
+    // Set before anything else about the scene changes, so the layer swap
+    // (Live2D or the VRM/2D pair) happens with the rest of the switch.
+    const live2d = parseLive2d((fullChar as any)?.data);
+    setLive2d(live2d);
 
     if (fullChar) {
         if (fullChar.thumbnail_url) setCharacterThumbnail(fullChar.thumbnail_url);
@@ -120,7 +128,8 @@ export async function selectCharacter(char: any, deps: CharacterSelectDeps) {
             smallThumbUrl: fullChar.small_thumb_url || null,
             smallAvatarUrl: fullChar.small_avatar || null,
             agentElevenlabsId,
-            isBackgroundDark
+            isBackgroundDark,
+            live2d,
         });
     }
 

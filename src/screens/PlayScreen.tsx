@@ -82,6 +82,9 @@ import { UnlockDialog } from "../components/shop/UnlockDialog";
 import type { TouchPart } from "../components/VRMViewer";
 import type { BondTrackResult } from "../services/bondService";
 import { hasSeen, markSeen } from "../services/seenOnce";
+import { Live2DView, type Live2DEvent, type Live2DHandle } from "../live2d/Live2DView";
+import type { Emotion, Live2DConfig, Live2DEffect } from "../live2d/types";
+import { effectFor, inferEmotion, partForTap, pick, reactionFor, touchResponse } from "../live2d/reactions";
 
 import * as SecureStore from "expo-secure-store";
 import RubyIcon from "../components/icons/RubyIcon";
@@ -208,7 +211,43 @@ export default function PlayScreen() {
     const [isBackgroundDark, setIsBackgroundDark] = useState(true); // default dark
     const [vrmReady, setVrmReady] = useState(false);
     const [is3DMode, setIs3DMode] = useState(false); // Only PRO can enable
+    /** Set while the current character is a Live2D one; null for VRM. */
+    const [live2d, setLive2d] = useState<Live2DConfig | null>(null);
     const dance = useDance({ vrmRef, is3DMode, setIs3DMode, characterId });
+
+    // ─── Live2D ─────────────────────────────────────────────────────────
+    // She reacts through her own emotion_map (motion/expression) plus an
+    // emote effect, and her mouth moves while a line is on screen. The face
+    // settles back after a few seconds, as it does in fi005.
+    const live2dRef = useRef<Live2DHandle>(null);
+    const live2dConfigRef = useRef<Live2DConfig | null>(null);
+    live2dConfigRef.current = live2d;
+    const live2dReadyRef = useRef(false);
+    const live2dResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const performLive2d = useCallback((emotion: Emotion, effect: Live2DEffect | null, talkMs: number) => {
+        const cfg = live2dConfigRef.current;
+        if (!cfg) return;
+        const reaction = reactionFor(cfg, emotion);
+        if (reaction) live2dRef.current?.react(reaction);
+        if (effect) live2dRef.current?.effect(effect);
+        if (talkMs > 0) live2dRef.current?.talk(talkMs);
+        if (live2dResetTimer.current) clearTimeout(live2dResetTimer.current);
+        live2dResetTimer.current = setTimeout(() => live2dRef.current?.resetExpression(), 8000);
+    }, []);
+    const performLive2dReply = useCallback((text: string) => {
+        const emotion = inferEmotion(text);
+        performLive2d(emotion, effectFor(emotion), Math.min(7000, Math.max(900, text.length * 55)));
+    }, [performLive2d]);
+
+    // A new model once the page is up; the page's own `ready` covers the first
+    // load and every reload after the OS kills it.
+    useEffect(() => {
+        if (!live2d) { live2dReadyRef.current = false; return; }
+        if (live2dReadyRef.current) live2dRef.current?.load(live2d);
+    }, [live2d]);
+
+    /** Set just before a completed head-stroke is spent as a touch. */
+    const strokePendingRef = useRef(false);
 
     // ─── Touching her ───────────────────────────────────────────────────
     // Free accounts get three a day, PRO has no limit and earns double XP.
@@ -218,6 +257,17 @@ export default function PlayScreen() {
     const [touchLimitOpen, setTouchLimitOpen] = useState(false);
     const onTouchReact = useCallback((part: TouchPart, x: number, y: number) => {
         touchFeedbackRef.current?.emoji(x, y, TOUCH_EMOJI[part]);
+        if (live2dConfigRef.current) {
+            const stroke = strokePendingRef.current;
+            strokePendingRef.current = false;
+            const head = part === "head" || part === "face";
+            const r = touchResponse(part);
+            performLive2d(stroke ? "love" : pick(r.emotions), stroke ? "hearts" : pick(r.effects), 900);
+            const kind = stroke ? "stroke" : head ? "head" : "body";
+            const { width, height } = Dimensions.get("window");
+            touchFeedbackRef.current?.hint(width / 2, height * 0.16, t(`touch.l2d_${kind}_${1 + Math.floor(Math.random() * 3)}`));
+            return;
+        }
         if (is3DMode) {
             vrmRef.current?.playTouchReaction(part);
             return;
@@ -227,7 +277,7 @@ export default function PlayScreen() {
             Animated.timing(touchBounce, { toValue: 1, duration: 120, useNativeDriver: true }),
             Animated.spring(touchBounce, { toValue: 0, friction: 4, tension: 120, useNativeDriver: true }),
         ]).start();
-    }, [is3DMode, touchBounce]);
+    }, [is3DMode, touchBounce, performLive2d, t]);
     const onTouchGranted = useCallback(
         (_part: TouchPart, x: number, y: number, bond: BondTrackResult) => {
             if (bond && bond.granted > 0) {
@@ -237,7 +287,10 @@ export default function PlayScreen() {
         },
         []
     );
-    const onTouchLimit = useCallback(() => setTouchLimitOpen(true), []);
+    const onTouchLimit = useCallback(() => {
+        strokePendingRef.current = false;
+        setTouchLimitOpen(true);
+    }, []);
     const { touch: touchCharacter } = useCharacterTouch({
         characterId,
         isPro,
@@ -245,6 +298,7 @@ export default function PlayScreen() {
         onGranted: onTouchGranted,
         onLimit: onTouchLimit,
     });
+
 
     // Once per install: say that she can be touched. A reaction nobody knows
     // to ask for is never seen, and neither is the offer behind the third one.
@@ -383,12 +437,59 @@ export default function PlayScreen() {
                 };
                 setMessages((prev) => [...prev, newMsg]);
                 setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+                if (isAI) performLive2dReply(props.message);
 
                 // Save to DB
                 chatService.saveCallMessage(props.message, characterId, user.id, isAI);
             }
         }
     });
+
+    const strokingRef = useRef(false);
+    const strokeDoneRef = useRef(false);
+    const onLive2dEvent = useCallback((e: Live2DEvent) => {
+        const cfg = live2dConfigRef.current;
+        switch (e.type) {
+            case "ready":
+                live2dReadyRef.current = true;
+                if (cfg) live2dRef.current?.load(cfg);
+                break;
+            case "loaded": {
+                if (!cfg) break;
+                // A wave hello, and stars once it is dark out.
+                const hello = cfg.actionMap.wave ?? cfg.emotionMap.happy;
+                if (hello) live2dRef.current?.react(hello);
+                live2dRef.current?.effect("sparkle");
+                const hour = new Date().getHours();
+                live2dRef.current?.weather(hour >= 19 || hour < 6 ? "stars" : "none");
+                break;
+            }
+            case "tap": {
+                // A tap that ends a stroke is part of the stroke.
+                if (strokingRef.current || dance.isDancing || voiceState.isConnected) break;
+                const part = partForTap(e.areas ?? [], e.y ?? 0, Dimensions.get("window").height);
+                if (part) void touchCharacter(part, e.x ?? 0, e.y ?? 0, "live2d");
+                break;
+            }
+            case "stroke":
+                strokingRef.current = true;
+                // A full head pat is one touch: it spends one of the three,
+                // and earns what a touch earns.
+                if (e.progress >= 1 && !strokeDoneRef.current && !voiceState.isConnected) {
+                    strokeDoneRef.current = true;
+                    strokePendingRef.current = true;
+                    const { width, height } = Dimensions.get("window");
+                    void touchCharacter("head", width / 2, height * 0.24, "live2d");
+                    // The reaction ran synchronously if the touch was allowed;
+                    // if it was not, nothing should inherit the flag.
+                    strokePendingRef.current = false;
+                }
+                break;
+            case "strokeEnd":
+                setTimeout(() => { strokingRef.current = false; strokeDoneRef.current = false; }, 700);
+                break;
+        }
+    }, [touchCharacter, dance.isDancing, voiceState.isConnected]);
 
     // Animations
     // Auto-enable 3D mode during voice/video calls (for all users, including free)
@@ -494,6 +595,7 @@ export default function PlayScreen() {
                     }
                     if (cached.avatarUrl) setCharacterAvatar(cached.avatarUrl);
                     if (cached.agentElevenlabsId) setAgentElevenlabsId(cached.agentElevenlabsId);
+                    setLive2d(cached.live2d ?? null);
                     isCacheRestored.current = true;
                 }
             } catch { }
@@ -519,6 +621,7 @@ export default function PlayScreen() {
             setCharacterModelUrl,
             setBaseModelUrl,
             setAgentElevenlabsId,
+            setLive2d,
             setBackgroundId,
             setBackgroundUrl,
             setIsBackgroundDark,
@@ -548,6 +651,8 @@ export default function PlayScreen() {
      * by `onReady` alone. Entering 3D asks for the model directly.
      */
     const enter3D = useCallback(() => {
+        // A Live2D character has no VRM to show in 3D.
+        if (live2dConfigRef.current) return;
         setIs3DMode(true);
         if (vrmReady && characterModelUrl) {
             vrmRef.current?.loadModelByURL(characterModelUrl, characterName);
@@ -753,6 +858,7 @@ export default function PlayScreen() {
                     createdAt: new Date(),
                 }]);
                 flatListRef.current?.scrollToEnd({ animated: true });
+                performLive2dReply(finalMsgs[msgIdx]);
 
                 // Pause between messages for natural feel
                 if (msgIdx < finalMsgs.length - 1) {
@@ -812,6 +918,7 @@ export default function PlayScreen() {
                 setCharacterModelUrl,
                 setBaseModelUrl,
                 setAgentElevenlabsId,
+                setLive2d,
                 setBackgroundId,
                 setBackgroundUrl,
                 setBackgroundName,
@@ -847,7 +954,9 @@ export default function PlayScreen() {
     // Offer the trial the first time a free user reaches the play screen, and
     // resume it if the app was closed mid-trial.
     useEffect(() => {
-        if (isPro || !user?.id || trialAskedRef.current) return;
+        // Not offered over a Live2D character, where there is no 3D to try;
+        // it waits until the first VRM one.
+        if (isPro || !user?.id || trialAskedRef.current || live2d) return;
         trialAskedRef.current = true;
         (async () => {
             const t = await get3dTrial();
@@ -860,7 +969,7 @@ export default function PlayScreen() {
                 enter3D();
             }
         })();
-    }, [isPro, user?.id]);
+    }, [isPro, user?.id, live2d]);
 
     // One tick a second while it runs; at zero the scene goes back to 2D and
     // the paywall gets the moment they have just seen what it sells.
@@ -1218,6 +1327,9 @@ export default function PlayScreen() {
                 // into either one.
                 onTouchCharacter={dance.isDancing || voiceState.isConnected ? undefined : touchCharacter}
                 touchBounce={touchBounce}
+                live2d={live2d}
+                live2dRef={live2dRef}
+                onLive2dEvent={onLive2dEvent}
             />
 
             <TouchFeedback ref={touchFeedbackRef} />
@@ -1260,6 +1372,7 @@ export default function PlayScreen() {
                         track.homeOutfitSelect();
                         setCostumeSheetOpen(true);
                     }}
+                    showCostume={!live2d}
                     onOpenScene={() => {
                         track.homeSceneSelect();
                         setBgSheetOpen(true);
@@ -1279,6 +1392,15 @@ export default function PlayScreen() {
                     }}
                     onToggleDance={() => {
                         track.homeDanceSelect();
+                        // The FBX dance catalogue is for VRM. A Live2D girl has
+                        // her own dance motion, and it plays on the spot.
+                        if (live2d) {
+                            const move = live2d.actionMap.dance ?? live2d.emotionMap.playful;
+                            if (move) live2dRef.current?.react(move);
+                            live2dRef.current?.effect("music");
+                            if (characterId) void trackBond(characterId, "dance");
+                            return;
+                        }
                         dance.toggleDance();
                     }}
                     onToggle3D={() => { }} // Now handled independently on the left

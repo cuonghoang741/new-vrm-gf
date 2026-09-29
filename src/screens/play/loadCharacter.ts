@@ -1,6 +1,7 @@
 import { supabase } from "../../config/supabase";
 import { getCharacters } from "../../cache/charactersCache";
 import type { CachedCharacter } from "./cache";
+import { parseLive2d, type Live2DConfig } from "../../live2d/types";
 
 /**
  * Everything the character loader writes to, named.
@@ -36,6 +37,8 @@ export interface CharacterLoadTarget {
     setCharacterModelUrl: (v: string | null) => void;
     setBaseModelUrl: (v: string | null) => void;
     setAgentElevenlabsId: (v: string | null) => void;
+    /** Null for a VRM character. */
+    setLive2d: (v: Live2DConfig | null) => void;
     setBackgroundId: (v: string | null) => void;
     setBackgroundUrl: (v: string | null) => void;
     setIsBackgroundDark: (v: boolean) => void;
@@ -93,13 +96,13 @@ export async function loadCharacterForUser(c: CharacterLoadTarget): Promise<void
 
         let { data: char } = await supabase
             .from("characters")
-            .select("name, base_model_url, background_default_id, thumbnail_url, avatar, avatar_nobg, agent_elevenlabs_id")
+            .select("name, base_model_url, background_default_id, thumbnail_url, avatar, avatar_nobg, agent_elevenlabs_id, data")
             .eq("id", charId)
             .maybeSingle();
 
         if (!char) {
             console.log("[PlayScreen] Character not found in DB! Attempting to fallback to public character...");
-            const { data: firstPublic } = await supabase.from("characters").select("id, name, base_model_url, background_default_id, thumbnail_url, avatar, avatar_nobg, agent_elevenlabs_id").eq("is_public", true).eq("available", true).limit(1).maybeSingle();
+            const { data: firstPublic } = await supabase.from("characters").select("id, name, base_model_url, background_default_id, thumbnail_url, avatar, avatar_nobg, agent_elevenlabs_id, data").eq("is_public", true).eq("available", true).limit(1).maybeSingle();
             if (firstPublic) {
                 charId = firstPublic.id;
                 char = firstPublic;
@@ -111,6 +114,9 @@ export async function loadCharacterForUser(c: CharacterLoadTarget): Promise<void
         }
 
         console.log("Character found:", char);
+
+        const live2d = parseLive2d((char as any)?.data);
+        c.setLive2d(live2d);
 
         let finalModelUrl = char ? (char.base_model_url ?? "") : "";
         let finalThumbnailUrl = char ? (char.thumbnail_url ?? null) : null;
@@ -189,6 +195,7 @@ export async function loadCharacterForUser(c: CharacterLoadTarget): Promise<void
                 avatarUrl: finalAvatarUrl,
                 agentElevenlabsId: char.agent_elevenlabs_id ?? null,
                 isBackgroundDark: c.isBackgroundDark,
+                live2d,
             });
         }
     } catch (e) {

@@ -52,7 +52,7 @@ export function useCharacterTouch({ characterId, isPro, onReact, onGranted, onLi
     }, [refresh, isPro]);
 
     const touch = useCallback(
-        async (part: TouchPart, x: number, y: number, mode: "2d" | "3d") => {
+        async (part: TouchPart, x: number, y: number, mode: "2d" | "3d" | "live2d") => {
             if (!characterId) return;
             const now = Date.now();
             if (now - lastAtRef.current < COOLDOWN_MS) return;

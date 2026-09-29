@@ -9,6 +9,8 @@ import { IconBadge3d, IconCrown, IconFlame, IconPhone } from "@tabler/icons-reac
 import { useTranslation } from "react-i18next";
 import VRMViewer, { VRMViewerHandle, type TouchPart } from "../../components/VRMViewer";
 import { region2D } from "./touchRegions";
+import { Live2DView, type Live2DEvent, type Live2DHandle } from "../../live2d/Live2DView";
+import type { Live2DConfig } from "../../live2d/types";
 import { CharacterCard } from "../../components/CharacterCard";
 import RubyIcon from "../../components/icons/RubyIcon";
 import type { SurfaceTokens } from "../../theme/surface";
@@ -98,6 +100,14 @@ export interface SceneLayerProps {
     onTouchCharacter?: (part: TouchPart, x: number, y: number, mode: "2d" | "3d") => void;
     /** 0 at rest, 1 at the peak of the 2D art's little bounce when touched. */
     touchBounce?: Animated.Value;
+    /**
+     * Set for a Live2D character. She replaces the 2D art, and the 2D/3D
+     * toggle becomes a single LIVE2D mode: a Live2D character has no VRM, so
+     * 3D is not something she can switch into.
+     */
+    live2d?: Live2DConfig | null;
+    live2dRef?: React.RefObject<Live2DHandle | null>;
+    onLive2dEvent?: (e: Live2DEvent) => void;
 }
 
 export function SceneLayer({
@@ -137,6 +147,9 @@ export function SceneLayer({
     setSubscriptionOpen,
     onTouchCharacter,
     touchBounce,
+    live2d,
+    live2dRef,
+    onLive2dEvent,
 }: SceneLayerProps) {
     const { t } = useTranslation();
     const [artSize, setArtSize] = useState({ width: 0, height: 0 });
@@ -157,7 +170,13 @@ export function SceneLayer({
                             blurRadius={blurScene ? 30 : 0}
                         />
                     )}
-                    {(characterAvatarNoBg ?? characterAvatar) && (
+                    {live2d ? (
+                        // Transparent page over the scene; she takes her own
+                        // taps and strokes and reports them up.
+                        <View style={StyleSheet.absoluteFill}>
+                            <Live2DView ref={live2dRef} onEvent={onLive2dEvent} />
+                        </View>
+                    ) : (characterAvatarNoBg ?? characterAvatar) && (
                         <Pressable
                             style={StyleSheet.absoluteFill}
                             disabled={!onTouchCharacter}
@@ -311,6 +330,13 @@ export function SceneLayer({
                 interactive
                 tintColor={surface.glass}
             >
+                {live2d ? (
+                    <View style={styles.toggleRow}>
+                        <View style={[styles.toggleOption, styles.toggleOptionActive, { flex: 1 }]}>
+                            <Text style={[styles.toggleLabel, styles.toggleLabelActive]}>LIVE2D</Text>
+                        </View>
+                    </View>
+                ) : (
                 <View style={styles.toggleRow}>
                     <TouchableOpacity
                         onPress={() => {
@@ -345,17 +371,18 @@ export function SceneLayer({
                         ]}>3D</Text>
                     </TouchableOpacity>
                 </View>
+                )}
             </LiquidGlassView>
 
             {/* The clock sits under the toggle rather than inside it: the pill
                 is 110pt wide and already carries two labels. */}
-            {trialRemaining > 0 && !isPro && (
+            {trialRemaining > 0 && !isPro && !live2d && (
                 <View style={styles.trialPill}>
                     <IconBadge3d size={12} color="#FFFFFF" />
                     <Text style={styles.trialPillText}>{formatTrial(trialRemaining)}</Text>
                 </View>
             )}
-            {!isPro && (
+            {!isPro && !live2d && (
                 <View style={styles.proBadgeLeft}>
                     <Text style={styles.proBadgeLeftText}>PRO</Text>
                 </View>

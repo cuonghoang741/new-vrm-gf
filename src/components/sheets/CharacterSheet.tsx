@@ -29,6 +29,7 @@ import { localizeCharacters } from "../../cache/charactersCache";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { BottomSheetRef } from "../common/BottomSheet";
 import { LinearGradient } from 'expo-linear-gradient';
+import { isLive2dRow } from "../../live2d/types";
 import { purchaseItem } from "../../services/checkinService";
 import { UnlockDialog } from "../shop/UnlockDialog";
 import { refreshRuby, setRuby, useRuby } from "../../services/rubyStore";
@@ -69,6 +70,8 @@ interface Character {
     data?: {
         /** Flagged teaser: shown with a SOON badge, never selectable. */
         coming_soon?: boolean;
+        model_type?: string;
+        live2d_listed?: boolean;
         height_cm?: number;
         rounds?: { r1: number; r2: number; r3: number };
         old?: number;
@@ -170,10 +173,18 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
                 // coming soon. Everything else unavailable stays hidden — that
                 // was twenty-two retired tiles that looked pickable and did
                 // nothing when tapped.
-                .or("available.eq.true,data->>coming_soon.eq.true")
+                // Live2D characters are `available = false` so older builds,
+                // which cannot render them, never list them; this one lists
+                // them by their own flag.
+                .or("available.eq.true,data->>coming_soon.eq.true,data->>live2d_listed.eq.true")
                 .order("order", { ascending: true });
             if (error) throw error;
-            if (data) setCharacters(await localizeCharacters(data as Character[]));
+            if (data) {
+                const rows = (data as Character[]).map((c) =>
+                    isLive2dRow(c) ? { ...c, available: c.data?.live2d_listed === true } : c
+                );
+                setCharacters(await localizeCharacters(rows));
+            }
 
             // Fetch owned character IDs
             if (userId) {
@@ -477,6 +488,7 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
                     disabled={!isAvailable}
                     style={({ pressed }) => [
                         styles.tile,
+                        isLive2dRow(item) && styles.tileLive2d,
                         isFocused && styles.tileFocused,
                         pressed && { opacity: 0.85 },
                         // Dimmed, but still legible — it has to sell her.
@@ -552,7 +564,16 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
                     {/* Sits above the name rather than in a corner: both top
                         corners are taken (checkmark/SOON left, PRO/ruby/ad
                         right) and HOT stacking onto a price is unreadable. */}
-                    {isAvailable && (item.total_costumes ?? 0) >= hotFrom && (
+                    {isAvailable && isLive2dRow(item) ? (
+                        <LinearGradient
+                            colors={["#FF6FA3", "#A56BFF"]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.tileHot}
+                        >
+                            <Text style={styles.tileHotText}>✦ LIVE2D</Text>
+                        </LinearGradient>
+                    ) : isAvailable && (item.total_costumes ?? 0) >= hotFrom && (
                         <View style={styles.tileHot}>
                             <Ionicons name="flame" size={9} color="#fff" />
                             <Text style={styles.tileHotText}>HOT</Text>
@@ -700,6 +721,16 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
                             <Text style={styles.heroName} numberOfLines={1}>
                                 {focusedChar.name}
                             </Text>
+                            {isLive2dRow(focusedChar) && (
+                                <LinearGradient
+                                    colors={["#FF6FA3", "#A56BFF"]}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 0 }}
+                                    style={styles.proPill}
+                                >
+                                    <Text style={styles.proPillText}>LIVE2D</Text>
+                                </LinearGradient>
+                            )}
                             {(heroLock === "pro" || heroLock === "pro_or_ruby") && (
                                 <View style={styles.proPill}>
                                     <Text style={styles.proPillText}>PRO</Text>
@@ -717,6 +748,12 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
                         </View>
 
                         <View style={styles.heroChips}>
+                            {isLive2dRow(focusedChar) && (
+                                <View style={styles.statChip}>
+                                    <Ionicons name="hand-left-outline" size={12} color="rgba(255,255,255,0.7)" />
+                                    <Text style={styles.statValue}>{t("char.live2d_chip")}</Text>
+                                </View>
+                            )}
                             {focusedChar.data?.old != null && (
                                 <View style={styles.statChip}>
                                     <Text style={styles.statValue}>{t("char.age_years", { n: focusedChar.data.old })}</Text>
@@ -976,6 +1013,7 @@ const styles = StyleSheet.create({
         backgroundColor: "rgba(255,92,46,0.95)",
     },
     tileHotText: { color: "#fff", fontSize: 8, fontWeight: "900", letterSpacing: 0.3 },
+    tileLive2d: { borderWidth: 1.5, borderColor: "rgba(255,111,163,0.85)" },
     tileLock: {
         position: "absolute", top: 6, right: 6,
         width: 26, height: 26, borderRadius: 13,

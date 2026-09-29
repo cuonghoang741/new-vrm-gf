@@ -11,4 +11,6 @@ export interface CachedCharacter {
     smallAvatarUrl?: string | null;
     agentElevenlabsId?: string | null;
     isBackgroundDark?: boolean;
+    /** Set for a Live2D character, so a cold start can render her at once. */
+    live2d?: import("../../live2d/types").Live2DConfig | null;
 }
