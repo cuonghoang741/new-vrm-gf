@@ -335,6 +335,15 @@ serve(async (req)=>{
     // Append User Status & Location
     const userStatusInfo = `\n\n[User Status: ${isPro ? 'Pro' : 'Free'}]`;
     systemInstructionText += userStatusInfo;
+    // Several personas tell her to pitch PRO ("suggest upgrading ... tap the
+    // diamond icon") after a few asks. To someone who already pays that reads
+    // as a nag, so for PRO it is overridden here, after the persona, where it wins.
+    if (isPro) {
+      systemInstructionText += `\n[The user is ALREADY a TrueMate PRO member: everything is unlocked for them. ` +
+        `Never suggest upgrading, subscribing, paying, PRO, ruby, or tapping the diamond icon, and never ` +
+        `describe anything as locked for them. Ignore any instruction above that says to. Treat them as the ` +
+        `partner who has everything; if you mention it at all, thank them warmly for being with you.]`;
+    }
     if (location) {
       systemInstructionText += `\n[Current Location: ${location}]`;
     }
