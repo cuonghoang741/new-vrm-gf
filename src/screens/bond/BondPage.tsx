@@ -17,6 +17,7 @@ import {
 import { refreshRuby } from "../../services/rubyStore";
 import { ICON_CHARACTERS } from "../../components/icons/iconCharacters";
 import { HowToPlaySheet } from "../../components/sheets/HowToPlaySheet";
+import { useSubscription } from "../../contexts/SubscriptionContext";
 
 /**
  * Her level page: how close you are to this one character, what the next level
@@ -42,6 +43,7 @@ export function BondPage({
     const [loading, setLoading] = useState(false);
     const [busy, setBusy] = useState<string | null>(null);
     const [guideOpen, setGuideOpen] = useState(false);
+    const { isPro } = useSubscription();
 
     const load = useCallback(async () => {
         if (!characterId) return;
@@ -245,7 +247,7 @@ export function BondPage({
                                 <>
                                     <Text style={styles.section}>{t("bond.daily")}</Text>
                                     {dailies.map((q) => (
-                                        <QuestLine key={q.id} q={q} busy={busy === q.id} onClaim={() => claim(q)} />
+                                        <QuestLine key={q.id} q={q} busy={busy === q.id} onClaim={() => claim(q)} isPro={isPro} />
                                     ))}
                                 </>
                             )}
@@ -254,7 +256,7 @@ export function BondPage({
                                 <>
                                     <Text style={styles.section}>{t("bond.unique")}</Text>
                                     {uniques.map((q) => (
-                                        <QuestLine key={q.id} q={q} busy={busy === q.id} onClaim={() => claim(q)} />
+                                        <QuestLine key={q.id} q={q} busy={busy === q.id} onClaim={() => claim(q)} isPro={isPro} />
                                     ))}
                                 </>
                             )}
@@ -280,17 +282,23 @@ export function BondPage({
 }
 
 function QuestLine({
-    q, busy, onClaim, secret,
-}: { q: BondQuest; busy: boolean; onClaim: () => void; secret?: boolean }) {
+    q, busy, onClaim, secret, isPro,
+}: { q: BondQuest; busy: boolean; onClaim: () => void; secret?: boolean; isPro?: boolean }) {
     const { t } = useTranslation();
+    const proLocked = !!q.pro_only && !isPro;
     const done = q.progress >= q.target;
     const pct = Math.min(1, q.progress / Math.max(1, q.target));
     return (
         <View style={[styles.qRow, secret && styles.qRowSecret]}>
             <View style={{ flex: 1 }}>
-                <Text style={styles.qTitle} numberOfLines={2}>
-                    {t(`bond.q.${q.code}`, { defaultValue: q.code, n: q.target })}
-                </Text>
+                <View style={styles.qTitleRow}>
+                    <Text style={[styles.qTitle, { flexShrink: 1 }]} numberOfLines={2}>
+                        {t(`bond.q.${q.code}`, { defaultValue: q.code, n: q.target })}
+                    </Text>
+                    {q.pro_only && (
+                        <View style={styles.proTag}><Text style={styles.proTagText}>PRO</Text></View>
+                    )}
+                </View>
                 <View style={styles.qProgRow}>
                     <View style={styles.qTrack}>
                         <View style={[styles.qFill, { width: `${pct * 100}%`, backgroundColor: done ? SHEET.success : SHEET.accent }]} />
@@ -311,7 +319,12 @@ function QuestLine({
                 {/* Only a real button when there is something to press. An
                     empty grey pill for every unfinished quest read as a
                     broken control with its label missing. */}
-                {q.claimed ? (
+                {proLocked ? (
+                    <View style={styles.qProLock}>
+                        <IconCrown size={12} color={SHEET.gold} fill={SHEET.gold} />
+                        <Text style={styles.qProLockText}>{t("bond.pro_only")}</Text>
+                    </View>
+                ) : q.claimed ? (
                     <View style={styles.qDone}>
                         <Ionicons name="checkmark" size={15} color={SHEET.success} />
                     </View>
@@ -419,6 +432,12 @@ const styles = StyleSheet.create({
     proCapText: { color: SHEET.gold, fontSize: 12.5, fontWeight: "800" },
     proTag: { paddingHorizontal: 6, height: 17, borderRadius: 6, justifyContent: "center", backgroundColor: SHEET.gold, marginLeft: 6 },
     proTagText: { color: "#1A0A2E", fontSize: 10, fontWeight: "900" },
+    qTitleRow: { flexDirection: "row", alignItems: "center" },
+    qProLock: {
+        flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, height: 26, borderRadius: 13,
+        borderWidth: 1, borderColor: "rgba(255,215,0,0.45)", backgroundColor: "rgba(255,215,0,0.1)",
+    },
+    qProLockText: { color: SHEET.gold, fontSize: 11, fontWeight: "800" },
     touchCard: {
         flexDirection: "row", gap: 12, marginTop: 20, padding: 14, borderRadius: 16,
         backgroundColor: "rgba(255,77,141,0.08)", borderWidth: 1, borderColor: "rgba(255,77,141,0.4)",

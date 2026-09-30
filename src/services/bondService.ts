@@ -34,6 +34,8 @@ export type BondQuest = {
     progress: number;
     claimed: boolean;
     sort: number;
+    /** Progresses and pays out for PRO only (the touch quests). */
+    pro_only?: boolean;
 };
 
 export type BondLevelRow = {
