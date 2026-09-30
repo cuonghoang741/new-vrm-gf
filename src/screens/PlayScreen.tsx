@@ -215,6 +215,17 @@ export default function PlayScreen() {
     const [costumeName, setCostumeName] = useState<string | null>(null);
     const [isBackgroundDark, setIsBackgroundDark] = useState(true); // default dark
     const [vrmReady, setVrmReady] = useState(false);
+    /**
+     * Counts the page's `ready`s. It says ready again after a reload (its GL
+     * context was lost in the background, or the OS killed its renderer), and
+     * the reloaded page is empty; `vrmReady` is already true then, so without
+     * this nothing would put her, her room or the blur back.
+     */
+    const [vrmEpoch, setVrmEpoch] = useState(0);
+    const onVrmPageReady = useCallback((ready: boolean) => {
+        setVrmReady(ready);
+        if (ready) setVrmEpoch((n) => n + 1);
+    }, []);
     const [is3DMode, setIs3DMode] = useState(false); // Only PRO can enable
     /** Set while the current character is a Live2D one; null for VRM. */
     const [live2d, setLive2d] = useState<Live2DConfig | null>(null);
@@ -612,7 +623,7 @@ export default function PlayScreen() {
         // a WebView does not blur what the WebView draws — on Android it is a
         // separate surface — so the gate was translucent over live nudity.
         vrmRef.current?.setPreviewBlur(isNudeBlurred);
-    }, [isNudeBlurred]);
+    }, [isNudeBlurred, vrmEpoch]);
 
     // Pulsing effect for "Calling..." state
     useEffect(() => {
@@ -712,7 +723,7 @@ export default function PlayScreen() {
         if (vrmReady && characterModelUrl) {
             vrmRef.current?.loadModelByURL(characterModelUrl, characterName);
         }
-    }, [vrmReady, characterModelUrl, characterName]);
+    }, [vrmReady, vrmEpoch, characterModelUrl, characterName]);
 
     /**
      * The one way into 3D.
@@ -745,7 +756,7 @@ export default function PlayScreen() {
         if (!vrmReady) return;
         loadQuality().then((q) => vrmRef.current?.setRenderQuality(q));
         return subscribeQuality((q) => vrmRef.current?.setRenderQuality(q));
-    }, [vrmReady]);
+    }, [vrmReady, vrmEpoch]);
 
     /**
      * Free camera is the level-5 reward, and PRO on top of it — both gates, as
@@ -755,13 +766,13 @@ export default function PlayScreen() {
     useEffect(() => {
         if (!vrmReady) return;
         vrmRef.current?.setControlsEnabled((bondLevel ?? 1) >= 5 && isPro);
-    }, [vrmReady, bondLevel, isPro]);
+    }, [vrmReady, vrmEpoch, bondLevel, isPro]);
 
     useEffect(() => {
         if (vrmReady && backgroundUrl) {
             vrmRef.current?.setBackgroundImage(backgroundUrl);
         }
-    }, [vrmReady, backgroundUrl]);
+    }, [vrmReady, vrmEpoch, backgroundUrl]);
 
     // Load chat history
     useEffect(() => {
@@ -1087,7 +1098,7 @@ export default function PlayScreen() {
         // The subscription sheet drives this itself — it has its own preview.
         if (subscriptionOpen) return;
         vrmRef.current?.setRenderPaused(sceneCovered);
-    }, [sceneCovered, vrmReady, subscriptionOpen]);
+    }, [sceneCovered, vrmReady, vrmEpoch, subscriptionOpen]);
 
     useEffect(() => {
         AdsManager.setRenderPauser((paused: boolean) => vrmRef.current?.setRenderPaused(paused));
@@ -1368,7 +1379,7 @@ export default function PlayScreen() {
                 is3DMode={is3DMode}
                 setIs3DMode={setIs3DMode}
                 onEnter3D={enter3D}
-                setVrmReady={setVrmReady}
+                setVrmReady={onVrmPageReady}
                 vrmRef={vrmRef}
                 backgroundUrl={backgroundUrl}
                 blurScene={isNudeBlurred}

@@ -734,6 +734,33 @@
 
         const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: "high-performance" });
         renderer.setSize(window.innerWidth, window.innerHeight);
+        // Android drops the GL context of a WebView that has been in the
+        // background a while. Without preventDefault the browser never gives it
+        // back and the canvas stays empty for good: she "disappears" on
+        // resume. With it, three.js re-initialises on restore; if no restore
+        // comes, a reload brings the page back and the app reloads her into it.
+        window.__glLost = false;
+        renderer.domElement.addEventListener('webglcontextlost', (e) => {
+            e.preventDefault();
+            window.__glLost = true;
+            clearTimeout(window.__glReloadTimer);
+            window.__glReloadTimer = setTimeout(() => { if (window.__glLost) location.reload(); }, 3000);
+        }, false);
+        renderer.domElement.addEventListener('webglcontextrestored', () => {
+            window.__glLost = false;
+            clearTimeout(window.__glReloadTimer);
+        }, false);
+        /** Called by the app on resume: reload if the canvas cannot draw. */
+        window.__ensureAlive = function () {
+            try {
+                const gl = renderer.getContext();
+                if (!gl || gl.isContextLost()) {
+                    window.__glLost = true;
+                    clearTimeout(window.__glReloadTimer);
+                    window.__glReloadTimer = setTimeout(() => { if (window.__glLost) location.reload(); }, 1500);
+                }
+            } catch (e) { location.reload(); }
+        };
         // Cap the pixel ratio at 2. A modern phone reports 3, which is nine
         // times the fragments of a 1x buffer for a difference nobody can see
         // on a 6" panel — and it is what left no GPU headroom for the FBX

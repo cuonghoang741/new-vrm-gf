@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useRef, useEffect, useMemo, useState } from "react";
 import { View, Text, StyleSheet, Pressable, Dimensions } from "react-native";
 // react-native's SafeAreaView is an iOS-only no-op, so on Android this screen
 // ran under the status bar and the gesture bar.
@@ -68,12 +68,26 @@ export default function WelcomeBackScreen({
     const scene = last?.avatarUrl || last?.thumbnailUrl || null;
 
     const [leaving, setLeaving] = useState(false);
+    const leftAt = useRef(0);
+    const continued = useRef(false);
+    const goOn = () => {
+        if (continued.current) return;
+        continued.current = true;
+        onContinue();
+    };
     const handleContinue = async () => {
-        if (leaving) return;
+        if (leaving) {
+            // A second tap that reaches this screen means no ad is covering
+            // it: an ad that opened and then died with its renderer never
+            // reports CLOSED, and the await below would hold her away forever.
+            if (Date.now() - leftAt.current > 1500) goOn();
+            return;
+        }
         setLeaving(true);
+        leftAt.current = Date.now();
         analyticsService.logWelcomeBackContinue();
         if (playAdOnContinue) await playResumeAd();
-        onContinue();
+        goOn();
     };
 
     return (

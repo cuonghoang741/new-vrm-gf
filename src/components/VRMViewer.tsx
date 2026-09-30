@@ -4,8 +4,9 @@ import React, {
     useImperativeHandle,
     forwardRef,
     useState,
+    useEffect,
 } from "react";
-import { StyleSheet, View, Platform } from "react-native";
+import { AppState, StyleSheet, View, Platform } from "react-native";
 import { WebView, WebViewMessageEvent } from "react-native-webview";
 
 // ─── Public handle exposed via ref ───
@@ -125,6 +126,15 @@ const VRMViewer = forwardRef<VRMViewerHandle, VRMViewerProps>(
         const injectJS = useCallback((js: string) => {
             webViewRef.current?.injectJavaScript(`(function(){${js}})(); true;`);
         }, []);
+
+        // Back from the background: make sure the canvas can still draw (the
+        // page reloads itself if its GL context is gone; see __ensureAlive).
+        useEffect(() => {
+            const sub = AppState.addEventListener("change", (st) => {
+                if (st === "active") injectJS("window.__ensureAlive && window.__ensureAlive()");
+            });
+            return () => sub.remove();
+        }, [injectJS]);
 
         // ─── Expose imperative API ───
         useImperativeHandle(
@@ -341,6 +351,11 @@ const VRMViewer = forwardRef<VRMViewerHandle, VRMViewerProps>(
                     // WebGL canvas on the CPU = severe lag). An opaque WebView also
                     // avoids per-frame alpha-blending the 3D scene over the RN tree.
                     androidLayerType="hardware"
+                    // The OS killed the page's renderer (backgrounded, low
+                    // memory): reload it. The page reports ready again and the
+                    // screen that owns this viewer reloads the model into it.
+                    onRenderProcessGone={() => webViewRef.current?.reload()}
+                    onContentProcessDidTerminate={() => webViewRef.current?.reload()}
                 />
             </View>
         );
