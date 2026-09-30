@@ -36,7 +36,9 @@ import { flashSale, useFlashStage } from "../services/flashSale";
 import { FlashGift } from "../components/flash/FlashGift";
 import { FlashSaleSheet } from "../components/flash/FlashSaleSheet";
 import { track } from "../services/trackEvents";
-import { getBondState, trackBond } from "../services/bondService";
+import { fetchBondMoment, getBondState, onBondLevelUp, trackBond } from "../services/bondService";
+import { LevelUpMoment } from "../components/bond/LevelUpMoment";
+import { currentLang } from "../i18n";
 import { getCheckinState } from "../services/checkinService";
 import { loadQuality, subscribeQuality } from "../services/renderQuality";
 import { useDance } from "./play/useDance";
@@ -301,6 +303,23 @@ export default function PlayScreen() {
     const touchFeedbackRef = useRef<TouchFeedbackHandle>(null);
     const touchBounce = useRef(new Animated.Value(0)).current;
     const [touchLimitOpen, setTouchLimitOpen] = useState(false);
+
+    // ─── Level-up moments ───────────────────────────────────────────────
+    // Whatever caused it (a touch, chat, a quest), reaching a level shows its
+    // card and asks her for the line that belongs to it, which the server
+    // also saves into the chat; it is added to the open chat here too.
+    const [levelMoment, setLevelMoment] = useState<{ level: number; line: string | null; loading: boolean } | null>(null);
+    useEffect(() => onBondLevelUp(({ characterId: cid, level }) => {
+        if (cid !== characterIdRef.current || level < 2) return;
+        setLevelMoment({ level, line: null, loading: true });
+        void fetchBondMoment(cid, level, currentLang()).then((m) => {
+            if (characterIdRef.current !== cid) return;
+            setLevelMoment((cur) => (cur && cur.level === level ? { ...cur, line: m?.message ?? null, loading: false } : cur));
+            if (m?.message) {
+                setMessages((prev) => [...prev, { id: `moment-${level}-${Date.now()}`, role: "model", text: m.message, createdAt: new Date() }]);
+            }
+        });
+    }), []);
     /**
      * Her words for a touch: her own line from the server (personality, where,
      * how close you are), or a stock line if it is throttled, slow or offline.
@@ -1423,6 +1442,16 @@ export default function PlayScreen() {
             />
 
             <TouchFeedback ref={touchFeedbackRef} />
+
+            <LevelUpMoment
+                visible={!!levelMoment}
+                level={levelMoment?.level ?? 2}
+                name={characterName}
+                portrait={characterAvatar}
+                line={levelMoment?.line ?? null}
+                loading={!!levelMoment?.loading}
+                onClose={() => setLevelMoment(null)}
+            />
 
             {strokeProgress != null && (
                 <View style={[touchStyles.stroke, { top: Platform.OS === "ios" ? 118 : 96 }]} pointerEvents="none">

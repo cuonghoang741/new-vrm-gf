@@ -107,6 +107,18 @@ export type BondTrackResult = {
     capped: boolean;
 } | null;
 
+// ─── level-ups, for whoever wants to celebrate them ─────────────────────────
+type LevelUpListener = (e: { characterId: string; level: number }) => void;
+const levelUpListeners = new Set<LevelUpListener>();
+/** Called on every level-up, whichever path caused it (touch, chat, quest). */
+export function onBondLevelUp(cb: LevelUpListener): () => void {
+    levelUpListeners.add(cb);
+    return () => { levelUpListeners.delete(cb); };
+}
+function emitLevelUp(characterId: string, level: number) {
+    levelUpListeners.forEach((cb) => { try { cb({ characterId, level }); } catch { /* a listener must not break tracking */ } });
+}
+
 function toTrackResult(data: any, characterId: string): BondTrackResult {
     if (!data || data.error) return null;
     // Reported here rather than at each call site so no path can level someone
@@ -117,6 +129,7 @@ function toTrackResult(data: any, characterId: string): BondTrackResult {
             level: data.level ?? 1,
             character_id: characterId,
         });
+        emitLevelUp(characterId, data.level ?? 1);
     }
     return {
         xp: data.xp ?? 0,
@@ -186,6 +199,7 @@ export async function claimBondQuest(questId: string, characterId: string) {
             level: data.level ?? 1,
             character_id: characterId,
         });
+        emitLevelUp(characterId, data.level ?? 1);
     }
     return {
         ok: true as const,
@@ -198,3 +212,22 @@ export async function claimBondQuest(questId: string, characterId: string) {
 
 /** Difficulty 1..5 → a label key, for the chip on the level page. */
 export const difficultyKey = (d: number) => `bond.diff_${Math.max(1, Math.min(5, d))}`;
+
+/**
+ * Her one-time line for reaching `level` (Lv2 a secret, Lv3 a nickname, Lv4 a
+ * confession, Lv5 a vow), from the `bond-moment` function, which checks the
+ * level itself and saves the line into the chat. Null if it cannot be had.
+ */
+export async function fetchBondMoment(characterId: string, level: number, lang: string): Promise<{ message: string; nickname: string | null } | null> {
+    if (level < 2) return null;
+    try {
+        const { data, error } = await supabase.functions.invoke("bond-moment", {
+            body: { character_id: characterId, level, lang },
+        });
+        if (error) return null;
+        const d = typeof data === "string" ? JSON.parse(data) : data;
+        return d?.message ? { message: String(d.message), nickname: d.nickname ?? null } : null;
+    } catch {
+        return null;
+    }
+}

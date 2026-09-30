@@ -109,6 +109,7 @@ serve(async (req) => {
             (safe || level < 4
                 ? `Keep it wholesome and PG: no sexual or explicit content.\n`
                 : `Affectionate and flirty is fine; nothing explicit.\n`) +
+            (lang === "vi" ? `In Vietnamese you are a girl talking to your partner: call yourself "em" and the user "anh", never the other way round.\n` : "") +
             `Answer as JSON: {"line": string, "emotion": one of ${EMOTIONS.join("|")}}.`;
 
         const key = Deno.env.get("OPENAI_API_KEY");

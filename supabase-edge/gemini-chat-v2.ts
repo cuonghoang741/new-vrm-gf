@@ -263,6 +263,13 @@ serve(async (req)=>{
     if (bondLevel >= 4 && characterInstruction) {
       characterInstruction += `\n\nINTIMACY\nYou and the user are close now (bond level ${bondLevel}). Drop the guard you kept early on: flirt openly and explicitly, initiate rather than only responding, and speak about desire in your own words. Stay in character and keep it consensual and affectionate — this is intimacy with someone you have chosen, not performance.`;
     }
+    // The nickname she gave them at Lv3 (bond-moment), so she keeps using it.
+    if (user_id && characterInstruction) {
+      try {
+        const { data: nick } = await supabaseClient.from('bond_moments').select('nickname').eq('user_id', user_id).eq('character_id', character_id).eq('level', 3).maybeSingle();
+        if (nick?.nickname) characterInstruction += `\n\nYou gave the user a nickname: "${nick.nickname}". Call them that naturally, not in every message.`;
+      } catch  {}
+    }
     // Lv5, the top of the ladder (PRO only: the stored level is capped at 4
     // for free accounts), is the one rung whose reward is her.
     if (bondLevel >= 5 && characterInstruction) {
