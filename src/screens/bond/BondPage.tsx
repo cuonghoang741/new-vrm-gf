@@ -17,6 +17,7 @@ import {
 import { refreshRuby } from "../../services/rubyStore";
 import { ICON_CHARACTERS } from "../../components/icons/iconCharacters";
 import OrbitHint from "../../components/bond/OrbitHint";
+import { HowToPlaySheet } from "../../components/sheets/HowToPlaySheet";
 
 /**
  * Her level page: how close you are to this one character, what the next level
@@ -41,6 +42,7 @@ export function BondPage({
     const [state, setState] = useState<BondState | null>(null);
     const [loading, setLoading] = useState(false);
     const [busy, setBusy] = useState<string | null>(null);
+    const [guideOpen, setGuideOpen] = useState(false);
 
     const load = useCallback(async () => {
         if (!characterId) return;
@@ -182,6 +184,14 @@ export function BondPage({
                                         style={[styles.fill, { width: `${pct * 100}%` }]}
                                     />
                                 </View>
+                                {state.nextProOnly && (
+                                    <View style={styles.proCap}>
+                                        <IconCrown size={13} color={SHEET.gold} fill={SHEET.gold} />
+                                        <Text style={styles.proCapText}>
+                                            {t(state.nextReady ? "bond.lv5_ready" : "bond.lv5_pro")}
+                                        </Text>
+                                    </View>
+                                )}
                                 <Text style={styles.xpLine}>
                                     {state.xpForNext
                                         ? t("bond.xp_to_next", {
@@ -193,6 +203,16 @@ export function BondPage({
                                 </Text>
 
                             </View>
+
+                            {/* ── touching her: where it works and what changes it ── */}
+                            <Pressable onPress={() => setGuideOpen(true)} style={styles.touchCard}>
+                                <Text style={styles.touchEmoji}>🤚</Text>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.touchTitle}>{t("bond.touch_title")}</Text>
+                                    <Text style={styles.touchBody}>{t("bond.touch_body")}</Text>
+                                    <Text style={styles.touchLink}>{t("guide.open")} →</Text>
+                                </View>
+                            </Pressable>
 
                             {/* ── what each level opens ── */}
                             <Text style={styles.section}>{t("bond.ladder")}</Text>
@@ -211,6 +231,9 @@ export function BondPage({
                                                 {t(l.title_key)}
                                             </Text>
                                             {l.level === 5 && <IconCrown size={13} color={SHEET.gold} fill={SHEET.gold} />}
+                                            {l.pro_only && (
+                                                <View style={styles.proTag}><Text style={styles.proTagText}>{t("bond.pro_only")}</Text></View>
+                                            )}
                                         </View>
                                         <Text style={styles.lvUnlocks}>{t(l.unlocks_key)}</Text>
                                         {/* Lv5 is the only rung that hands over a
@@ -258,6 +281,7 @@ export function BondPage({
                     )}
                 </ScrollView>
             </View>
+            <HowToPlaySheet visible={guideOpen} onClose={() => setGuideOpen(false)} />
         </Modal>
     );
 }
@@ -394,6 +418,22 @@ const styles = StyleSheet.create({
         backgroundColor: "rgba(74,222,128,0.18)",
     },
 
+    proCap: {
+        flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "center", marginTop: 10,
+        paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10,
+        backgroundColor: "rgba(255,215,0,0.12)", borderWidth: 1, borderColor: "rgba(255,215,0,0.4)",
+    },
+    proCapText: { color: SHEET.gold, fontSize: 12.5, fontWeight: "800" },
+    proTag: { paddingHorizontal: 6, height: 17, borderRadius: 6, justifyContent: "center", backgroundColor: SHEET.gold, marginLeft: 6 },
+    proTagText: { color: "#1A0A2E", fontSize: 10, fontWeight: "900" },
+    touchCard: {
+        flexDirection: "row", gap: 12, marginTop: 20, padding: 14, borderRadius: 16,
+        backgroundColor: "rgba(255,77,141,0.08)", borderWidth: 1, borderColor: "rgba(255,77,141,0.4)",
+    },
+    touchEmoji: { fontSize: 24, marginTop: 1 },
+    touchTitle: { color: "#fff", fontSize: 15, fontWeight: "800" },
+    touchBody: { color: "rgba(255,255,255,0.78)", fontSize: 13.5, lineHeight: 19, marginTop: 4 },
+    touchLink: { color: "#FFC2DA", fontSize: 13, fontWeight: "800", marginTop: 8 },
     hiddenHint: {
         flexDirection: "row", alignItems: "center", gap: 8,
         padding: 14, borderRadius: 14, borderWidth: 1, borderStyle: "dashed",

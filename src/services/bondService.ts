@@ -42,6 +42,8 @@ export type BondLevelRow = {
     unlocks_key: string;
     xp: number;
     reached: boolean;
+    /** Lv5: opens only with PRO. */
+    pro_only?: boolean;
 };
 
 export type BondState = {
@@ -51,6 +53,10 @@ export type BondState = {
     nextLevel: number | null;
     xpIntoLevel: number;
     xpForNext: number | null;
+    /** The next level is PRO's (Lv5 for a free account). */
+    nextProOnly: boolean;
+    /** ...and the XP for it is already earned: PRO opens it at once. */
+    nextReady: boolean;
     levels: BondLevelRow[];
     capabilities: Record<string, { min_level: number; pro_only: boolean; open: boolean }>;
     quests: BondQuest[];
@@ -81,6 +87,8 @@ export async function getBondState(characterId: string): Promise<BondState | nul
         nextLevel: data.next_level ?? null,
         xpIntoLevel: data.xp_into_level ?? 0,
         xpForNext: data.xp_for_next ?? null,
+        nextProOnly: data.next_pro_only === true,
+        nextReady: data.next_ready === true,
         levels: data.levels ?? [],
         capabilities: data.capabilities ?? {},
         quests: data.quests ?? [],

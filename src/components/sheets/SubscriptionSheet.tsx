@@ -49,6 +49,8 @@ const FEATURES = [
     { icon: IconGift, text: "sub.b7", color: "#FF6FA5", highlight: true },
     { icon: IconBolt, text: "sub.b6_x2", color: "#F2C14E", highlight: true },
     { icon: IconTrendingUp, text: "sub.b9_bond_x2", color: "#F2C14E", highlight: true },
+    // Lv5 is the top of the bond ladder and only PRO reaches it.
+    { icon: IconCrown, text: "sub.b11_lv5", color: "#F2C14E" },
     // New, and the reason the three PRO Live2D girls are locked.
     { icon: IconSparkles, text: "sub.b10_live2d", color: "#C8A8F0" },
     { icon: IconAdOff, text: "sub.b1", color: "#FF6FA5" },

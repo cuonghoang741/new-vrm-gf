@@ -1784,6 +1784,8 @@
         renderer.domElement.addEventListener('pointerdown', (e) => {
             if (!window.__turntable) return;
             __pvPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+            // She holds still for a moment when touched, so her reaction faces you.
+            __pv.idleUntil = performance.now() + 2500;
             if (__pvPointers.size === 1) {
                 __turntableDragging = true;
                 __turntableLastX = e.clientX;

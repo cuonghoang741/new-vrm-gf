@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import { openBrowserSafe } from "../../utils/openBrowserSafe";
+import { HowToPlaySheet } from "./HowToPlaySheet";
 import {
     IconLogout,
     IconInfoCircle,
@@ -28,6 +29,7 @@ import {
     IconLanguage,
     IconCube,
     IconCopyright,
+    IconBook,
 } from "@tabler/icons-react-native";
 import { PrivilegeAuthDialog } from "./PrivilegeAuthDialog";
 import { LanguagePickerDialog } from "./LanguagePickerDialog";
@@ -109,6 +111,7 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
     useEffect(() => { loadQuality().then(setQualityState); }, []);
     const [qualityOpen, setQualityOpen] = useState(false);
     const [ratingOpen, setRatingOpen] = useState(false);
+    const [guideOpen, setGuideOpen] = useState(false);
     const [reportOpen, setReportOpen] = useState(false);
     /** Seven taps on the version row sends a test crash. */
     const versionTaps = useRef(0);
@@ -453,6 +456,16 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                                     models; their licence forbids passing them
                                     off as ours, so the credit is one tap away. */}
                                 <SettingItem
+                                    icon={<IconBook size={20} color="#F9A8D4" />}
+                                    label={t("guide.title")}
+                                    subtitle={t("guide.subtitle")}
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        setGuideOpen(true);
+                                    }}
+                                />
+                                <View style={styles.separator} />
+                                <SettingItem
                                     icon={<IconCopyright size={20} color="#C4B5FD" />}
                                     label={t("set.credits")}
                                     subtitle={t("set.credits_desc")}
@@ -590,6 +603,7 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                 {/* Same reason as the two above: opened from a row in this sheet,
                     so they have to live inside it or iOS never presents them. */}
                 <RatingDialog visible={ratingOpen} onClose={() => setRatingOpen(false)} />
+                <HowToPlaySheet visible={guideOpen} onClose={() => setGuideOpen(false)} />
                 <ReportDialog
                     visible={reportOpen}
                     kind="character"

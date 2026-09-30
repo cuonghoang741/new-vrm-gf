@@ -17,6 +17,7 @@ import type { SurfaceTokens } from "../../theme/surface";
 import { styles } from "./styles";
 import { formatTrial } from "../../services/trial3d";
 import { ACCENT, GOLD } from "./theme";
+import { QuickTouches, type QuickTouch } from "./QuickTouches";
 
 /**
  * Everything painted over the scene itself: the 2D/3D character layer, the
@@ -108,6 +109,8 @@ export interface SceneLayerProps {
     live2d?: Live2DConfig | null;
     live2dRef?: React.RefObject<Live2DHandle | null>;
     onLive2dEvent?: (e: Live2DEvent) => void;
+    /** Pat / hug / flowers / poke buttons under the left rail. Omitted, they are hidden. */
+    onQuickTouch?: (a: QuickTouch) => void;
 }
 
 export function SceneLayer({
@@ -150,6 +153,7 @@ export function SceneLayer({
     live2d,
     live2dRef,
     onLive2dEvent,
+    onQuickTouch,
 }: SceneLayerProps) {
     const { t } = useTranslation();
     const [artSize, setArtSize] = useState({ width: 0, height: 0 });
@@ -475,6 +479,10 @@ export function SceneLayer({
                 )}
                 {needsCheckin && <View style={styles.streakDot} />}
             </Pressable>
+
+            {!!onQuickTouch && !isKeyboardVisible && !isCameraMode && (
+                <QuickTouches surface={surface} onPress={onQuickTouch} />
+            )}
         </View>
         </>
     );

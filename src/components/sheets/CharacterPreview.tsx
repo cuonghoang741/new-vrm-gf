@@ -17,6 +17,8 @@ import RubyIcon from "../icons/RubyIcon";
 import { SHEET } from "../../theme/sheet";
 import { supabase } from "../../config/supabase";
 import { useSubscription } from "../../contexts/SubscriptionContext";
+import { fetchTouchLine } from "../../services/touchReaction";
+import type { TouchPart } from "../VRMViewer";
 
 /** Radians per second: one slow turn about every 18 s. */
 const TURNTABLE_SPEED = 0.35;
@@ -99,6 +101,32 @@ export function CharacterPreview({
     const mysteryRef = useRef(mystery);
     mysteryRef.current = mystery;
 
+    // Touching her here is free and earns nothing: it is her audition. Her
+    // line is written for her, as a first meeting (preview: true).
+    const [line, setLine] = useState<string | null>(null);
+    const lineTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const lastTouchAt = useRef(0);
+    const say = useCallback((text: string) => {
+        setLine(text);
+        if (lineTimer.current) clearTimeout(lineTimer.current);
+        lineTimer.current = setTimeout(() => setLine(null), 3200);
+    }, []);
+    useEffect(() => { setLine(null); }, [character?.id, visible]);
+    const onPreviewTouch = useCallback((part: TouchPart) => {
+        const now = Date.now();
+        if (!character || now - lastTouchAt.current < 1200) return;
+        lastTouchAt.current = now;
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+        const head = part === "head" || part === "face";
+        const stock = t(`touch.l2d_${head ? "head" : "body"}_${1 + Math.floor(Math.random() * 3)}`);
+        const cid = character.id;
+        void fetchTouchLine({ characterId: cid, part, preview: true }).then((r) => {
+            if (charIdRef.current === cid) say(r?.line ?? stock);
+        });
+    }, [character, say, t]);
+    const charIdRef = useRef<string | null>(null);
+    charIdRef.current = character?.id ?? null;
+
     // Her wardrobe, to look at only: outfits are chosen on the play screen,
     // once she is yours.
     const [costumes, setCostumes] = useState<PreviewCostume[]>([]);
@@ -154,6 +182,7 @@ export function CharacterPreview({
         revealTimer.current = setTimeout(() => setModelShown(true), 6000);
         preview.onShown([]);
         vrmRef.current?.setPreviewBlur(mysteryRef.current, MYSTERY_BLUR_PX);
+        vrmRef.current?.setTouchEnabled(true);
         vrmRef.current?.playRandomGreeting();
         if (greetTimer.current) clearTimeout(greetTimer.current);
         greetTimer.current = setTimeout(() => vrmRef.current?.stopAnimation(), 3500);
@@ -180,14 +209,14 @@ export function CharacterPreview({
             if (hello) l2dRef.current?.react(hello);
             l2dRef.current?.effect("sparkle");
         } else if (e.type === "tap" && e.areas?.length) {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+            onPreviewTouch(e.areas.some((a) => /head|face/i.test(a)) ? "head" : "belly");
             const r = live2d.emotionMap[pick(["happy", "shy", "love"] as const)];
             if (r) l2dRef.current?.react(r);
             l2dRef.current?.effect(pick(["hearts", "blush", "music"] as const));
         } else if (e.type === "stroke" && e.progress >= 1) {
             l2dRef.current?.effect("hearts");
         }
-    }, [live2d]);
+    }, [live2d, onPreviewTouch]);
 
     if (!character) return null;
 
@@ -225,6 +254,10 @@ export function CharacterPreview({
                             onReady={() => setVrmReady(true)}
                             onModelLoaded={onVrmLoaded}
                             onMessage={onViewerMessage}
+                            onTouch={(part) => {
+                                vrmRef.current?.playTouchReaction(part);
+                                onPreviewTouch(part);
+                            }}
                             {...preview.viewerSource}
                         />
                     )}
@@ -247,6 +280,14 @@ export function CharacterPreview({
                         </View>
                     )}
                 </View>
+
+                {!!line && (
+                    <View style={[styles.lineWrap, { top: insets.top + 96 }]} pointerEvents="none">
+                        <View style={styles.lineBubble}>
+                            <Text style={styles.lineText}>{line}</Text>
+                        </View>
+                    </View>
+                )}
 
                 {mystery && modelShown && (
                     <View style={styles.mysteryWrap} pointerEvents="none">
@@ -461,6 +502,12 @@ const styles = StyleSheet.create({
         letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 8,
     },
     body: { color: "rgba(255,255,255,0.82)", fontSize: 14.5, lineHeight: 21 },
+    lineWrap: { position: "absolute", left: 24, right: 24, alignItems: "center" },
+    lineBubble: {
+        maxWidth: 300, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 16,
+        backgroundColor: "rgba(255,255,255,0.94)",
+    },
+    lineText: { color: "#2A1538", fontSize: 14.5, fontWeight: "700", textAlign: "center" },
     outfits: { gap: 8, paddingRight: 4 },
     outfit: {
         width: 66, height: 88, borderRadius: 12, overflow: "hidden",

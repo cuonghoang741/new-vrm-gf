@@ -78,6 +78,8 @@ import { Alert } from "react-native";
 import { useCharacterTouch } from "../hooks/useCharacterTouch";
 import { TouchFeedback, type TouchFeedbackHandle } from "../components/touch/TouchFeedback";
 import { TOUCH_EMOJI } from "./play/touchRegions";
+import { QUICK_TOUCHES, type QuickTouch } from "./play/QuickTouches";
+import { fetchTouchLine } from "../services/touchReaction";
 import { UnlockDialog } from "../components/shop/UnlockDialog";
 import type { TouchPart } from "../components/VRMViewer";
 import type { BondTrackResult } from "../services/bondService";
@@ -182,6 +184,9 @@ export default function PlayScreen() {
 
     // Character state
     const [characterId, setCharacterId] = useState<string | null>(null);
+    /** For async work that must not land on the next character. */
+    const characterIdRef = useRef<string | null>(null);
+    characterIdRef.current = characterId;
     usePrefetchPaywallModel(characterId, isPro);
     const [characterName, setCharacterName] = useState(t("play.companion"));
     const [characterModelUrl, setCharacterModelUrl] = useState<string | null>(null);
@@ -274,6 +279,10 @@ export default function PlayScreen() {
 
     /** Set just before a completed head-stroke is spent as a touch. */
     const strokePendingRef = useRef(false);
+    /** Set just before a quick touch (pat, hug, flowers, poke) is spent. */
+    const quickPendingRef = useRef<QuickTouch | null>(null);
+    /** 0..1 through a head-stroke on a Live2D girl, or null when not stroking. */
+    const [strokeProgress, setStrokeProgress] = useState<number | null>(null);
 
     // ─── Touching her ───────────────────────────────────────────────────
     // Free accounts get three a day, PRO has no limit and earns double XP.
@@ -281,29 +290,52 @@ export default function PlayScreen() {
     const touchFeedbackRef = useRef<TouchFeedbackHandle>(null);
     const touchBounce = useRef(new Animated.Value(0)).current;
     const [touchLimitOpen, setTouchLimitOpen] = useState(false);
+    /**
+     * Her words for a touch: her own line from the server (personality, where,
+     * how close you are), or a stock line if it is throttled, slow or offline.
+     */
+    const sayTouchLine = useCallback((part: TouchPart, action: QuickTouch | undefined, stockKey: string) => {
+        const { width, height } = Dimensions.get("window");
+        const show = (text: string) => touchFeedbackRef.current?.hint(width / 2, height * 0.16, text);
+        const cid = characterIdRef.current;
+        if (!cid) { show(t(stockKey)); return; }
+        void fetchTouchLine({ characterId: cid, part, action }).then((r) => {
+            if (characterIdRef.current !== cid) return;
+            show(r?.line ?? t(stockKey));
+        });
+    }, [t]);
     const onTouchReact = useCallback((part: TouchPart, x: number, y: number) => {
+        const n = 1 + Math.floor(Math.random() * 3);
+        const quick = quickPendingRef.current;
+        quickPendingRef.current = null;
+        if (quick) {
+            // Her answer to what you did, and on a Live2D girl the face that
+            // goes with it.
+            const q = QUICK_TOUCHES.find((c) => c.key === quick)!;
+            touchFeedbackRef.current?.emoji(x, y, q.emoji);
+            if (live2dConfigRef.current) {
+                const [emotion, effect] = QUICK_FACE[quick];
+                performLive2d(emotion, effect, 900);
+            } else {
+                vrmRef.current?.playTouchReaction(q.part);
+            }
+            sayTouchLine(q.part, quick, `touch.act_${quick}_${n}`);
+            return;
+        }
         touchFeedbackRef.current?.emoji(x, y, TOUCH_EMOJI[part]);
+        const head = part === "head" || part === "face";
         if (live2dConfigRef.current) {
             const stroke = strokePendingRef.current;
             strokePendingRef.current = false;
-            const head = part === "head" || part === "face";
             const r = touchResponse(part);
             performLive2d(stroke ? "love" : pick(r.emotions), stroke ? "hearts" : pick(r.effects), 900);
             const kind = stroke ? "stroke" : head ? "head" : "body";
-            const { width, height } = Dimensions.get("window");
-            touchFeedbackRef.current?.hint(width / 2, height * 0.16, t(`touch.l2d_${kind}_${1 + Math.floor(Math.random() * 3)}`));
+            sayTouchLine(part, stroke ? "pat" : undefined, `touch.l2d_${kind}_${n}`);
             return;
         }
-        if (is3DMode) {
-            vrmRef.current?.playTouchReaction(part);
-            return;
-        }
-        touchBounce.setValue(0);
-        Animated.sequence([
-            Animated.timing(touchBounce, { toValue: 1, duration: 120, useNativeDriver: true }),
-            Animated.spring(touchBounce, { toValue: 0, friction: 4, tension: 120, useNativeDriver: true }),
-        ]).start();
-    }, [is3DMode, touchBounce, performLive2d, t]);
+        vrmRef.current?.playTouchReaction(part);
+        sayTouchLine(part, undefined, `touch.l2d_${head ? "head" : "body"}_${n}`);
+    }, [touchBounce, performLive2d, sayTouchLine]);
     const onTouchGranted = useCallback(
         (_part: TouchPart, x: number, y: number, bond: BondTrackResult) => {
             if (bond && bond.granted > 0) {
@@ -315,6 +347,7 @@ export default function PlayScreen() {
     );
     const onTouchLimit = useCallback(() => {
         strokePendingRef.current = false;
+        quickPendingRef.current = null;
         setTouchLimitOpen(true);
     }, []);
     const { touch: touchCharacter } = useCharacterTouch({
@@ -324,6 +357,22 @@ export default function PlayScreen() {
         onGranted: onTouchGranted,
         onLimit: onTouchLimit,
     });
+    // Touch is a 3D (and Live2D) thing: the 2D picture only says where to go.
+    const onSceneTouch = useCallback((part: TouchPart, x: number, y: number, mode: "2d" | "3d") => {
+        if (mode === "2d") {
+            touchFeedbackRef.current?.hint(x, Math.max(120, y - 40), t("touch.need_3d"));
+            return;
+        }
+        void touchCharacter(part, x, y, mode);
+    }, [touchCharacter, t]);
+    const onQuickTouch = useCallback((a: QuickTouch) => {
+        const q = QUICK_TOUCHES.find((c) => c.key === a)!;
+        const { width, height } = Dimensions.get("window");
+        quickPendingRef.current = a;
+        void touchCharacter(q.part, width / 2, height * 0.32, live2dConfigRef.current ? "live2d" : is3DMode ? "3d" : "2d");
+        // The reaction ran synchronously if the touch went ahead (see stroke).
+        quickPendingRef.current = null;
+    }, [touchCharacter, is3DMode]);
 
 
     // Once per install: say that she can be touched. A reaction nobody knows
@@ -502,6 +551,7 @@ export default function PlayScreen() {
             }
             case "stroke":
                 strokingRef.current = true;
+                setStrokeProgress(Math.min(1, e.progress));
                 // A full head pat is one touch: it spends one of the three,
                 // and earns what a touch earns.
                 if (e.progress >= 1 && !strokeDoneRef.current && !voiceState.isConnected) {
@@ -515,7 +565,7 @@ export default function PlayScreen() {
                 }
                 break;
             case "strokeEnd":
-                setTimeout(() => { strokingRef.current = false; strokeDoneRef.current = false; }, 700);
+                setTimeout(() => { strokingRef.current = false; strokeDoneRef.current = false; setStrokeProgress(null); }, 700);
                 break;
         }
     }, [touchCharacter, dance.isDancing, voiceState.isConnected, loadLive2d]);
@@ -1354,7 +1404,8 @@ export default function PlayScreen() {
                 setSubscriptionOpen={setSubscriptionOpen}
                 // Not while she is dancing or on a call: a reaction would cut
                 // into either one.
-                onTouchCharacter={dance.isDancing || voiceState.isConnected ? undefined : touchCharacter}
+                onTouchCharacter={dance.isDancing || voiceState.isConnected ? undefined : onSceneTouch}
+                onQuickTouch={dance.isDancing || voiceState.isConnected || !(is3DMode || live2d) ? undefined : onQuickTouch}
                 touchBounce={touchBounce}
                 live2d={live2d}
                 live2dRef={live2dRef}
@@ -1362,6 +1413,15 @@ export default function PlayScreen() {
             />
 
             <TouchFeedback ref={touchFeedbackRef} />
+
+            {strokeProgress != null && (
+                <View style={[touchStyles.stroke, { top: Platform.OS === "ios" ? 118 : 96 }]} pointerEvents="none">
+                    <Text style={touchStyles.strokeText}>{t("touch.rub_hint")}</Text>
+                    <View style={touchStyles.strokeTrack}>
+                        <View style={[touchStyles.strokeFill, { width: `${Math.round(strokeProgress * 100)}%` }]} />
+                    </View>
+                </View>
+            )}
 
             <UnlockDialog
                 visible={touchLimitOpen}
@@ -1657,3 +1717,22 @@ export default function PlayScreen() {
         </View>
     );
 }
+
+/** Her face for each quick touch on a Live2D girl. */
+const QUICK_FACE: Record<QuickTouch, [Emotion, Live2DEffect]> = {
+    pat: ["shy", "blush"],
+    hug: ["love", "hearts"],
+    flowers: ["happy", "sparkle"],
+    poke: ["pouty", "anger"],
+};
+
+const touchStyles = StyleSheet.create({
+    stroke: {
+        position: "absolute", alignSelf: "center", alignItems: "center", gap: 6,
+        paddingHorizontal: 14, paddingVertical: 8, borderRadius: 14,
+        backgroundColor: "rgba(20,12,30,0.6)",
+    },
+    strokeText: { color: "#fff", fontSize: 12.5, fontWeight: "700" },
+    strokeTrack: { width: 120, height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.25)", overflow: "hidden" },
+    strokeFill: { height: 6, borderRadius: 3, backgroundColor: "#FF4D8D" },
+});
