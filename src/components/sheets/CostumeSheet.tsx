@@ -40,6 +40,14 @@ interface CostumeSheetProps {
     sceneImage?: string | null;
 }
 
+/**
+ * Her outfit's picture. `url` is only a fallback when it IS a picture: for
+ * most outfits it is the .vrm, and handing a model file to an <Image> drew
+ * a blank tile (fifty outfits looked missing until they got thumbnails).
+ */
+const costumeImage = (c: { thumbnail: string | null; url?: string | null }) =>
+    c.thumbnail ?? (c.url && /\.(png|jpe?g|webp)(\?|$)/i.test(c.url) ? c.url : null);
+
 export type CostumeSheetRef = BottomSheetRef;
 
 const RANK: Record<string, number> = { default: 0, ads: 1, ruby: 2, pro: 3 };
@@ -123,7 +131,7 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(
         unlockAtLevel: c.unlock_at_level,
             price: c.price_ruby,
             name: c.costume_name,
-            image: c.thumbnail ?? c.url,
+            image: costumeImage(c),
         });
 
         const apply = useCallback(
@@ -164,7 +172,7 @@ const CostumeSheet = forwardRef<CostumeSheetRef, CostumeSheetProps>(
                         <ItemTile
                             width={width}
                             name={c.costume_name}
-                            image={c.thumbnail ?? c.url}
+                            image={costumeImage(c)}
                             lock={unlock.lockOf(toItem(c))}
                             price={c.price_ruby ?? 0}
                             requiredLevel={c.unlock_at_level ?? 1}

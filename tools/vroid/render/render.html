@@ -1,0 +1,235 @@
+<!doctype html><html><head><meta charset="utf-8">
+<style>html,body{margin:0;background:transparent;overflow:hidden}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.177.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.177.0/examples/jsm/","@pixiv/three-vrm":"https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3/lib/three-vrm.module.min.js"}}</script>
+</head><body>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
+const genericVRMRigMap = {
+            // Body bones
+            "Hips": "hips", "Spine": "spine", "Chest": "chest", "UpperChest": "upperChest", "Neck": "neck", "Head": "head",
+            "LeftShoulder": "leftShoulder", "LeftUpperArm": "leftUpperArm", "LeftLowerArm": "leftLowerArm", "LeftHand": "leftHand",
+            "RightShoulder": "rightShoulder", "RightUpperArm": "rightUpperArm", "RightLowerArm": "rightLowerArm", "RightHand": "rightHand",
+            "LeftUpperLeg": "leftUpperLeg", "LeftLowerLeg": "leftLowerLeg", "LeftFoot": "leftFoot", "LeftToes": "leftToes",
+            "RightUpperLeg": "rightUpperLeg", "RightLowerLeg": "rightLowerLeg", "RightFoot": "rightFoot", "RightToes": "rightToes",
+            // Blender-style naming
+            "hips": "hips", "spine": "spine", "chest": "chest", "upper_chest": "upperChest", "neck": "neck", "head": "head",
+            "shoulder.L": "leftShoulder", "upper_arm.L": "leftUpperArm", "forearm.L": "leftLowerArm", "hand.L": "leftHand",
+            "shoulder.R": "rightShoulder", "upper_arm.R": "rightUpperArm", "forearm.R": "rightLowerArm", "hand.R": "rightHand",
+            "thigh.L": "leftUpperLeg", "shin.L": "leftLowerLeg", "foot.L": "leftFoot", "toe.L": "leftToes",
+            "thigh.R": "rightUpperLeg", "shin.R": "rightLowerLeg", "foot.R": "rightFoot", "toe.R": "rightToes",
+            // Left thumb
+            "LeftThumbProximal": "leftThumbMetacarpal", "LeftThumbIntermediate": "leftThumbProximal", "LeftThumbDistal": "leftThumbDistal",
+            "thumb.01.L": "leftThumbMetacarpal", "thumb.02.L": "leftThumbProximal", "thumb.03.L": "leftThumbDistal",
+            "L_Thumb1": "leftThumbMetacarpal", "L_Thumb2": "leftThumbProximal", "L_Thumb3": "leftThumbDistal",
+            // Left index
+            "LeftIndexProximal": "leftIndexProximal", "LeftIndexIntermediate": "leftIndexIntermediate", "LeftIndexDistal": "leftIndexDistal",
+            "f_index.01.L": "leftIndexProximal", "f_index.02.L": "leftIndexIntermediate", "f_index.03.L": "leftIndexDistal",
+            "L_Index1": "leftIndexProximal", "L_Index2": "leftIndexIntermediate", "L_Index3": "leftIndexDistal",
+            // Left middle
+            "LeftMiddleProximal": "leftMiddleProximal", "LeftMiddleIntermediate": "leftMiddleIntermediate", "LeftMiddleDistal": "leftMiddleDistal",
+            "f_middle.01.L": "leftMiddleProximal", "f_middle.02.L": "leftMiddleIntermediate", "f_middle.03.L": "leftMiddleDistal",
+            "L_Middle1": "leftMiddleProximal", "L_Middle2": "leftMiddleIntermediate", "L_Middle3": "leftMiddleDistal",
+            // Left ring
+            "LeftRingProximal": "leftRingProximal", "LeftRingIntermediate": "leftRingIntermediate", "LeftRingDistal": "leftRingDistal",
+            "f_ring.01.L": "leftRingProximal", "f_ring.02.L": "leftRingIntermediate", "f_ring.03.L": "leftRingDistal",
+            "L_Ring1": "leftRingProximal", "L_Ring2": "leftRingIntermediate", "L_Ring3": "leftRingDistal",
+            // Left little/pinky
+            "LeftLittleProximal": "leftLittleProximal", "LeftLittleIntermediate": "leftLittleIntermediate", "LeftLittleDistal": "leftLittleDistal",
+            "f_pinky.01.L": "leftLittleProximal", "f_pinky.02.L": "leftLittleIntermediate", "f_pinky.03.L": "leftLittleDistal",
+            "L_Pinky1": "leftLittleProximal", "L_Pinky2": "leftLittleIntermediate", "L_Pinky3": "leftLittleDistal",
+            // Right thumb
+            "RightThumbProximal": "rightThumbMetacarpal", "RightThumbIntermediate": "rightThumbProximal", "RightThumbDistal": "rightThumbDistal",
+            "thumb.01.R": "rightThumbMetacarpal", "thumb.02.R": "rightThumbProximal", "thumb.03.R": "rightThumbDistal",
+            "R_Thumb1": "rightThumbMetacarpal", "R_Thumb2": "rightThumbProximal", "R_Thumb3": "rightThumbDistal",
+            // Right index
+            "RightIndexProximal": "rightIndexProximal", "RightIndexIntermediate": "rightIndexIntermediate", "RightIndexDistal": "rightIndexDistal",
+            "f_index.01.R": "rightIndexProximal", "f_index.02.R": "rightIndexIntermediate", "f_index.03.R": "rightIndexDistal",
+            "R_Index1": "rightIndexProximal", "R_Index2": "rightIndexIntermediate", "R_Index3": "rightIndexDistal",
+            // Right middle
+            "RightMiddleProximal": "rightMiddleProximal", "RightMiddleIntermediate": "rightMiddleIntermediate", "RightMiddleDistal": "rightMiddleDistal",
+            "f_middle.01.R": "rightMiddleProximal", "f_middle.02.R": "rightMiddleIntermediate", "f_middle.03.R": "rightMiddleDistal",
+            "R_Middle1": "rightMiddleProximal", "R_Middle2": "rightMiddleIntermediate", "R_Middle3": "rightMiddleDistal",
+            // Right ring
+            "RightRingProximal": "rightRingProximal", "RightRingIntermediate": "rightRingIntermediate", "RightRingDistal": "rightRingDistal",
+            "f_ring.01.R": "rightRingProximal", "f_ring.02.R": "rightRingIntermediate", "f_ring.03.R": "rightRingDistal",
+            "R_Ring1": "rightRingProximal", "R_Ring2": "rightRingIntermediate", "R_Ring3": "rightRingDistal",
+            // Right little/pinky
+            "RightLittleProximal": "rightLittleProximal", "RightLittleIntermediate": "rightLittleIntermediate", "RightLittleDistal": "rightLittleDistal",
+            "f_pinky.01.R": "rightLittleProximal", "f_pinky.02.R": "rightLittleIntermediate", "f_pinky.03.R": "rightLittleDistal",
+            "R_Pinky1": "rightLittleProximal", "R_Pinky2": "rightLittleIntermediate", "R_Pinky3": "rightLittleDistal"
+        };
+const mixamoVRMRigMap = { "mixamorigHips": "hips", "mixamorigSpine": "spine", "mixamorigSpine1": "chest", "mixamorigSpine2": "upperChest", "mixamorigNeck": "neck", "mixamorigHead": "head", "mixamorigLeftShoulder": "leftShoulder", "mixamorigLeftArm": "leftUpperArm", "mixamorigLeftForeArm": "leftLowerArm", "mixamorigLeftHand": "leftHand", "mixamorigLeftHandThumb1": "leftThumbMetacarpal", "mixamorigLeftHandThumb2": "leftThumbProximal", "mixamorigLeftHandThumb3": "leftThumbDistal", "mixamorigLeftHandIndex1": "leftIndexProximal", "mixamorigLeftHandIndex2": "leftIndexIntermediate", "mixamorigLeftHandIndex3": "leftIndexDistal", "mixamorigLeftHandMiddle1": "leftMiddleProximal", "mixamorigLeftHandMiddle2": "leftMiddleIntermediate", "mixamorigLeftHandMiddle3": "leftMiddleDistal", "mixamorigLeftHandRing1": "leftRingProximal", "mixamorigLeftHandRing2": "leftRingIntermediate", "mixamorigLeftHandRing3": "leftRingDistal", "mixamorigLeftHandPinky1": "leftLittleProximal", "mixamorigLeftHandPinky2": "leftLittleIntermediate", "mixamorigLeftHandPinky3": "leftLittleDistal", "mixamorigRightShoulder": "rightShoulder", "mixamorigRightArm": "rightUpperArm", "mixamorigRightForeArm": "rightLowerArm", "mixamorigRightHand": "rightHand", "mixamorigRightHandThumb1": "rightThumbMetacarpal", "mixamorigRightHandThumb2": "rightThumbProximal", "mixamorigRightHandThumb3": "rightThumbDistal", "mixamorigRightHandIndex1": "rightIndexProximal", "mixamorigRightHandIndex2": "rightIndexIntermediate", "mixamorigRightHandIndex3": "rightIndexDistal", "mixamorigRightHandMiddle1": "rightMiddleProximal", "mixamorigRightHandMiddle2": "rightMiddleIntermediate", "mixamorigRightHandMiddle3": "rightMiddleDistal", "mixamorigRightHandRing1": "rightRingProximal", "mixamorigRightHandRing2": "rightRingIntermediate", "mixamorigRightHandRing3": "rightRingDistal", "mixamorigRightHandPinky1": "rightLittleProximal", "mixamorigRightHandPinky2": "rightLittleIntermediate", "mixamorigRightHandPinky3": "rightLittleDistal", "mixamorigLeftUpLeg": "leftUpperLeg", "mixamorigLeftLeg": "leftLowerLeg", "mixamorigLeftFoot": "leftFoot", "mixamorigLeftToeBase": "leftToes", "mixamorigRightUpLeg": "rightUpperLeg", "mixamorigRightLeg": "rightLowerLeg", "mixamorigRightFoot": "rightFoot", "mixamorigRightToeBase": "rightToes" };
+const combinedRigMap = { ...genericVRMRigMap, ...mixamoVRMRigMap };
+const namePatterns = {
+            // Body bones
+            hips: /hip/i, spine: /spine/i, chest: /chest|spine1/i, upperChest: /upperchest|spine2/i, neck: /neck/i, head: /head/i,
+            leftShoulder: /l(eft)?[-_\s]?shoulder/i, leftUpperArm: /l(eft)?[-_\s]?(upper)?[-_\s]?arm/i, leftLowerArm: /l(eft)?[-_\s]?(lower|fore)[-_\s]?arm/i, leftHand: /l(eft)?[-_\s]?hand$/i,
+            rightShoulder: /r(ight)?[-_\s]?shoulder/i, rightUpperArm: /r(ight)?[-_\s]?(upper)?[-_\s]?arm/i, rightLowerArm: /r(ight)?[-_\s]?(lower|fore)[-_\s]?arm/i, rightHand: /r(ight)?[-_\s]?hand$/i,
+            leftUpperLeg: /l(eft)?[-_\s]?(upper|up)[-_\s]?leg|l(eft)?[-_\s]?thigh/i, leftLowerLeg: /l(eft)?[-_\s]?(lower)?[-_\s]?leg|l(eft)?[-_\s]?(shin|calf)/i, leftFoot: /l(eft)?[-_\s]?foot/i, leftToes: /l(eft)?[-_\s]?(toe|toebase)/i,
+            rightUpperLeg: /r(ight)?[-_\s]?(upper|up)[-_\s]?leg|r(ight)?[-_\s]?thigh/i, rightLowerLeg: /r(ight)?[-_\s]?(lower)?[-_\s]?leg|r(ight)?[-_\s]?(shin|calf)/i, rightFoot: /r(ight)?[-_\s]?foot/i, rightToes: /r(ight)?[-_\s]?(toe|toebase)/i,
+            // Left fingers
+            leftThumbMetacarpal: /l(eft)?[-_\s]?(hand[-_\s]?)?thumb[-_\s]?(1|meta|proximal)/i,
+            leftThumbProximal: /l(eft)?[-_\s]?(hand[-_\s]?)?thumb[-_\s]?(2|inter)/i,
+            leftThumbDistal: /l(eft)?[-_\s]?(hand[-_\s]?)?thumb[-_\s]?(3|distal)/i,
+            leftIndexProximal: /l(eft)?[-_\s]?(hand[-_\s]?)?index[-_\s]?(1|proximal)/i,
+            leftIndexIntermediate: /l(eft)?[-_\s]?(hand[-_\s]?)?index[-_\s]?(2|inter)/i,
+            leftIndexDistal: /l(eft)?[-_\s]?(hand[-_\s]?)?index[-_\s]?(3|distal)/i,
+            leftMiddleProximal: /l(eft)?[-_\s]?(hand[-_\s]?)?middle[-_\s]?(1|proximal)/i,
+            leftMiddleIntermediate: /l(eft)?[-_\s]?(hand[-_\s]?)?middle[-_\s]?(2|inter)/i,
+            leftMiddleDistal: /l(eft)?[-_\s]?(hand[-_\s]?)?middle[-_\s]?(3|distal)/i,
+            leftRingProximal: /l(eft)?[-_\s]?(hand[-_\s]?)?ring[-_\s]?(1|proximal)/i,
+            leftRingIntermediate: /l(eft)?[-_\s]?(hand[-_\s]?)?ring[-_\s]?(2|inter)/i,
+            leftRingDistal: /l(eft)?[-_\s]?(hand[-_\s]?)?ring[-_\s]?(3|distal)/i,
+            leftLittleProximal: /l(eft)?[-_\s]?(hand[-_\s]?)?(little|pinky)[-_\s]?(1|proximal)/i,
+            leftLittleIntermediate: /l(eft)?[-_\s]?(hand[-_\s]?)?(little|pinky)[-_\s]?(2|inter)/i,
+            leftLittleDistal: /l(eft)?[-_\s]?(hand[-_\s]?)?(little|pinky)[-_\s]?(3|distal)/i,
+            // Right fingers
+            rightThumbMetacarpal: /r(ight)?[-_\s]?(hand[-_\s]?)?thumb[-_\s]?(1|meta|proximal)/i,
+            rightThumbProximal: /r(ight)?[-_\s]?(hand[-_\s]?)?thumb[-_\s]?(2|inter)/i,
+            rightThumbDistal: /r(ight)?[-_\s]?(hand[-_\s]?)?thumb[-_\s]?(3|distal)/i,
+            rightIndexProximal: /r(ight)?[-_\s]?(hand[-_\s]?)?index[-_\s]?(1|proximal)/i,
+            rightIndexIntermediate: /r(ight)?[-_\s]?(hand[-_\s]?)?index[-_\s]?(2|inter)/i,
+            rightIndexDistal: /r(ight)?[-_\s]?(hand[-_\s]?)?index[-_\s]?(3|distal)/i,
+            rightMiddleProximal: /r(ight)?[-_\s]?(hand[-_\s]?)?middle[-_\s]?(1|proximal)/i,
+            rightMiddleIntermediate: /r(ight)?[-_\s]?(hand[-_\s]?)?middle[-_\s]?(2|inter)/i,
+            rightMiddleDistal: /r(ight)?[-_\s]?(hand[-_\s]?)?middle[-_\s]?(3|distal)/i,
+            rightRingProximal: /r(ight)?[-_\s]?(hand[-_\s]?)?ring[-_\s]?(1|proximal)/i,
+            rightRingIntermediate: /r(ight)?[-_\s]?(hand[-_\s]?)?ring[-_\s]?(2|inter)/i,
+            rightRingDistal: /r(ight)?[-_\s]?(hand[-_\s]?)?ring[-_\s]?(3|distal)/i,
+            rightLittleProximal: /r(ight)?[-_\s]?(hand[-_\s]?)?(little|pinky)[-_\s]?(1|proximal)/i,
+            rightLittleIntermediate: /r(ight)?[-_\s]?(hand[-_\s]?)?(little|pinky)[-_\s]?(2|inter)/i,
+            rightLittleDistal: /r(ight)?[-_\s]?(hand[-_\s]?)?(little|pinky)[-_\s]?(3|distal)/i
+        };
+function findBoneMapping(boneName) {
+            if (combinedRigMap[boneName]) {
+                return combinedRigMap[boneName];
+            }
+            const lowerName = boneName.toLowerCase();
+            for (const [key, value] of Object.entries(combinedRigMap)) {
+                if (key.toLowerCase() === lowerName) {
+                    return value;
+                }
+            }
+            for (const [vrmBone, pattern] of Object.entries(namePatterns)) {
+                if (pattern.test(boneName)) {
+                    return vrmBone;
+                }
+            }
+            return null;
+        }
+
+        
+function loadHumanoidAnimation(url, vrm) {
+            const loader = new FBXLoader();
+            loader.crossOrigin = 'anonymous';
+            return loader.loadAsync(url).then((asset) => {
+                let clip = THREE.AnimationClip.findByName(asset.animations, 'mixamo.com');
+                if (!clip && asset.animations.length > 0) {
+                    clip = asset.animations[0];
+                }
+                if (!clip) {
+                    throw new Error('No animation found in FBX file');
+                }
+                const tracks = [];
+                const restRotationInverse = new THREE.Quaternion();
+                const parentRestWorldRotation = new THREE.Quaternion();
+                const _quatA = new THREE.Quaternion();
+                const _vec3 = new THREE.Vector3();
+                let hipsNode = null;
+                asset.traverse((node) => {
+                    if (!hipsNode) {
+                        const vrmBoneName = findBoneMapping(node.name);
+                        if (vrmBoneName === 'hips') {
+                            hipsNode = node;
+                        }
+                    }
+                });
+                let hipsPositionScale = 1.0;
+                if (hipsNode) {
+                    const motionHipsHeight = hipsNode.position.y;
+                    const vrmHipsY = vrm.humanoid?.getNormalizedBoneNode('hips')?.getWorldPosition(_vec3).y || 1;
+                    const vrmRootY = vrm.scene.getWorldPosition(_vec3).y;
+                    const vrmHipsHeight = Math.abs(vrmHipsY - vrmRootY);
+                    if (motionHipsHeight > 0) {
+                        hipsPositionScale = vrmHipsHeight / motionHipsHeight;
+                    }
+                }
+                clip.tracks.forEach((track) => {
+                    const trackSplitted = track.name.split('.');
+                    const rigBoneName = trackSplitted[0];
+                    const vrmBoneName = findBoneMapping(rigBoneName);
+                    if (!vrmBoneName) {
+                        return;
+                    }
+                    const vrmNodeName = vrm.humanoid?.getNormalizedBoneNode(vrmBoneName)?.name;
+                    const rigNode = asset.getObjectByName(rigBoneName);
+                    if (vrmNodeName != null && rigNode) {
+                        const propertyName = trackSplitted[1];
+                        rigNode.getWorldQuaternion(restRotationInverse).invert();
+                        rigNode.parent.getWorldQuaternion(parentRestWorldRotation);
+                        if (track instanceof THREE.QuaternionKeyframeTrack) {
+                            for (let i = 0; i < track.values.length; i += 4) {
+                                const flatQuaternion = track.values.slice(i, i + 4);
+                                _quatA.fromArray(flatQuaternion);
+                                _quatA.premultiply(parentRestWorldRotation).multiply(restRotationInverse);
+                                _quatA.toArray(flatQuaternion);
+                                flatQuaternion.forEach((v, index) => {
+                                    track.values[index + i] = v;
+                                });
+                            }
+                            tracks.push(
+                                new THREE.QuaternionKeyframeTrack(
+                                    `${vrmNodeName}.${propertyName}`,
+                                    track.times,
+                                    track.values.map((v, i) => (vrm.meta?.metaVersion === '0' && i % 2 === 0 ? - v : v)),
+                                ),
+                            );
+                        } else if (track instanceof THREE.VectorKeyframeTrack) {
+                            const value = track.values.map((v, i) => (vrm.meta?.metaVersion === '0' && i % 3 !== 1 ? - v : v) * hipsPositionScale);
+                            tracks.push(new THREE.VectorKeyframeTrack(`${vrmNodeName}.${propertyName}`, track.times, value));
+                        }
+                    }
+                });
+                return new THREE.AnimationClip('vrmAnimation', clip.duration, tracks);
+            });
+        }
+
+const W=900,H=1400;
+const r=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true,alpha:true}); r.setClearColor(0x000000,0);
+r.setSize(W,H); r.outputColorSpace=THREE.SRGBColorSpace; document.body.appendChild(r.domElement);
+const scene=new THREE.Scene();
+const cam=new THREE.PerspectiveCamera(26,W/H,0.1,50);
+scene.add(new THREE.HemisphereLight(0xfff4fa,0x6a5a80,1.1));
+const dl=new THREE.DirectionalLight(0xfff0e8,1.5); dl.position.set(1.2,1.8,2.2); scene.add(dl);
+const rim=new THREE.DirectionalLight(0xd8c8ff,0.8); rim.position.set(-1.5,1.2,-1.5); scene.add(rim);
+let vrm=null, mixer=null, baseRot=0;
+window.loadVrm=async(url)=>{
+  const loader=new GLTFLoader(); loader.register(p=>new VRMLoaderPlugin(p));
+  const g=await loader.loadAsync(url); vrm=g.userData.vrm;
+  VRMUtils.rotateVRM0(vrm); scene.add(vrm.scene); baseRot=vrm.scene.rotation.y;
+  mixer=new THREE.AnimationMixer(vrm.scene);
+  return true;
+};
+const clips={};
+window.pose=async(fbx,t,turn,expr)=>{
+  if(!clips[fbx]) clips[fbx]=await loadHumanoidAnimation(fbx,vrm);
+  mixer.stopAllAction(); vrm.humanoid.resetNormalizedPose();
+  const a=mixer.clipAction(clips[fbx]); a.reset(); a.play();
+  mixer.setTime(Math.min(t, clips[fbx].duration-0.01));
+  vrm.scene.rotation.y=baseRot+(turn||0);
+  try{ const em=vrm.expressionManager; ['happy','relaxed','surprised','fun'].forEach(n=>{try{em.setValue(n,0)}catch(e){}}); if(expr) em.setValue(expr[0],expr[1]); }catch(e){}
+  // settle hair and skirts with the pose held still
+  for(let i=0;i<120;i++) vrm.update(1/60);
+  const box=new THREE.Box3().setFromObject(vrm.scene); const size=box.getSize(new THREE.Vector3()); const c=box.getCenter(new THREE.Vector3());
+  const hfit=(size.y/2)/Math.tan(THREE.MathUtils.degToRad(13));
+  const wfit=(size.x/2)/(Math.tan(THREE.MathUtils.degToRad(13))*(W/H));
+  const dist=Math.max(hfit,wfit)*1.06;
+  cam.position.set(c.x,c.y+size.y*0.03,c.z+dist); cam.lookAt(c.x,c.y,c.z);
+  r.render(scene,cam);
+  return true;
+};
+window.ready=true;
+</script></body></html>

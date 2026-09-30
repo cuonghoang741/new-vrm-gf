@@ -1,0 +1,92 @@
+[
+ {
+  "fbx": "https://pub-8b57fd6b30c04b11b3f3a092bdfed0e2.r2.dev/Heart-Flutter%20Pose.fbx",
+  "t": 1.2,
+  "turn": 0.25,
+  "expr": [
+   "happy",
+   0.5
+  ]
+ },
+ {
+  "fbx": "https://pub-8b57fd6b30c04b11b3f3a092bdfed0e2.r2.dev/Feminine%20-%20Exaggerated%202.fbx",
+  "t": 1.0,
+  "turn": -0.3,
+  "expr": [
+   "happy",
+   0.3
+  ]
+ },
+ {
+  "fbx": "https://pub-8b57fd6b30c04b11b3f3a092bdfed0e2.r2.dev/Sly%20-%20Finger%20gun%20gesture.fbx",
+  "t": 1.1,
+  "turn": 0.2,
+  "expr": [
+   "fun",
+   0.5
+  ]
+ },
+ {
+  "fbx": "https://n6n.top/Anim/Blow%20A%20Kiss.fbx",
+  "t": 1.3,
+  "turn": -0.2,
+  "expr": [
+   "happy",
+   0.4
+  ]
+ },
+ {
+  "fbx": "https://n6n.top/Anim/Bashful.fbx",
+  "t": 1.5,
+  "turn": 0.3,
+  "expr": [
+   "relaxed",
+   0.5
+  ]
+ },
+ {
+  "fbx": "https://n6n.top/Anim/Standing%20Greeting.fbx",
+  "t": 1.0,
+  "turn": -0.25,
+  "expr": [
+   "happy",
+   0.6
+  ]
+ },
+ {
+  "fbx": "https://n6n.top/Anim/Happy.fbx",
+  "t": 1.0,
+  "turn": 0.2,
+  "expr": [
+   "happy",
+   0.7
+  ]
+ },
+ {
+  "fbx": "https://n6n.top/Anim/Thinking.fbx",
+  "t": 2.0,
+  "turn": -0.3,
+  "expr": [
+   "relaxed",
+   0.3
+  ]
+ },
+ {
+  "fbx": "https://n6n.top/Anim/Hand%20Raising.fbx",
+  "t": 0.9,
+  "turn": 0.25,
+  "expr": [
+   "happy",
+   0.5
+  ]
+ },
+ {
+  "fbx": "https://n6n.top/Anim/Taunt.fbx",
+  "t": 1.0,
+  "turn": -0.2,
+  "expr": [
+   "fun",
+   0.5
+  ]
+ }
+]
