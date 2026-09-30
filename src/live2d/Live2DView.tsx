@@ -30,6 +30,8 @@ export type Live2DHandle = {
     weather: (kind: Live2DWeather) => void;
     pause: () => void;
     resume: () => void;
+    /** CSS blur over her canvas, in px; 0 clears it. The page itself has no blur. */
+    setBlur: (px: number) => void;
 };
 
 export type Live2DEvent =
@@ -91,6 +93,9 @@ export const Live2DView = forwardRef<Live2DHandle, { onEvent?: (e: Live2DEvent) 
             weather: (k) => run(js("weather", k)),
             pause: () => run(js("pause")),
             resume: () => run(js("resume")),
+            setBlur: (px) => run(
+                `document.querySelectorAll('canvas').forEach(function(c){c.style.transition='filter .25s ease';c.style.filter=${JSON.stringify(px > 0 ? `blur(${Math.round(px)}px)` : "")}})`
+            ),
         }), [run]);
 
         const onMessage = (e: WebViewMessageEvent) => {

@@ -41,8 +41,8 @@ export interface VRMViewerHandle {
     prevBackground: () => void;
     /** Enable / disable OrbitControls (rotate, zoom, pan) */
     setControlsEnabled: (enabled: boolean) => void;
-    /** Blur the rendered 3D canvas (e.g. to tease a locked costume preview). */
-    setPreviewBlur: (on: boolean) => void;
+    /** Blur the rendered 3D canvas (e.g. to tease a locked costume preview). `px` defaults to 10. */
+    setPreviewBlur: (on: boolean, px?: number) => void;
     /** 0 = high (default), 1 = balanced, 2 = battery saver. */
     setRenderQuality: (q: number) => void;
     /** Stop drawing frames (pre-warmed, hidden viewer) without unloading anything. */
@@ -221,8 +221,8 @@ const VRMViewer = forwardRef<VRMViewerHandle, VRMViewerProps>(
                 setRenderPaused: (paused: boolean) => {
                     injectJS(`window.setRenderPaused && window.setRenderPaused(${paused})`);
                 },
-                setPreviewBlur: (on: boolean) => {
-                    injectJS(`window.setPreviewBlur && window.setPreviewBlur(${on})`);
+                setPreviewBlur: (on: boolean, px?: number) => {
+                    injectJS(`window.setPreviewBlur && window.setPreviewBlur(${on}, ${Number(px) || 10})`);
                 },
                 setRenderQuality: (q: number) => {
                     injectJS(`window.setRenderQuality && window.setRenderQuality(${q | 0})`);

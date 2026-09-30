@@ -891,7 +891,7 @@
 
         // Blur the rendered 3D canvas (cheap GPU CSS filter) — used to tease
         // locked costume previews in the subscription sheet.
-        window.setPreviewBlur = function (on) {
+        window.setPreviewBlur = function (on, px) {
             try {
                 const c = renderer && renderer.domElement;
                 if (!c) return;
@@ -899,7 +899,7 @@
                 // 16px turned her into a smear. 10px still hides the detail
                 // the gate is there for while leaving a recognisable shape —
                 // which is what makes the PRO prompt worth reading.
-                c.style.filter = on ? 'blur(10px)' : '';
+                c.style.filter = on ? `blur(${Number(px) || 10}px)` : '';
             } catch (e) { }
         };
 
@@ -1749,35 +1749,109 @@
         });
 
         // ─── Turntable for the character preview ───────────────────────────
-        // Spins her slowly, and a horizontal drag turns her by hand. No zoom or
-        // pan: free camera is the Lv5 reward on the play screen, and this is a
-        // showcase, not that. The base rotation is kept per model because VRM0
-        // models arrive already turned 180°.
+        // Spins her slowly. By hand: a horizontal drag turns her, a vertical
+        // drag tilts the camera over or under her, a pinch zooms in (towards
+        // her face, not her waist), and a double tap puts everything back.
+        // The model turns, not the camera, so the framing never drifts; the
+        // base rotation is kept per model because VRM0 models arrive already
+        // turned 180°.
         window.__turntable = 0;
         let __turntableDragging = false;
         let __turntableLastX = 0;
+        let __turntableLastY = 0;
+        const __pv = { pitch: 0, zoom: 1, idleUntil: 0 };
+        const __PV_PITCH = [-0.35, 0.6];
+        const __PV_ZOOM = [0.35, 1.3];
+        const __pvPointers = new Map();
+        let __pvPinch = 0;
+        let __pvLastTap = null;
+        const __pvClamp = (v, r) => Math.min(r[1], Math.max(r[0], v));
+        function __pvReset() { __pv.pitch = 0; __pv.zoom = 1; }
         window.setTurntable = function (speed) {
             window.__turntable = Number(speed) || 0;
+            __pvReset();
+            __pvPointers.clear();
+            __turntableDragging = false;
             if (!window.__turntable && currentVrm) {
                 const sc = currentVrm.scene;
                 if (sc.userData.__baseRotY !== undefined) sc.rotation.y = sc.userData.__baseRotY;
             }
         };
+        const __pvPinchDist = () => {
+            const [p1, p2] = [...__pvPointers.values()];
+            return Math.hypot(p1.x - p2.x, p1.y - p2.y) || 1;
+        };
         renderer.domElement.addEventListener('pointerdown', (e) => {
-            if (!window.__turntable || !e.isPrimary) return;
-            __turntableDragging = true;
-            __turntableLastX = e.clientX;
+            if (!window.__turntable) return;
+            __pvPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+            if (__pvPointers.size === 1) {
+                __turntableDragging = true;
+                __turntableLastX = e.clientX;
+                __turntableLastY = e.clientY;
+                const now = performance.now();
+                const t = __pvLastTap;
+                if (t && now - t.t < 300 && Math.hypot(e.clientX - t.x, e.clientY - t.y) < 30) {
+                    __pvReset();
+                    __pvLastTap = null;
+                } else {
+                    __pvLastTap = { t: now, x: e.clientX, y: e.clientY };
+                }
+            } else if (__pvPointers.size === 2) {
+                __turntableDragging = false;
+                __pvPinch = __pvPinchDist();
+                __pvLastTap = null;
+            }
         });
         renderer.domElement.addEventListener('pointermove', (e) => {
+            if (!window.__turntable || !__pvPointers.has(e.pointerId)) return;
+            __pvPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+            __pv.idleUntil = performance.now() + 2500;
+            if (__pvPointers.size >= 2) {
+                const d = __pvPinchDist();
+                __pv.zoom = __pvClamp(__pv.zoom * (__pvPinch / d), __PV_ZOOM);
+                __pvPinch = d;
+                return;
+            }
             if (!__turntableDragging || !currentVrm) return;
             const sc = currentVrm.scene;
             if (sc.userData.__baseRotY === undefined) sc.userData.__baseRotY = sc.rotation.y;
             sc.rotation.y += (e.clientX - __turntableLastX) * 0.012;
+            __pv.pitch = __pvClamp(__pv.pitch + (e.clientY - __turntableLastY) * 0.006, __PV_PITCH);
             __turntableLastX = e.clientX;
+            __turntableLastY = e.clientY;
         });
-        const __endTurntableDrag = () => { __turntableDragging = false; };
+        const __endTurntableDrag = (e) => {
+            __pvPointers.delete(e.pointerId);
+            if (__pvPointers.size === 1) {
+                // Lifting one finger of a pinch hands over to a drag without a jump.
+                const p = [...__pvPointers.values()][0];
+                __turntableLastX = p.x; __turntableLastY = p.y;
+                __turntableDragging = true;
+            } else if (__pvPointers.size === 0) {
+                __turntableDragging = false;
+            }
+        };
         renderer.domElement.addEventListener('pointerup', __endTurntableDrag);
         renderer.domElement.addEventListener('pointercancel', __endTurntableDrag);
+        const __pvHead = new THREE.Vector3();
+        const __pvTarget = new THREE.Vector3();
+        const __pvPos = new THREE.Vector3();
+        /** Where the preview camera wants to be this frame, from the normal framing. */
+        function __pvFrame() {
+            __pvTarget.copy(__camDesiredTarget);
+            const k = __pvClamp((1 - __pv.zoom) / (1 - __PV_ZOOM[0]), [0, 1]);
+            const head = currentVrm && currentVrm.humanoid && currentVrm.humanoid.getNormalizedBoneNode('head');
+            if (head && k > 0) {
+                head.getWorldPosition(__pvHead);
+                __pvTarget.y += (__pvHead.y - __pvTarget.y) * k;
+            }
+            const dist = __camDesiredPos.distanceTo(__camDesiredTarget) * __pv.zoom;
+            __pvPos.set(
+                __pvTarget.x,
+                __pvTarget.y + Math.sin(__pv.pitch) * dist,
+                __pvTarget.z + Math.cos(__pv.pitch) * dist,
+            );
+        }
 
         const clock = new THREE.Clock();
         // Paused while this viewer is pre-warmed behind the screen (the paywall
@@ -1804,7 +1878,8 @@
             if (currentVrm) { currentVrm.update(deltaTime); }
             // Showcase turntable (character preview): the model turns, not the
             // camera, which is eased back to its framing every frame.
-            if (window.__turntable && currentVrm && !__turntableDragging) {
+            if (window.__turntable && currentVrm && !__turntableDragging && __pvPointers.size === 0
+                && performance.now() > __pv.idleUntil) {
                 const sc = currentVrm.scene;
                 if (sc.userData.__baseRotY === undefined) sc.userData.__baseRotY = sc.rotation.y;
                 sc.rotation.y += deltaTime * window.__turntable;
@@ -1826,8 +1901,14 @@
                         __camDesiredPos.set(__camDesiredTarget.x, targetY + yOffset, __camDesiredTarget.z + zOffset);
                     }
                 }
-                camera.position.lerp(__camDesiredPos, 0.08);
-                controls.target.lerp(__camDesiredTarget, 0.12);
+                if (window.__turntable) {
+                    __pvFrame();
+                    camera.position.lerp(__pvPos, 0.12);
+                    controls.target.lerp(__pvTarget, 0.15);
+                } else {
+                    camera.position.lerp(__camDesiredPos, 0.08);
+                    controls.target.lerp(__camDesiredTarget, 0.12);
+                }
                 controls.update();
             } catch { }
             renderer.render(scene, camera);

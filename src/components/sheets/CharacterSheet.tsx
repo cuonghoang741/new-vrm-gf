@@ -30,6 +30,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { BottomSheetRef } from "../common/BottomSheet";
 import { LinearGradient } from 'expo-linear-gradient';
 import { isLive2dRow } from "../../live2d/types";
+import { SHEET } from "../../theme/sheet";
 import { CharacterPreview } from "./CharacterPreview";
 import { purchaseItem } from "../../services/checkinService";
 import { UnlockDialog } from "../shop/UnlockDialog";
@@ -475,6 +476,16 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
         return Math.max(HOT_MIN_COSTUMES, p75);
     }, [characters]);
 
+    const isHot = useCallback(
+        (c: Character) => c.available !== false && !isLive2dRow(c) && (c.total_costumes ?? 0) >= hotFrom,
+        [hotFrom]
+    );
+    /** HOT girls first; each group keeps the catalogue's own order. */
+    const gridCharacters = React.useMemo(
+        () => [...characters.filter(isHot), ...characters.filter((c) => !isHot(c))],
+        [characters, isHot]
+    );
+
     /**
      * PRO-locked, i.e. behind the paywall or a ruby purchase.
      *
@@ -587,7 +598,7 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
                         >
                             <Text style={styles.tileHotText}>✦ LIVE2D</Text>
                         </LinearGradient>
-                    ) : isAvailable && (item.total_costumes ?? 0) >= hotFrom && (
+                    ) : isHot(item) && (
                         <View style={styles.tileHot}>
                             <Ionicons name="flame" size={9} color="#fff" />
                             <Text style={styles.tileHotText}>HOT</Text>
@@ -600,7 +611,7 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
                 </Pressable>
             );
         },
-        [focusedId, currentCharacterId, focus, isLockedFor, hotFrom, isPro, unlockTick]
+        [focusedId, currentCharacterId, focus, isLockedFor, isHot, isPro, unlockTick]
     );
 
     /**
@@ -740,7 +751,7 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
                         style={({ pressed }) => [styles.previewPill, pressed && { opacity: 0.85 }]}
                     >
                         <LinearGradient
-                            colors={isLive2dRow(focusedChar) ? ["#FF6FA3", "#A56BFF"] : ["#7C5CFF", "#4FA3FF"]}
+                            colors={SHEET.modeGradient}
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 0 }}
                             style={styles.previewPillBg}
@@ -864,7 +875,7 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
 
                 {/* ─── Grid ─── */}
                 <FlatList
-                    data={characters}
+                    data={gridCharacters}
                     renderItem={renderTile}
                     keyExtractor={(item) => item.id}
                     numColumns={GRID_COLUMNS}

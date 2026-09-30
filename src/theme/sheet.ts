@@ -12,6 +12,8 @@ export const SHEET = {
     accentGradient: ["#FF6FA3", "#FF2E74"] as const,
     gold: "#FFD700",
     goldGradient: ["#FFD700", "#FF8C00"] as const,
+    /** 3D and LIVE2D labels: one gradient, so the two modes read as one app. */
+    modeGradient: ["#FF6FA3", "#A56BFF"] as const,
     ruby: "#FF6FA5",
     purple: "#9C4DFF",
     success: "#4ADE80",

@@ -15,9 +15,23 @@ import { openBrowserSafe } from "../../utils/openBrowserSafe";
 import { currentLang } from "../../i18n";
 import RubyIcon from "../icons/RubyIcon";
 import { SHEET } from "../../theme/sheet";
+import { supabase } from "../../config/supabase";
+import { useSubscription } from "../../contexts/SubscriptionContext";
 
 /** Radians per second: one slow turn about every 18 s. */
 const TURNTABLE_SPEED = 0.35;
+/** Just enough to hide the detail a PRO girl is kept for, not her shape. */
+const MYSTERY_BLUR_PX = 3;
+
+type PreviewCostume = {
+    id: string;
+    costume_name: string | null;
+    thumbnail: string | null;
+    tier: string | null;
+    unlock_type: string | null;
+};
+const COSTUME_RANK: Record<string, number> = { default: 0, ads: 1, ruby: 2, pro: 3 };
+const isProCostume = (c: PreviewCostume) => c.tier === "pro" || c.unlock_type === "pro";
 
 export type PreviewCharacter = {
     id: string;
@@ -61,9 +75,11 @@ type Props = {
  * Full-screen look at a character before choosing her: the real model, not a
  * picture of it, above everything there is to know about her.
  *
- * VRM characters turn slowly on a turntable and can be turned by hand. It is a
- * turntable, not a free camera: orbiting her on the play screen is the Lv5
- * reward, and the preview must not give it away. Live2D characters react to a
+ * VRM characters turn slowly on a turntable and can be handled freely: drag
+ * across to turn her, drag up or down to look over or under her, pinch to
+ * zoom in on her face, double-tap to reset. Her outfits are shown but cannot
+ * be picked here. A PRO girl the user does not have is lightly blurred under a
+ * mystery badge. Live2D characters react to a
  * tap here the way they do on the play screen. It costs no touch and earns no
  * XP, since this is her audition, not the relationship.
  */
@@ -75,6 +91,37 @@ export function CharacterPreview({
     const live2d = character ? parseLive2d(character.data) : null;
     const background = character?.backgrounds?.image ?? null;
     const [modelShown, setModelShown] = useState(false);
+    const { isPro } = useSubscription();
+    // A PRO girl the user cannot have yet is shown, but not quite: a light
+    // blur and a mystery badge, so the preview sells PRO instead of giving
+    // her away.
+    const mystery = showPro && !isPro;
+    const mysteryRef = useRef(mystery);
+    mysteryRef.current = mystery;
+
+    // Her wardrobe, to look at only: outfits are chosen on the play screen,
+    // once she is yours.
+    const [costumes, setCostumes] = useState<PreviewCostume[]>([]);
+    const charId = character?.id ?? null;
+    const isLive2d = !!(character && parseLive2d(character.data));
+    useEffect(() => {
+        setCostumes([]);
+        if (!visible || !charId || isLive2d) return;
+        let alive = true;
+        supabase
+            .from("character_costumes")
+            .select("id, costume_name, thumbnail, tier, unlock_type")
+            .eq("character_id", charId)
+            .eq("available", true)
+            .order("created_at", { ascending: true })
+            .then(({ data }) => {
+                if (!alive || !data) return;
+                const rows = (data as PreviewCostume[]).filter((c) => !!c.thumbnail);
+                rows.sort((a, b) => (COSTUME_RANK[a.unlock_type ?? "ads"] ?? 1) - (COSTUME_RANK[b.unlock_type ?? "ads"] ?? 1));
+                setCostumes(rows);
+            });
+        return () => { alive = false; };
+    }, [visible, charId, isLive2d]);
 
     // ─── VRM ───
     const vrmRef = useRef<VRMViewerHandle>(null);
@@ -106,6 +153,7 @@ export function CharacterPreview({
         if (revealTimer.current) clearTimeout(revealTimer.current);
         revealTimer.current = setTimeout(() => setModelShown(true), 6000);
         preview.onShown([]);
+        vrmRef.current?.setPreviewBlur(mysteryRef.current, MYSTERY_BLUR_PX);
         vrmRef.current?.playRandomGreeting();
         if (greetTimer.current) clearTimeout(greetTimer.current);
         greetTimer.current = setTimeout(() => vrmRef.current?.stopAnimation(), 3500);
@@ -127,6 +175,7 @@ export function CharacterPreview({
         if (e.type === "ready") l2dRef.current?.load(live2d);
         else if (e.type === "loaded") {
             setModelShown(true);
+            l2dRef.current?.setBlur(mysteryRef.current ? MYSTERY_BLUR_PX : 0);
             const hello = live2d.actionMap.wave ?? live2d.emotionMap.happy;
             if (hello) l2dRef.current?.react(hello);
             l2dRef.current?.effect("sparkle");
@@ -189,6 +238,7 @@ export function CharacterPreview({
                                 style={StyleSheet.absoluteFill}
                                 contentFit="cover"
                                 contentPosition="top"
+                                blurRadius={mystery ? 12 : 0}
                             />
                             <View style={styles.loadingVeil}>
                                 <ActivityIndicator color="#fff" />
@@ -197,6 +247,16 @@ export function CharacterPreview({
                         </View>
                     )}
                 </View>
+
+                {mystery && modelShown && (
+                    <View style={styles.mysteryWrap} pointerEvents="none">
+                        <LinearGradient colors={SHEET.goldGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.mysteryBadge}>
+                            <Ionicons name="help" size={26} color="#1A0A2E" />
+                        </LinearGradient>
+                        <Text style={styles.mysteryTitle}>{t("char.mystery_title")}</Text>
+                        <Text style={styles.mysteryBody}>{t("char.mystery_body")}</Text>
+                    </View>
+                )}
 
                 {/* ─── Top bar ─── */}
                 <LinearGradient
@@ -210,7 +270,7 @@ export function CharacterPreview({
                     </Pressable>
                     <View style={styles.modePill}>
                         <LinearGradient
-                            colors={live2d ? ["#FF6FA3", "#A56BFF"] : ["#7C5CFF", "#4FA3FF"]}
+                            colors={SHEET.modeGradient}
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 0 }}
                             style={styles.modePillBg}
@@ -221,7 +281,7 @@ export function CharacterPreview({
                 </View>
                 {modelShown && (
                     <View style={[styles.hint, { top: insets.top + 62 }]} pointerEvents="none">
-                        <Ionicons name={live2d ? "hand-left-outline" : "swap-horizontal"} size={13} color="rgba(255,255,255,0.85)" />
+                        <Ionicons name={live2d ? "hand-left-outline" : "move"} size={13} color="rgba(255,255,255,0.85)" />
                         <Text style={styles.hintText}>{live2d ? t("char.tap_to_react") : t("char.drag_to_turn")}</Text>
                     </View>
                 )}
@@ -266,6 +326,36 @@ export function CharacterPreview({
                                         <Text style={styles.chipText}>{f.text}</Text>
                                     </View>
                                 ))}
+                            </View>
+                        )}
+                        {costumes.length > 0 && (
+                            <View style={styles.section}>
+                                <Text style={styles.sectionTitle}>{t("char.outfits")} · {costumes.length}</Text>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.outfits}>
+                                    {costumes.map((c) => {
+                                        const secret = isProCostume(c) && !isPro;
+                                        return (
+                                            <View key={c.id} style={styles.outfit}>
+                                                <Image
+                                                    source={{ uri: c.thumbnail! }}
+                                                    style={styles.outfitImg}
+                                                    contentFit="cover"
+                                                    contentPosition="top"
+                                                    blurRadius={secret ? 14 : 0}
+                                                />
+                                                {secret ? (
+                                                    <View style={styles.outfitSecret}>
+                                                        <Ionicons name="help" size={18} color="#1A0A2E" />
+                                                    </View>
+                                                ) : null}
+                                                {isProCostume(c) && (
+                                                    <View style={styles.outfitPro}><Text style={styles.outfitProText}>PRO</Text></View>
+                                                )}
+                                            </View>
+                                        );
+                                    })}
+                                </ScrollView>
+                                <Text style={styles.outfitNote}>{t("char.outfits_note")}</Text>
                             </View>
                         )}
                         {!!about && (
@@ -371,6 +461,35 @@ const styles = StyleSheet.create({
         letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 8,
     },
     body: { color: "rgba(255,255,255,0.82)", fontSize: 14.5, lineHeight: 21 },
+    outfits: { gap: 8, paddingRight: 4 },
+    outfit: {
+        width: 66, height: 88, borderRadius: 12, overflow: "hidden",
+        backgroundColor: SHEET.card, borderWidth: 1, borderColor: SHEET.cardBorder,
+    },
+    outfitImg: { width: "100%", height: "100%" },
+    outfitSecret: {
+        position: "absolute", alignSelf: "center", top: 30, width: 28, height: 28, borderRadius: 14,
+        alignItems: "center", justifyContent: "center", backgroundColor: SHEET.gold,
+    },
+    outfitPro: {
+        position: "absolute", top: 4, right: 4, paddingHorizontal: 5, height: 15, borderRadius: 5,
+        justifyContent: "center", backgroundColor: SHEET.gold,
+    },
+    outfitProText: { color: "#1A0A2E", fontSize: 9, fontWeight: "900" },
+    outfitNote: { color: SHEET.textFaint, fontSize: 12, marginTop: 8 },
+    mysteryWrap: { position: "absolute", left: 0, right: 0, top: "30%", alignItems: "center" },
+    mysteryBadge: {
+        width: 56, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center",
+        borderWidth: 2, borderColor: "rgba(255,255,255,0.7)",
+    },
+    mysteryTitle: {
+        color: "#fff", fontSize: 18, fontWeight: "900", marginTop: 10,
+        textShadowColor: "rgba(0,0,0,0.6)", textShadowRadius: 8,
+    },
+    mysteryBody: {
+        color: "rgba(255,255,255,0.9)", fontSize: 13.5, marginTop: 4,
+        textShadowColor: "rgba(0,0,0,0.6)", textShadowRadius: 8,
+    },
     ctaWrap: { marginTop: 14 },
     cta: {
         height: 54, borderRadius: 18,
