@@ -16,7 +16,6 @@ import {
 } from "../../services/bondService";
 import { refreshRuby } from "../../services/rubyStore";
 import { ICON_CHARACTERS } from "../../components/icons/iconCharacters";
-import OrbitHint from "../../components/bond/OrbitHint";
 import { HowToPlaySheet } from "../../components/sheets/HowToPlaySheet";
 
 /**
@@ -236,12 +235,6 @@ export function BondPage({
                                             )}
                                         </View>
                                         <Text style={styles.lvUnlocks}>{t(l.unlocks_key)}</Text>
-                                        {/* Lv5 is the only rung that hands over a
-                                            GESTURE rather than an item, and a line
-                                            of text cannot teach one. */}
-                                        {l.level === 5 && (
-                                            <OrbitHint portrait={characterArt} locked={!l.reached} />
-                                        )}
                                     </View>
                                     <Text style={styles.lvXp}>{l.xp.toLocaleString()}</Text>
                                 </View>

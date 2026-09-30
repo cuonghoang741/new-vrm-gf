@@ -759,14 +759,13 @@ export default function PlayScreen() {
     }, [vrmReady, vrmEpoch]);
 
     /**
-     * Free camera is the level-5 reward, and PRO on top of it — both gates, as
-     * `bond_capabilities.free_camera` defines them. Below that the camera stays
-     * where the scene puts it.
+     * Drag to orbit her, pinch to zoom, in 3D, for everyone who can be in 3D.
+     * It used to be the Lv5 + PRO reward; the user asked for it to be free.
      */
     useEffect(() => {
         if (!vrmReady) return;
-        vrmRef.current?.setControlsEnabled((bondLevel ?? 1) >= 5 && isPro);
-    }, [vrmReady, vrmEpoch, bondLevel, isPro]);
+        vrmRef.current?.setControlsEnabled(true);
+    }, [vrmReady, vrmEpoch]);
 
     useEffect(() => {
         if (vrmReady && backgroundUrl) {
