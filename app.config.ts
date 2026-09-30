@@ -125,6 +125,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     plugins: [
         './withCustomPodfile',
         'expo-video',
+        // Local notifications: she texts first (src/services/nudges.ts).
+        'expo-notifications',
         "./plugins/withFirebaseSetup",
         "./plugins/withAndroidBackupRulesFix",
         "./plugins/withCopyIndexHtml",

@@ -9,6 +9,7 @@ import {
     FlatList,
     KeyboardAvoidingView,
     Platform,
+    AppState,
     Dimensions,
     Animated,
     Keyboard,
@@ -38,6 +39,7 @@ import { FlashSaleSheet } from "../components/flash/FlashSaleSheet";
 import { track } from "../services/trackEvents";
 import { fetchBondMoment, getBondState, onBondLevelUp, trackBond } from "../services/bondService";
 import { LevelUpMoment } from "../components/bond/LevelUpMoment";
+import { askNudgePermissionOnce, cancelNudges, listenNudgeOpens, prepareNudges, scheduleNudges } from "../services/nudges";
 import { currentLang } from "../i18n";
 import { getCheckinState } from "../services/checkinService";
 import { loadQuality, subscribeQuality } from "../services/renderQuality";
@@ -186,6 +188,8 @@ export default function PlayScreen() {
 
     // Character state
     const [characterId, setCharacterId] = useState<string | null>(null);
+    /** Bumped to reload the chat history (a notification wrote her line into it). */
+    const [historyTick, setHistoryTick] = useState(0);
     /** For async work that must not land on the next character. */
     const characterIdRef = useRef<string | null>(null);
     characterIdRef.current = characterId;
@@ -819,7 +823,29 @@ export default function PlayScreen() {
             chatService.markAsSeen(characterId, user.id);
         };
         loadHistory();
-    }, [characterId, user?.id]);
+    }, [characterId, user?.id, historyTick]);
+
+    // ─── She texts first ────────────────────────────────────────────────
+    // Her lines for tonight are written while the app is open and scheduled as
+    // local notifications when it goes away; coming back cancels the rest.
+    useEffect(() => {
+        if (characterId && characterName) void prepareNudges(characterId, characterName);
+    }, [characterId, characterName]);
+    useEffect(() => {
+        const sub = AppState.addEventListener("change", (st) => {
+            if (st === "background") void scheduleNudges();
+            else if (st === "active") {
+                void cancelNudges();
+                const cid = characterIdRef.current;
+                if (cid && characterName) void prepareNudges(cid, characterName);
+            }
+        });
+        return () => sub.remove();
+    }, [characterName]);
+    // Opening one of them put her line into the chat: show it.
+    useEffect(() => listenNudgeOpens((cid) => {
+        if (cid === characterIdRef.current) setHistoryTick((n) => n + 1);
+    }), []);
 
     // Auto-scroll to end when messages change
     useEffect(() => {
@@ -973,6 +999,9 @@ export default function PlayScreen() {
                     await new Promise(r => setTimeout(r, 500));
                 }
             }
+            // After her first reply is the moment "she can text you" makes
+            // sense, so that is where the permission is asked, once.
+            void askNudgePermissionOnce();
 
             // A photo she chose to send with this reply. `gemini-chat-v2` has
             // already written it to `conversation`, so it survives a reload —
