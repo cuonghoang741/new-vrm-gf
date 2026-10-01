@@ -780,6 +780,33 @@ export default function PlayScreen() {
         }
     }, [vrmReady, characterModelUrl, characterName]);
 
+    // ─── Keep 3D across a return to the app ─────────────────────────────
+    // Coming back from the background shows the welcome-back screen in place
+    // of this one, so the play screen is rebuilt, and is3DMode started at
+    // false again: whoever left in 3D came back in 2D. The mode is saved on
+    // the device and restored once we know they may be in 3D (PRO; a running
+    // trial restores itself through its own resume).
+    const [modeRestored, setModeRestored] = useState(false);
+    const wanted3dRef = useRef(false);
+    useEffect(() => {
+        SecureStore.getItemAsync("play_3d_mode")
+            .then((v) => { wanted3dRef.current = v === "1"; })
+            .catch(() => {})
+            .finally(() => setModeRestored(true));
+    }, []);
+    useEffect(() => {
+        if (!modeRestored || subscriptionLoading || !wanted3dRef.current) return;
+        if (live2d || is3DMode || !isPro) return;
+        wanted3dRef.current = false;
+        enter3D();
+    }, [modeRestored, subscriptionLoading, isPro, live2d, is3DMode, enter3D]);
+    useEffect(() => {
+        // Not before the saved value is read, nor while a saved 3D is still
+        // waiting to be restored: the initial false would overwrite it.
+        if (!modeRestored || wanted3dRef.current) return;
+        SecureStore.setItemAsync("play_3d_mode", is3DMode ? "1" : "0").catch(() => {});
+    }, [is3DMode, modeRestored]);
+
     // When VRM is ready AND we have background → set it
     // Apply the saved render quality as soon as the scene exists, and again
     // whenever it changes in Settings.

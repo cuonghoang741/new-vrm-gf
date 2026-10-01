@@ -30,6 +30,7 @@ import { fetchAndCacheCharacters } from "../cache/charactersCache";
 import { AdsManager } from "../services/AdsManager";
 import { openBrowserSafe } from "../utils/openBrowserSafe";
 import { GalaxyBackground } from "../components/GalaxyBackground";
+import { warmDefaultModel } from "../services/modelWarmup";
 
 
 /** QA credentials for the debug-only sign-in button; unset in any real build. */
@@ -62,6 +63,9 @@ function extractParamsFromUrl(url: string) {
 }
 
 export default function SignInScreen() {
+    // Her model starts downloading while they are still deciding how to sign
+    // in, so the first play screen reads it from disk instead of waiting.
+    useEffect(() => { void warmDefaultModel(); }, []);
     const { t } = useTranslation();
     const [isAppleLoading, setIsAppleLoading] = useState(false);
     const [isGoogleLoading, setIsGoogleLoading] = useState(false);

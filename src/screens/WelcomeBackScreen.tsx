@@ -15,6 +15,7 @@ import { getPreviousOpenAt } from "../services/session";
 import { track } from "../services/trackEvents";
 import { SHEET } from "../theme/sheet";
 import type { CachedCharacter } from "./play/cache";
+import { warmLastModel } from "../services/modelWarmup";
 
 const { height } = Dimensions.get("window");
 
@@ -47,6 +48,9 @@ export default function WelcomeBackScreen({
     const [last, setLast] = useState<CachedCharacter | null>(null);
 
     useEffect(() => {
+        // Last session's model, from disk if it is there, downloading if not,
+        // while they read this screen.
+        void warmLastModel();
         analyticsService.logWelcomeBackView();
         track.welcomeBackView();
         SecureStore.getItemAsync("play_last_character")

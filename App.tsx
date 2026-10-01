@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useEffect } from "react";
+import { warmLastModel } from "./src/services/modelWarmup";
 import { SafeAreaProvider, initialWindowMetrics } from "react-native-safe-area-context";
 import AuthProvider from "./src/providers/AuthProvider";
 import AppNavigator from "./src/navigation/AppNavigator";
@@ -18,6 +19,9 @@ import { AdOverlay } from "./src/components/ads/AdOverlay";
 
 function AppWithSubscription() {
   const { user } = useAuth();
+  // A returning player's model, from the first second of the launch, so the
+  // play screen does not wait on a 15 MB download.
+  useEffect(() => { if (user?.id) void warmLastModel(); }, [user?.id]);
   return (
     <SubscriptionProvider userId={user?.id}>
       <AdsProvider>

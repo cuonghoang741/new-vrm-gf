@@ -1694,6 +1694,9 @@
                 // Skip if the URL is the same as the currently loaded model
                 if (currentModelUrl && currentModelUrl === url) {
                     console.log('⏭️ [loadModelByURL] Skipping - same VRM already loaded:', url);
+                    // She is already on screen: say so, or a cover waiting for
+                    // "modelLoaded" would wait forever.
+                    try { if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage('modelLoaded'); } catch { }
                     return;
                 }
                 // A genuinely new model: she comes back in the other pose.

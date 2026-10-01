@@ -7,6 +7,7 @@ import React, {
     useEffect,
 } from "react";
 import { AppState, StyleSheet, View, Platform } from "react-native";
+import { getCachedUri, isVrmUrl, prefetch } from "../services/vrmCache";
 import { WebView, WebViewMessageEvent } from "react-native-webview";
 
 // ─── Public handle exposed via ref ───
@@ -141,19 +142,8 @@ const VRMViewer = forwardRef<VRMViewerHandle, VRMViewerProps>(
             return () => sub.remove();
         }, [injectJS]);
 
-        // ─── Expose imperative API ───
-        useImperativeHandle(
-            ref,
-            () => ({
-                loadModelByName: (name: string) => {
-                    injectJS(`window.loadModelByName && window.loadModelByName('${name}')`);
-                },
-                loadModelByURL: (url: string, displayName = "Remote Model") => {
-                    injectJS(
-                        `window.__vrmLocalSrc = null; window.loadModelByURL && window.loadModelByURL('${url}', '${displayName}')`
-                    );
-                },
-                loadModelFromCache: (localUri: string, remoteUrl: string, displayName = "Remote Model") => {
+        // Reads a cached .vrm from disk into the page (see loadModelFromCache).
+        const loadFromCache = useCallback((localUri: string, remoteUrl: string, displayName = "Remote Model") => {
                     // three.js loads through fetch(), and Chromium's fetch refuses
                     // file:// outright — so read the file with XHR (which the
                     // WebView's file-access flags do allow), hand the page a blob:
@@ -201,7 +191,30 @@ const VRMViewer = forwardRef<VRMViewerHandle, VRMViewerProps>(
                             fallback();
                         }
                     `);
+                }, [injectJS]);
+
+        // ─── Expose imperative API ───
+        useImperativeHandle(
+            ref,
+            () => ({
+                loadModelByName: (name: string) => {
+                    injectJS(`window.loadModelByName && window.loadModelByName('${name}')`);
                 },
+                loadModelByURL: (url: string, displayName = "Remote Model") => {
+                    // On Android the page can read the model cache, so every load
+                    // (play screen, switching character, outfits) comes from disk
+                    // when it can. A miss streams as before and is cached in the
+                    // background for next time, after the stream has had the
+                    // network to itself.
+                    const hit = Platform.OS === "android" ? getCachedUri(url) : null;
+                    if (hit) return loadFromCache(hit, url, displayName);
+                    injectJS(
+                        `window.__vrmLocalSrc = null; window.loadModelByURL && window.loadModelByURL('${url}', '${displayName}')`
+                    );
+                    if (Platform.OS === "android" && isVrmUrl(url)) setTimeout(() => prefetch([url]), 20_000);
+                },
+                loadModelFromCache: (localUri: string, remoteUrl: string, displayName = "Remote Model") =>
+                    loadFromCache(localUri, remoteUrl, displayName),
                 loadAnimationByName: (name: string) => {
                     injectJS(
                         `window.loadAnimationByName && window.loadAnimationByName('${name}')`
@@ -275,7 +288,7 @@ const VRMViewer = forwardRef<VRMViewerHandle, VRMViewerProps>(
                 },
                 injectJS,
             }),
-            [injectJS]
+            [injectJS, loadFromCache]
         );
 
         // ─── Message handler ───
