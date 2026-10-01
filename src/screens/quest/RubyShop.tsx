@@ -51,6 +51,7 @@ export function RubyShop({ packs }: { packs: Record<string, number> }) {
                 AdsManager.suppressNextResumeAd();
                 await Purchases.purchaseStoreProduct(p);
                 analyticsService.logPurchaseComplete(p.identifier, "ruby", p.price, p.currencyCode);
+                AdsManager.markPurchase();
                 track.heartsPurchaseSuccess(p.identifier, packs[p.identifier] ?? 0, p.price, p.currencyCode);
                 // Wait for the webhook to credit the pack (up to ~30 s).
                 let now = before;

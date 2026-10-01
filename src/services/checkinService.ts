@@ -1,3 +1,4 @@
+import { AdsManager } from "./AdsManager";
 import { supabase } from "../config/supabase";
 
 /**
@@ -99,5 +100,6 @@ export async function purchaseItem(
     });
     if (error) return { ok: false, error: error.message };
     if (data?.error) return { ok: false, error: data.error, need: data.need, have: data.have };
+    AdsManager.markPurchase();
     return { ok: true, price: data?.price ?? 0, rubyLeft: data?.ruby_left ?? 0 };
 }

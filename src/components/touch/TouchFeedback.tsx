@@ -29,7 +29,7 @@ const ITEM_WIDTH = 120;
  */
 const TOP_SAFE = 110;
 const START_MIN: Record<Item["kind"], number> = { emoji: TOP_SAFE + 24 + 90, xp: TOP_SAFE + 24 + 56, hint: 0 };
-const HINT_WIDTH = 280;
+const HINT_WIDTH = 250;
 let nextId = 1;
 
 /**
@@ -88,7 +88,12 @@ export const TouchFeedback = forwardRef<TouchFeedbackHandle>(function TouchFeedb
                         {i.kind === "emoji" ? (
                             <Text style={styles.emoji}>{i.text}</Text>
                         ) : i.kind === "hint" ? (
-                            <Text style={styles.hint}>{i.text}</Text>
+                            // A bubble, not bare text: her line is read over
+                            // whatever room she is in, and white text with a
+                            // shadow vanished against the bright ones.
+                            <View style={styles.hintBubble}>
+                                <Text style={styles.hint}>{i.text}</Text>
+                            </View>
                         ) : (
                             <Text style={[styles.xp, { color: i.gold ? SHEET.gold : SHEET.text }]}>{i.text}</Text>
                         )}
@@ -103,14 +108,17 @@ const styles = StyleSheet.create({
     item: { position: "absolute", width: ITEM_WIDTH, alignItems: "center" },
     emoji: { fontSize: 38 },
     hintItem: { width: HINT_WIDTH },
+    hintBubble: {
+        paddingHorizontal: 14, paddingVertical: 9, borderRadius: 18,
+        backgroundColor: "rgba(26,12,40,0.82)",
+        borderWidth: 1, borderColor: "rgba(255,111,163,0.45)",
+    },
     hint: {
         color: SHEET.text,
-        fontSize: 16,
-        fontWeight: "800",
+        fontSize: 15,
+        fontWeight: "700",
+        lineHeight: 20,
         textAlign: "center",
-        textShadowColor: "rgba(0,0,0,0.7)",
-        textShadowOffset: { width: 0, height: 1 },
-        textShadowRadius: 8,
     },
     xp: {
         fontSize: 17,

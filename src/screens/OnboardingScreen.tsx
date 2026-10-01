@@ -44,7 +44,9 @@ import { track } from "../services/trackEvents";
 const { width, height } = Dimensions.get("window");
 
 // ─── Onboarding data ───
-const AGE_RANGES = ["16-18", "18-24", "25-34", "35-44", "45+"];
+// 18+ only: the app is rated for adults, and offering an under-18 bracket
+// invites a minor to say so (and a store reviewer to flag it).
+const AGE_RANGES = ["18-24", "25-34", "35-44", "45+"];
 
 const PERSONALITIES = [
     { key: "shy", Icon: IconMoodLookDown, label: "Shy" },

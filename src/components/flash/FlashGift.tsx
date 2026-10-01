@@ -14,7 +14,11 @@ import { useFlashSale } from "../../services/flashSale";
  * like a slot machine. It sits to one side, it bobs so the eye finds it, and
  * it says how long it has — which is the only honest reason to hurry.
  */
-export function FlashGift({ onPress }: { onPress: () => void }) {
+export function FlashGift({ onPress, inline = false }: {
+    onPress: () => void;
+    /** In the left rail's flow (under the quick touches) instead of floating. */
+    inline?: boolean;
+}) {
     const { clock, isActive } = useFlashSale();
     const bob = useRef(new Animated.Value(0)).current;
     const pop = useRef(new Animated.Value(0)).current;
@@ -41,7 +45,7 @@ export function FlashGift({ onPress }: { onPress: () => void }) {
     const scale = pop.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] });
 
     return (
-        <Animated.View style={[styles.wrap, { opacity: pop, transform: [{ translateY }, { scale }] }]}>
+        <Animated.View style={[inline ? styles.inlineWrap : styles.wrap, { opacity: pop, transform: [{ translateY }, { scale }] }]}>
             <Pressable
                 onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -50,7 +54,7 @@ export function FlashGift({ onPress }: { onPress: () => void }) {
                 hitSlop={10}
                 style={({ pressed }) => [pressed && { opacity: 0.85, transform: [{ scale: 0.96 }] }]}
             >
-                <Image source={{ uri: FLASH_GIFT_IMAGE }} style={styles.gift} resizeMode="contain" />
+                <Image source={{ uri: FLASH_GIFT_IMAGE }} style={inline ? styles.giftInline : styles.gift} resizeMode="contain" />
                 <View style={styles.clock}>
                     <Text style={styles.clockText}>{clock}</Text>
                 </View>
@@ -66,6 +70,10 @@ const styles = StyleSheet.create({
     // between the left controls and the conversation.
     wrap: { position: "absolute", left: 14, bottom: 318, zIndex: 40, alignItems: "center" },
     gift: { width: 86, height: 86 },
+    // In the rail it shares a column with 42pt buttons, and the chat starts
+    // right under that column, so it is smaller and takes no extra height.
+    inlineWrap: { marginTop: 10, alignSelf: "flex-start", alignItems: "center" },
+    giftInline: { width: 62, height: 62 },
     clock: {
         marginTop: -6,
         paddingHorizontal: 9,

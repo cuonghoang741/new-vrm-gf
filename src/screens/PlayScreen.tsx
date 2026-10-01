@@ -214,6 +214,8 @@ export default function PlayScreen() {
     const [trialMinutes, setTrialMinutes] = useState(3);
     const [trialOffer, setTrialOffer] = useState(false);
     const trialAskedRef = useRef(false);
+    /** The free 3D trial exists and has not been used: a 2D tap offers it again. */
+    const trialUnclaimedRef = useRef(false);
     const [characterAvatarSmall, setCharacterAvatarSmall] = useState<string | null>(null);
     const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null);
     const [backgroundId, setBackgroundId] = useState<string | null>(null);
@@ -394,11 +396,17 @@ export default function PlayScreen() {
     // Touch is a 3D (and Live2D) thing: the 2D picture only says where to go.
     const onSceneTouch = useCallback((part: TouchPart, x: number, y: number, mode: "2d" | "3d") => {
         if (mode === "2d") {
+            // Someone who dismissed the trial offer and then tries to touch
+            // her is asking for exactly what it gives: offer it again.
+            if (!isPro && trialUnclaimedRef.current) {
+                setTrialOffer(true);
+                return;
+            }
             touchFeedbackRef.current?.hint(x, Math.max(120, y - 40), t("touch.need_3d"));
             return;
         }
         void touchCharacter(part, x, y, mode);
-    }, [touchCharacter, t]);
+    }, [touchCharacter, t, isPro]);
     const onQuickTouch = useCallback((a: QuickTouch) => {
         const q = QUICK_TOUCHES.find((c) => c.key === a)!;
         const { width, height } = Dimensions.get("window");
@@ -1099,6 +1107,7 @@ export default function PlayScreen() {
             const t = await get3dTrial();
             if (!t) return;
             setTrialMinutes(t.minutes);
+            trialUnclaimedRef.current = !t.claimed;
             if (!t.claimed) {
                 setTrialOffer(true);
             } else if (t.remaining > 0) {
@@ -1464,6 +1473,15 @@ export default function PlayScreen() {
                 // into either one.
                 onTouchCharacter={dance.isDancing || voiceState.isConnected ? undefined : onSceneTouch}
                 onQuickTouch={dance.isDancing || voiceState.isConnected || !(is3DMode || live2d) ? undefined : onQuickTouch}
+                railFooter={!isPro && flashStage === "gift" ? (
+                    <FlashGift
+                        inline
+                        onPress={() => {
+                            void flashSale.setStage("banner");
+                            setFlashOpen(true);
+                        }}
+                    />
+                ) : null}
                 touchBounce={touchBounce}
                 live2d={live2d}
                 live2dRef={live2dRef}
@@ -1617,6 +1635,7 @@ export default function PlayScreen() {
                 onClose={() => setTrialOffer(false)}
                 onStart={async () => {
                     setTrialOffer(false);
+                    trialUnclaimedRef.current = false;
                     const t = await start3dTrial();
                     if (!t || t.remaining <= 0) return;
                     void analyticsService.logEvent("trial_3d_start", { minutes: trialMinutes });
@@ -1725,14 +1744,9 @@ export default function PlayScreen() {
             {/* The offer, in the two states the play screen owns. `hidden`
                 draws nothing — the window keeps running and a relaunch
                 brings the gift back. */}
-            {!isPro && flashStage === "gift" && (
-                <FlashGift
-                    onPress={() => {
-                        void flashSale.setStage("banner");
-                        setFlashOpen(true);
-                    }}
-                />
-            )}
+            {/* The gift box now sits in the left rail (railFooter on the scene
+                layer): floating, it covered the chat and, with the keyboard
+                up, the text being typed. */}
 
             <FlashSaleSheet
                 visible={flashOpen}

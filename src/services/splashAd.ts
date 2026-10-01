@@ -7,6 +7,7 @@ import { AdUnits } from "../config/ads";
 import { AdsManager, showSafely } from "./AdsManager";
 import { analyticsService } from "./AnalyticsService";
 import { adsAllowed, splashInterstitialEnabled } from "./remoteConfig";
+import { hasSeen, markSeen } from "./seenOnce";
 
 /**
  * The cold-start splash ad: `open_splash` (App Open) with `inter_splash`
@@ -75,6 +76,13 @@ export async function showSplashAd(
     if (alreadyRan) return "none";
     alreadyRan = true;
     if (isPro) return "none";
+    // Never on the very first launch after install: the first thing a new
+    // player sees has to be the app, not someone else's. From the second
+    // launch on it behaves as before.
+    if (!(await hasSeen("launched_before"))) {
+        void markSeen("launched_before");
+        return "none";
+    }
 
     try {
         await AdsManager.init();

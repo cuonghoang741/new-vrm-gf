@@ -123,6 +123,9 @@ type OverlayState = {
 
 type Listener = (state: OverlayState) => void;
 
+/** No automatic interstitial for this long after a purchase. */
+const POST_PURCHASE_QUIET_MS = 10 * 60_000;
+
 class AdsManagerClass {
     private initialized = false;
     private initPromise: Promise<void> | null = null;
@@ -244,10 +247,22 @@ class AdsManagerClass {
         }
     }
 
+    /** When the user last paid for something (ruby, PRO, a ruby pack). */
+    private lastPurchaseAt = 0;
+    /**
+     * Call when the user has just paid. Someone who has just spent money is
+     * thanked with the thing they bought, not with an ad: no automatic
+     * interstitial for the next POST_PURCHASE_QUIET_MS.
+     */
+    markPurchase() {
+        this.lastPurchaseAt = Date.now();
+    }
+
     /** All the guards for an auto (non-user-initiated) interstitial. */
     canShowInterstitial(): boolean {
         // The console can switch this format off without a release.
         if (!adsAllowed("ads_interstitial_enabled")) return false;
+        if (Date.now() - this.lastPurchaseAt < POST_PURCHASE_QUIET_MS) return false;
         if (this.fullscreenAdShowing) return false;
         // Cold-start grace: nothing in the first COLD_START_GRACE_MS after launch.
         if (Date.now() - this.startedAt < COLD_START_GRACE_MS) return false;

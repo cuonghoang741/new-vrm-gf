@@ -150,6 +150,7 @@ export function SubscriptionProvider({ children, userId }: { children: ReactNode
 
             const isSuccess = checkIsPro(info);
             if (isSuccess) {
+                AdsManager.markPurchase();
                 // Log both for comprehensive tracking
                 analyticsService.logSubscriptionPurchase(
                     pkg.product.identifier,

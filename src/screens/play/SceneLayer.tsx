@@ -111,6 +111,8 @@ export interface SceneLayerProps {
     onLive2dEvent?: (e: Live2DEvent) => void;
     /** Pat / hug / flowers / poke buttons under the left rail. Omitted, they are hidden. */
     onQuickTouch?: (a: QuickTouch) => void;
+    /** Drawn at the foot of the left rail (the flash-sale gift). */
+    railFooter?: React.ReactNode;
 }
 
 export function SceneLayer({
@@ -154,6 +156,7 @@ export function SceneLayer({
     live2dRef,
     onLive2dEvent,
     onQuickTouch,
+    railFooter,
 }: SceneLayerProps) {
     const { t } = useTranslation();
     const [artSize, setArtSize] = useState({ width: 0, height: 0 });
@@ -483,6 +486,7 @@ export function SceneLayer({
             {!!onQuickTouch && !isKeyboardVisible && !isCameraMode && (
                 <QuickTouches surface={surface} onPress={onQuickTouch} />
             )}
+            {!isKeyboardVisible && railFooter}
         </View>
         </>
     );

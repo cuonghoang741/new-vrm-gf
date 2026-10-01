@@ -44,7 +44,10 @@ export async function askNudgePermissionOnce(): Promise<void> {
         if (await hasSeen("nudge_permission")) return;
         void markSeen("nudge_permission");
         const cur = await Notifications.getPermissionsAsync();
-        if (cur.status === "undetermined") await Notifications.requestPermissionsAsync();
+        // "denied" with canAskAgain is Android 13's state before the first
+        // ask on some devices, and after a revoke; only a refusal the system
+        // will not let us repeat is final.
+        if (cur.status !== "granted" && cur.canAskAgain !== false) await Notifications.requestPermissionsAsync();
     } catch { /* never block the chat on this */ }
 }
 
