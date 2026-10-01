@@ -113,6 +113,8 @@ export interface SceneLayerProps {
     onQuickTouch?: (a: QuickTouch) => void;
     /** Drawn at the foot of the left rail (the flash-sale gift). */
     railFooter?: React.ReactNode;
+    /** The 3D camera was swung to an angle she pulled back from. */
+    onPeek?: () => void;
 }
 
 export function SceneLayer({
@@ -157,6 +159,7 @@ export function SceneLayer({
     onLive2dEvent,
     onQuickTouch,
     railFooter,
+    onPeek,
 }: SceneLayerProps) {
     const { t } = useTranslation();
     const [artSize, setArtSize] = useState({ width: 0, height: 0 });
@@ -299,6 +302,7 @@ export function SceneLayer({
                         vrmRef.current?.setTouchEnabled(!!onTouchCharacter);
                     }}
                     onTouch={(part, x, y) => onTouchCharacter?.(part, x, y, "3d")}
+                    onPeek={onPeek}
                 />
             </View>
         </View>

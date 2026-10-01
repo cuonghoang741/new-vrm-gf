@@ -12,6 +12,7 @@ import { SHEET } from "../../theme/sheet";
 const SECTIONS: { key: string; emoji: string }[] = [
     { key: "chat", emoji: "💬" },
     { key: "touch", emoji: "🤚" },
+    { key: "swipe", emoji: "👀" },
     { key: "modes", emoji: "🧊" },
     { key: "bond", emoji: "⭐" },
     { key: "style", emoji: "👗" },

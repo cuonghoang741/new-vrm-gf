@@ -62,6 +62,8 @@ export interface VRMViewerHandle {
     triggerDance: () => void;
     /** Let taps on the model through as touch events. Off by default. */
     setTouchEnabled: (enabled: boolean) => void;
+    /** Lv4+: any camera angle is fine with her. */
+    setSensitiveAllowed: (on: boolean) => void;
     /** Play her reaction to being touched there. */
     playTouchReaction: (part: TouchPart) => void;
     /** Showcase spin in radians/s (0 stops it); a horizontal drag also turns her. */
@@ -89,6 +91,8 @@ export interface VRMViewerProps {
      * match this view's layout, so they can position an overlay directly.
      */
     onTouch?: (part: TouchPart, x: number, y: number) => void;
+    /** The camera was swung to a sensitive angle the bond does not allow yet (the page has pulled it back). */
+    onPeek?: () => void;
     /** Whether the WebView canvas is transparent */
     transparent?: boolean;
     /** Container style override */
@@ -112,6 +116,7 @@ const VRMViewer = forwardRef<VRMViewerHandle, VRMViewerProps>(
             onModelLoaded,
             onMessage,
             onTouch,
+            onPeek,
             transparent = true,
             style,
             sourceUri,
@@ -255,6 +260,9 @@ const VRMViewer = forwardRef<VRMViewerHandle, VRMViewerProps>(
                 triggerDance: () => {
                     injectJS(`window.triggerDance && window.triggerDance()`);
                 },
+                setSensitiveAllowed: (on: boolean) => {
+                    injectJS(`window.setSensitiveAllowed && window.setSensitiveAllowed(${on ? "true" : "false"})`);
+                },
                 setTouchEnabled: (enabled: boolean) => {
                     injectJS(`window.setTouchEnabled && window.setTouchEnabled(${enabled ? "true" : "false"})`);
                 },
@@ -281,6 +289,8 @@ const VRMViewer = forwardRef<VRMViewerHandle, VRMViewerProps>(
                         const data = JSON.parse(msg);
                         if (data?.type === "touch" && TOUCH_PARTS.includes(data.part)) {
                             onTouch?.(data.part, Number(data.x) || 0, Number(data.y) || 0);
+                        } else if (data?.type === "peek") {
+                            onPeek?.();
                         }
                     } catch { /* not ours */ }
                     return;
@@ -300,7 +310,7 @@ const VRMViewer = forwardRef<VRMViewerHandle, VRMViewerProps>(
                     console.log(`[VRMViewer] ${msg}`);
                 }
             },
-            [onReady, onModelLoaded, onMessage, onTouch]
+            [onReady, onModelLoaded, onMessage, onTouch, onPeek]
         );
 
         // ─── Injected JS that runs before page load ───

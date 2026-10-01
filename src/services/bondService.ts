@@ -213,6 +213,13 @@ export async function claimBondQuest(questId: string, characterId: string) {
 /** Difficulty 1..5 → a label key, for the chip on the level page. */
 export const difficultyKey = (d: number) => `bond.diff_${Math.max(1, Math.min(5, d))}`;
 
+/** The camera went somewhere she is not comfortable with yet. See app_bond_peek. */
+export async function reportPeek(characterId: string): Promise<{ allowed: boolean; penalty: number; unlockLevel: number } | null> {
+    const { data, error } = await supabase.rpc("app_bond_peek", { p_character_id: characterId });
+    if (error || !data || data.error) return null;
+    return { allowed: !!data.allowed, penalty: data.penalty ?? 0, unlockLevel: data.unlock_level ?? 4 };
+}
+
 /**
  * Her one-time line for reaching `level` (Lv2 a secret, Lv3 a nickname, Lv4 a
  * confession, Lv5 a vow), from the `bond-moment` function, which checks the

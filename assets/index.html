@@ -812,6 +812,50 @@
         controls.update();
         controls.enabled = false; // Initially disabled, enabled via setControlsEnabled()
 
+        // ─── Where the user put the camera ────────────────────────────────
+        // The frame loop eases the camera to the scene's framing, which used
+        // to undo every swipe a moment after it ended. Once the user has
+        // moved it, it stays where they left it until a double tap, a mode
+        // change, or a sensitive angle the bond does not allow yet.
+        window.__userCam = false;
+        // Lv4+: she is fine with any angle. Set by the app (setSensitiveAllowed).
+        window.__sensitiveAllowed = false;
+        let __peekCooldownUntil = 0;
+        const __pkHips = new THREE.Vector3(), __pkChest = new THREE.Vector3();
+        /** Looking up from below her hips, or zoomed in close on her body. */
+        function __isSensitiveView() {
+            if (!currentVrm || !currentVrm.humanoid) return false;
+            const hips = currentVrm.humanoid.getNormalizedBoneNode('hips');
+            const chest = currentVrm.humanoid.getNormalizedBoneNode('chest') || currentVrm.humanoid.getNormalizedBoneNode('spine');
+            if (!hips || !chest) return false;
+            hips.getWorldPosition(__pkHips); chest.getWorldPosition(__pkChest);
+            const lowAngle = camera.position.y < __pkHips.y + 0.05 && controls.getPolarAngle() > Math.PI * 0.56;
+            const dist = camera.position.distanceTo(controls.target);
+            const onBody = controls.target.y > __pkHips.y - 0.2 && controls.target.y < __pkChest.y + 0.12;
+            const closeUp = dist < 1.15 && onBody;
+            return lowAngle || closeUp;
+        }
+        function __checkPeek() {
+            if (window.__turntable || window.__sensitiveAllowed || !__isSensitiveView()) return;
+            // She pulls the camera back: the frame loop eases it to her framing.
+            window.__userCam = false;
+            const now = performance.now();
+            if (now < __peekCooldownUntil) return;
+            __peekCooldownUntil = now + 1500;
+            try { window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'peek' })); } catch (e) { }
+        }
+        controls.addEventListener('start', () => { window.__userCam = true; });
+        controls.addEventListener('change', () => { if (window.__userCam) __checkPeek(); });
+        controls.addEventListener('end', () => { if (window.__userCam) __checkPeek(); });
+        window.setSensitiveAllowed = function (on) { window.__sensitiveAllowed = !!on; };
+        // A double tap on the scene puts the camera back on her.
+        let __lastSceneTap = 0;
+        renderer.domElement.addEventListener('pointerup', (e) => {
+            if (window.__turntable || !controls.enabled || !e.isPrimary) return;
+            const now = performance.now();
+            if (now - __lastSceneTap < 300) { window.__userCam = false; __lastSceneTap = 0; } else __lastSceneTap = now;
+        });
+
         const scene = new THREE.Scene();
 
         // Transparent background for embedding
@@ -933,6 +977,7 @@
         // Public API for native: reset camera to default position
         window.resetCamera = function () {
             try {
+                window.__userCam = false;
                 // Force update targets based on current mode
                 __updateCameraTargetsForMode();
 
@@ -1846,6 +1891,16 @@
             if (sc.userData.__baseRotY === undefined) sc.userData.__baseRotY = sc.rotation.y;
             sc.rotation.y += (e.clientX - __turntableLastX) * 0.012;
             __pv.pitch = __pvClamp(__pv.pitch + (e.clientY - __turntableLastY) * 0.006, __PV_PITCH);
+            // In her preview you have only just met: looking up at her from
+            // below is pulled back, like on the play screen before Lv4.
+            if (__pv.pitch < -0.18 && !window.__sensitiveAllowed) {
+                __pv.pitch = 0;
+                const now = performance.now();
+                if (now > (window.__pvPeekAt || 0)) {
+                    window.__pvPeekAt = now + 1500;
+                    try { window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'peek', preview: true })); } catch (err) { }
+                }
+            }
             __turntableLastX = e.clientX;
             __turntableLastY = e.clientY;
         });
@@ -1934,7 +1989,7 @@
                     __pvFrame();
                     camera.position.lerp(__pvPos, 0.12);
                     controls.target.lerp(__pvTarget, 0.15);
-                } else {
+                } else if (!window.__userCam || __callMode) {
                     camera.position.lerp(__camDesiredPos, 0.08);
                     controls.target.lerp(__camDesiredTarget, 0.12);
                 }

@@ -37,7 +37,7 @@ import { flashSale, useFlashStage } from "../services/flashSale";
 import { FlashGift } from "../components/flash/FlashGift";
 import { FlashSaleSheet } from "../components/flash/FlashSaleSheet";
 import { track } from "../services/trackEvents";
-import { fetchBondMoment, getBondState, onBondLevelUp, trackBond } from "../services/bondService";
+import { fetchBondMoment, getBondState, onBondLevelUp, reportPeek, trackBond } from "../services/bondService";
 import { LevelUpMoment } from "../components/bond/LevelUpMoment";
 import { askNudgePermissionOnce, cancelNudges, listenNudgeOpens, prepareNudges, scheduleNudges } from "../services/nudges";
 import { currentLang } from "../i18n";
@@ -797,6 +797,34 @@ export default function PlayScreen() {
         if (!vrmReady) return;
         vrmRef.current?.setControlsEnabled(true);
     }, [vrmReady, vrmEpoch]);
+    // From Lv4 (Intimate) she is fine with any angle; below it, a sensitive
+    // one is pulled back (see onPeek).
+    useEffect(() => {
+        if (!vrmReady) return;
+        vrmRef.current?.setSensitiveAllowed((bondLevel ?? 1) >= 4);
+    }, [vrmReady, vrmEpoch, bondLevel]);
+    /**
+     * The camera was swung to look where she is not ready for: the page has
+     * already pulled it back. She reacts in her own words, the teaser says
+     * what changes at Lv4, and repeat peeks cost a little XP (server-side).
+     */
+    const onPeek = useCallback(() => {
+        const cid = characterIdRef.current;
+        if (!cid) return;
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+        const { width, height } = Dimensions.get("window");
+        void fetchTouchLine({ characterId: cid, part: "hips" }).then((r) => {
+            touchFeedbackRef.current?.hint(width / 2, height * 0.16, r?.line ?? t(`peek.stock_${1 + Math.floor(Math.random() * 3)}`));
+        });
+        void reportPeek(cid).then((res) => {
+            if (!res || res.allowed) return;
+            setTimeout(() => {
+                touchFeedbackRef.current?.hint(width / 2, height * 0.30,
+                    res.penalty > 0 ? t("peek.penalty", { n: res.penalty, lv: res.unlockLevel }) : t("peek.teaser", { lv: res.unlockLevel }));
+            }, 1200);
+            if (res.penalty > 0) setBondTick((n) => n + 1);
+        });
+    }, [t]);
 
     useEffect(() => {
         if (vrmReady && backgroundUrl) {
@@ -1472,6 +1500,7 @@ export default function PlayScreen() {
                 // Not while she is dancing or on a call: a reaction would cut
                 // into either one.
                 onTouchCharacter={dance.isDancing || voiceState.isConnected ? undefined : onSceneTouch}
+                onPeek={onPeek}
                 onQuickTouch={dance.isDancing || voiceState.isConnected || !(is3DMode || live2d) ? undefined : onQuickTouch}
                 railFooter={!isPro && flashStage === "gift" ? (
                     <FlashGift

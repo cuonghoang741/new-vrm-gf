@@ -258,6 +258,9 @@ export function CharacterPreview({
                                 vrmRef.current?.playTouchReaction(part);
                                 onPreviewTouch(part);
                             }}
+                            // Looking up at her in her preview: you have only
+                            // just met. The page has already pulled back.
+                            onPeek={() => onPreviewTouch("hips")}
                             {...preview.viewerSource}
                         />
                     )}
