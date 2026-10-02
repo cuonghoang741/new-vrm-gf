@@ -480,11 +480,19 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
         (c: Character) => c.available !== false && !isLive2dRow(c) && (c.total_costumes ?? 0) >= hotFrom,
         [hotFrom]
     );
-    /** HOT girls first; each group keeps the catalogue's own order. */
-    const gridCharacters = React.useMemo(
-        () => [...characters.filter(isHot), ...characters.filter((c) => !isHot(c))],
-        [characters, isHot]
-    );
+    /**
+     * HOT girls first, SOON (not available yet) last; each group keeps the
+     * catalogue's own order. A coming-soon tile cannot be picked, so it should
+     * never sit between the ones that can.
+     */
+    const gridCharacters = React.useMemo(() => {
+        const soon = (c: Character) => c.available === false;
+        return [
+            ...characters.filter((c) => !soon(c) && isHot(c)),
+            ...characters.filter((c) => !soon(c) && !isHot(c)),
+            ...characters.filter(soon),
+        ];
+    }, [characters, isHot]);
 
     /**
      * PRO-locked, i.e. behind the paywall or a ruby purchase.
