@@ -39,6 +39,8 @@ import { FlashSaleSheet } from "../components/flash/FlashSaleSheet";
 import { track } from "../services/trackEvents";
 import { fetchBondMoment, getBondState, onBondLevelUp, reportPeek, trackBond } from "../services/bondService";
 import { LevelUpMoment } from "../components/bond/LevelUpMoment";
+import { getQuestState } from "../services/economyService";
+import { loadRubyProducts } from "./quest/RubyShop";
 import { askNudgePermissionOnce, cancelNudges, listenNudgeOpens, prepareNudges, scheduleNudges } from "../services/nudges";
 import { currentLang } from "../i18n";
 import { getCheckinState } from "../services/checkinService";
@@ -887,6 +889,17 @@ export default function PlayScreen() {
         };
         loadHistory();
     }, [characterId, user?.id, historyTick]);
+
+    // The quest page and its ruby shop open on data fetched here, a few
+    // seconds into the session, instead of a spinner on every open.
+    useEffect(() => {
+        if (!user?.id) return;
+        const t = setTimeout(() => {
+            void getQuestState();
+            void loadRubyProducts().catch(() => {});
+        }, 4000);
+        return () => clearTimeout(t);
+    }, [user?.id]);
 
     // ─── She texts first ────────────────────────────────────────────────
     // Her lines for tonight are written while the app is open and scheduled as

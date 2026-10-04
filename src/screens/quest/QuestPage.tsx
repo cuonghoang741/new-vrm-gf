@@ -18,6 +18,7 @@ import {
     claimProBonus,
     claimQuest,
     getQuestState,
+    peekQuestState,
     rewardAd,
     trackShare,
     type Quest,
@@ -63,7 +64,7 @@ export function QuestPage({ visible, onClose, isPro, sceneImage, onOpenSubscript
     const { t } = useTranslation();
     const insets = useSafeAreaInsets();
     const ruby = useRuby();
-    const [state, setState] = useState<QuestState | null>(null);
+    const [state, setState] = useState<QuestState | null>(peekQuestState);
     const [failed, setFailed] = useState(false);
     /**
      * The three pills are not tabs any more: everything is on one page, and

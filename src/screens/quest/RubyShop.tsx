@@ -21,19 +21,32 @@ const BASE_PACK = RUBY_PACK_IDS[0];
  * transaction). After a purchase we poll the balance until it moves, because
  * the webhook usually lands a second or two after the store says "done".
  */
+/** Store products, fetched once per session: prices do not change while it runs. */
+let productsCache: PurchasesStoreProduct[] | null = null;
+let productsLoading: Promise<PurchasesStoreProduct[]> | null = null;
+export function loadRubyProducts(): Promise<PurchasesStoreProduct[]> {
+    if (productsCache) return Promise.resolve(productsCache);
+    if (productsLoading) return productsLoading;
+    productsLoading = Purchases.getProducts([...RUBY_PACK_IDS], PRODUCT_CATEGORY.NON_SUBSCRIPTION)
+        .then((list) => {
+            const order = (id: string) => RUBY_PACK_IDS.indexOf(id as any);
+            const sorted = [...list].sort((a, b) => order(a.identifier) - order(b.identifier));
+            if (sorted.length) productsCache = sorted;
+            return sorted;
+        })
+        .finally(() => { productsLoading = null; });
+    return productsLoading;
+}
+
 export function RubyShop({ packs }: { packs: Record<string, number> }) {
     const { t } = useTranslation();
-    const [products, setProducts] = useState<PurchasesStoreProduct[] | null>(null);
+    const [products, setProducts] = useState<PurchasesStoreProduct[] | null>(productsCache);
     const [buying, setBuying] = useState<string | null>(null);
 
     useEffect(() => {
         let alive = true;
-        Purchases.getProducts([...RUBY_PACK_IDS], PRODUCT_CATEGORY.NON_SUBSCRIPTION)
-            .then((list) => {
-                if (!alive) return;
-                const order = (id: string) => RUBY_PACK_IDS.indexOf(id as any);
-                setProducts([...list].sort((a, b) => order(a.identifier) - order(b.identifier)));
-            })
+        loadRubyProducts()
+            .then((list) => { if (alive) setProducts(list); })
             .catch(() => alive && setProducts([]));
         return () => {
             alive = false;

@@ -47,13 +47,21 @@ async function rpc<T = any>(fn: string, args?: Record<string, unknown>): Promise
     return { ok: true, ...(data as any) };
 }
 
+/**
+ * The last quest state this session saw. The quest page opens on it at once
+ * and refreshes behind it; it used to open on a spinner every time while the
+ * same round trip ran again.
+ */
+let lastQuestState: QuestState | null = null;
+export const peekQuestState = () => lastQuestState;
+
 export async function getQuestState(): Promise<QuestState | null> {
     const { data, error } = await supabase.rpc("app_get_quests");
     if (error || !data || data.error) {
         console.warn("[economy] getQuestState:", error?.message ?? data?.error);
         return null;
     }
-    return {
+    return (lastQuestState = {
         day: data.day,
         ruby: data.ruby ?? 0,
         isPro: !!data.is_pro,
@@ -67,7 +75,7 @@ export async function getQuestState(): Promise<QuestState | null> {
         },
         proBonus: { amount: data.pro_bonus?.amount ?? 0, claimed: !!data.pro_bonus?.claimed },
         packs: data.packs ?? {},
-    };
+    });
 }
 
 export const claimQuest = (questId: string) =>
