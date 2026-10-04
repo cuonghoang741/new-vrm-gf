@@ -48,10 +48,10 @@ export interface CharacterLoadTarget {
  * Load the signed-in user's current character (and its default background)
  * from Supabase, then refresh the local cache. Never throws.
  */
-export async function loadCharacterForUser(c: CharacterLoadTarget): Promise<void> {
-    if (!c.userId) return;
+export async function loadCharacterForUser(c: CharacterLoadTarget): Promise<boolean> {
+    if (!c.userId) return false;
     try {
-        const { data: prefs } = await supabase
+        const { data: prefs, error: prefsErr } = await supabase
             .from("user_preferences")
             .select("current_character_id")
             .eq("user_id", c.userId)
@@ -59,6 +59,9 @@ export async function loadCharacterForUser(c: CharacterLoadTarget): Promise<void
             .limit(1)
             .maybeSingle();
 
+        // A failed read is not "no character": healing on it would overwrite
+        // the user's choice with a default. Fail, and let the caller retry.
+        if (prefsErr) throw prefsErr;
         let charId = prefs?.current_character_id;
 
         // Self-healing: If user bypassed Onboarding but their preference failed to save previously
@@ -90,16 +93,17 @@ export async function loadCharacterForUser(c: CharacterLoadTarget): Promise<void
             }
         }
 
-        if (!charId) return;
+        if (!charId) return false;
 
         c.setCharacterId(charId);
 
-        let { data: char } = await supabase
+        let { data: char, error: charErr } = await supabase
             .from("characters")
             .select("name, base_model_url, background_default_id, thumbnail_url, avatar, avatar_nobg, agent_elevenlabs_id, data")
             .eq("id", charId)
             .maybeSingle();
 
+        if (!char && charErr) throw charErr;
         if (!char) {
             console.log("[PlayScreen] Character not found in DB! Attempting to fallback to public character...");
             const { data: firstPublic } = await supabase.from("characters").select("id, name, base_model_url, background_default_id, thumbnail_url, avatar, avatar_nobg, agent_elevenlabs_id, data").eq("is_public", true).eq("available", true).limit(1).maybeSingle();
@@ -109,7 +113,7 @@ export async function loadCharacterForUser(c: CharacterLoadTarget): Promise<void
                 supabase.from("user_preferences").update({ current_character_id: charId, updated_at: new Date().toISOString() }).eq("user_id", c.userId).then();
                 c.setCharacterId(charId);
             } else {
-                return;
+                return false;
             }
         }
 
@@ -117,6 +121,36 @@ export async function loadCharacterForUser(c: CharacterLoadTarget): Promise<void
 
         const live2d = parseLive2d((char as any)?.data);
         c.setLive2d(live2d);
+
+        // Put her on screen now, from the character row alone: her name, her
+        // picture and her model. The outfit she wears refines it below. This
+        // used to wait for the outfit query, and when that one hung the screen
+        // stayed black with "Companion" on it.
+        if (char) {
+            c.setCharacterName(char.name);
+            c.setCharacterThumbnail(char.thumbnail_url ?? null);
+            c.setCharacterAvatar(char.avatar ?? null);
+            c.setCharacterAvatarNoBg((char as any).avatar_nobg ?? null);
+            if ((char.base_model_url ?? "").endsWith(".vrm")) {
+                c.setCharacterModelUrl(char.base_model_url!);
+                c.setBaseModelUrl(char.base_model_url);
+            }
+        }
+        // Her room, in parallel with the outfit, for the same reason.
+        const bgPromise = (async () => {
+            const id = char?.background_default_id;
+            if (!id) return null;
+            const cachedEarly = await c.cached;
+            if (cachedEarly?.backgroundId && cachedEarly.backgroundUrl) return null;
+            const { data: bg } = await supabase.from("backgrounds").select("image, is_dark").eq("id", id).single();
+            if (bg?.image) {
+                c.setBackgroundId(id);
+                c.setBackgroundUrl(bg.image);
+                c.setIsBackgroundDark(bg.is_dark ?? true);
+                return bg.image as string;
+            }
+            return null;
+        })();
 
         let finalModelUrl = char ? (char.base_model_url ?? "") : "";
         let finalThumbnailUrl = char ? (char.thumbnail_url ?? null) : null;
@@ -169,13 +203,7 @@ export async function loadCharacterForUser(c: CharacterLoadTarget): Promise<void
                 console.log("[PlayScreen] Keeping cached background:", cached.backgroundId);
                 bgUrl = cached.backgroundUrl;
             } else {
-                c.setBackgroundId(bgId);
-                const { data: bg } = await supabase.from("backgrounds").select("image, is_dark").eq("id", bgId).single();
-                if (bg?.image) {
-                    bgUrl = bg.image;
-                    c.setBackgroundUrl(bgUrl);
-                    c.setIsBackgroundDark(bg.is_dark ?? true);
-                }
+                bgUrl = await bgPromise;
             }
         }
 
@@ -198,7 +226,9 @@ export async function loadCharacterForUser(c: CharacterLoadTarget): Promise<void
                 live2d,
             });
         }
+        return true;
     } catch (e) {
         console.error("Failed to load character:", e);
+        return false;
     }
 }

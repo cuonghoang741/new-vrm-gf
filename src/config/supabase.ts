@@ -77,7 +77,28 @@ const ChunkedSecureStoreAdapter = {
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? "https://kwqqmjfsrgoczbutuisx.supabase.co";
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt3cXFtamZzcmdvY3pidXR1aXN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5ODI0MjcsImV4cCI6MjA4NzU1ODQyN30.SpEyZ4PPiq6JMpDJcZ-NVJSxNM6ORHp7ZJ9Bog3X9Tk";
 
+/**
+ * fetch with a deadline. React Native's fetch has none: one request caught in
+ * a bad moment (the network flapping right after sign-in, while ads and models
+ * load) could hang forever, and whatever awaited it never finished. That left
+ * the first play screen after a fresh install black: the character loader was
+ * stuck on one query. Edge functions (chat, AI lines) get longer.
+ */
+const fetchWithTimeout: typeof fetch = (input, init) => {
+    const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
+    const ms = url.includes("/functions/v1/") ? 60_000 : url.includes("/storage/v1/") ? 120_000 : 20_000;
+    const ctl = new AbortController();
+    const outer = init?.signal;
+    if (outer) {
+        if (outer.aborted) ctl.abort();
+        else outer.addEventListener("abort", () => ctl.abort());
+    }
+    const timer = setTimeout(() => ctl.abort(), ms);
+    return fetch(input, { ...init, signal: ctl.signal }).finally(() => clearTimeout(timer));
+};
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { fetch: fetchWithTimeout },
     auth: {
         storage: ChunkedSecureStoreAdapter as any,
         autoRefreshToken: true,

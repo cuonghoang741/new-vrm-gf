@@ -727,8 +727,16 @@ export default function PlayScreen() {
     }, []);
 
     // Load user's character from DB (refreshes cache) — see play/loadCharacter.
+    // Retried with backoff: a failed or timed-out first load used to leave the
+    // screen without her for the whole session.
     useEffect(() => {
-        loadCharacterForUser({
+        if (!user?.id) return;
+        let alive = true;
+        const attempt = async (n: number) => {
+            const ok = await loadOnce();
+            if (!ok && alive && n < 4) setTimeout(() => alive && attempt(n + 1), [2000, 4000, 8000, 15000][n]);
+        };
+        const loadOnce = () => loadCharacterForUser({
             userId: user?.id,
             isCacheRestored,
             saveCache,
@@ -749,6 +757,8 @@ export default function PlayScreen() {
             setBackgroundUrl,
             setIsBackgroundDark,
         });
+        void attempt(0);
+        return () => { alive = false; };
     }, [user?.id, saveCache]);
 
     // When VRM is ready AND we have model URL → load the model
