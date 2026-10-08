@@ -69,6 +69,10 @@ export default function SignInScreen() {
     const { t } = useTranslation();
     const [isAppleLoading, setIsAppleLoading] = useState(false);
     const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+    const [isDeviceLoading, setIsDeviceLoading] = useState(false);
+    // Apple / Google stay reachable for people coming back to an old account
+    // on a new phone; everyone else starts with one tap.
+    const [showAccounts, setShowAccounts] = useState(false);
     const [characters, setCharacters] = useState<CharacterPreview[]>([]);
     const [selectedIndex, setSelectedIndex] = useState(0);
 
@@ -160,6 +164,18 @@ export default function SignInScreen() {
         }
     }, []);
 
+    const handleDeviceStart = useCallback(async () => {
+        setIsDeviceLoading(true);
+        try {
+            await authService.signInAsDevice();
+        } catch (error: any) {
+            console.error("Device sign-in error:", error);
+            Alert.alert(t("common.error"), t("signin.err_device"));
+        } finally {
+            setIsDeviceLoading(false);
+        }
+    }, [t]);
+
     const goToPrev = useCallback(() => {
         if (characters.length === 0) return;
         setSelectedIndex((prev) =>
@@ -174,7 +190,7 @@ export default function SignInScreen() {
         );
     }, [characters.length]);
 
-    const isLoading = isAppleLoading || isGoogleLoading;
+    const isLoading = isAppleLoading || isGoogleLoading || isDeviceLoading;
     const selectedChar = characters[selectedIndex];
     // Recreated whenever the uri changes — swiping to another character gets
     // her clip, and the previous player is released.
@@ -297,9 +313,38 @@ export default function SignInScreen() {
                     <View style={styles.divider} />
 
                     {/* Auth buttons */}
-                    <Text style={styles.signInLabel}>Get started</Text>
+                    <TouchableOpacity
+                        onPress={handleDeviceStart}
+                        disabled={isLoading}
+                        activeOpacity={0.85}
+                        style={styles.startWrap}
+                        accessibilityRole="button"
+                    >
+                        <LinearGradient
+                            colors={["#FF4D8D", "#B23CFF"]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={styles.startButton}
+                        >
+                            {isDeviceLoading ? (
+                                <ActivityIndicator color="#FFFFFF" size="small" />
+                            ) : (
+                                <>
+                                    <Text style={styles.ageBadge}>18+</Text>
+                                    <Text style={styles.startText}>{t("signin.age_start")}</Text>
+                                </>
+                            )}
+                        </LinearGradient>
+                    </TouchableOpacity>
+                    <Text style={styles.ageNote}>{t("signin.age_note")}</Text>
 
-                    {Platform.OS === "ios" && (
+                    {!showAccounts && (
+                        <TouchableOpacity onPress={() => setShowAccounts(true)} disabled={isLoading} hitSlop={8}>
+                            <Text style={styles.haveAccount}>{t("signin.have_account")}</Text>
+                        </TouchableOpacity>
+                    )}
+
+                    {showAccounts && Platform.OS === "ios" && (
                         <TouchableOpacity
                             style={[styles.button, styles.appleButton]}
                             onPress={handleAppleSignIn}
@@ -320,7 +365,7 @@ export default function SignInScreen() {
                         </TouchableOpacity>
                     )}
 
-                    <TouchableOpacity
+                    {showAccounts && <TouchableOpacity
                         style={[styles.button, styles.googleButton]}
                         onPress={handleGoogleSignIn}
                         disabled={isLoading}
@@ -338,7 +383,7 @@ export default function SignInScreen() {
                                 </Text>
                             </>
                         )}
-                    </TouchableOpacity>
+                    </TouchableOpacity>}
 
                     {/* Password sign-in for a QA account, debug builds only.
                         Apple and Google both need a human at the device, which
@@ -388,6 +433,21 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: "#0d0221",
+    },
+    startWrap: { alignSelf: "stretch", marginBottom: 8 },
+    startButton: {
+        height: 54, borderRadius: 27, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10,
+        shadowColor: "#FF4D8D", shadowOpacity: 0.5, shadowRadius: 14, shadowOffset: { width: 0, height: 4 }, elevation: 6,
+    },
+    ageBadge: {
+        color: "#FF4D8D", backgroundColor: "#fff", fontSize: 12, fontWeight: "900",
+        paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8, overflow: "hidden",
+    },
+    startText: { color: "#fff", fontSize: 16, fontWeight: "800" },
+    ageNote: { color: "rgba(255,255,255,0.6)", fontSize: 12, textAlign: "center", marginBottom: 12, lineHeight: 17 },
+    haveAccount: {
+        color: "rgba(255,255,255,0.8)", fontSize: 13, fontWeight: "600", textAlign: "center",
+        textDecorationLine: "underline", marginBottom: 12,
     },
     bgImage: {
         ...StyleSheet.absoluteFillObject,

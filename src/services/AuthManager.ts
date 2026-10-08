@@ -86,6 +86,22 @@ export class AuthManager {
   }
 
   /**
+   * Device sign-in: an anonymous account tied to this install, no form.
+   * Supabase keeps the session on the device, so it is the same account every
+   * launch until the app is uninstalled or they sign out.
+   */
+  async signInAsDevice() {
+    const { data, error } = await supabase.auth.signInAnonymously();
+    if (error) throw error;
+    if (data.user) {
+      this._user = data.user;
+      analyticsService.setUserId(data.user.id);
+      analyticsService.logSignUp("device");
+    }
+    return data;
+  }
+
+  /**
    * Sign in with Google OAuth (opens browser)
    */
   async signInWithGoogleOAuth(redirectTo: string) {

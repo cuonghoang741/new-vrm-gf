@@ -126,8 +126,11 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
     }));
 
 
-    const handleSignOut = useCallback(() => {
-        Alert.alert(t("set.sign_out"), t("set.signout_confirm"), [
+    const handleSignOut = useCallback(async () => {
+        // A device account has no way back in once its session is gone.
+        const { data } = await supabase.auth.getSession();
+        const isDevice = !!data.session?.user?.is_anonymous;
+        Alert.alert(t("set.sign_out"), t(isDevice ? "set.signout_confirm_device" : "set.signout_confirm"), [
             { text: t("common.cancel"), style: "cancel" },
             {
                 text: t("set.sign_out"),

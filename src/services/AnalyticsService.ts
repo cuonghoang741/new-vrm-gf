@@ -269,11 +269,11 @@ class AnalyticsService {
 
   // ============ Auth Events ============
 
-  async logSignIn(method: 'apple' | 'google' | 'email'): Promise<void> {
+  async logSignIn(method: 'apple' | 'google' | 'email' | 'device'): Promise<void> {
     await this.logEvent(AnalyticsEvents.SIGN_IN, { method });
   }
 
-  async logSignUp(method: 'apple' | 'google' | 'email'): Promise<void> {
+  async logSignUp(method: 'apple' | 'google' | 'email' | 'device'): Promise<void> {
     await this.logEvent(AnalyticsEvents.SIGN_UP, { method });
   }
 
