@@ -6,7 +6,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { mediaUrl, supabase } from '../lib/supabase';
-import { errMsg, nullIfBlank, parsePrice, updateOne } from '../lib/db';
+import { errMsg, nullIfBlank, priceOrNull, priceText, updateOne } from '../lib/db';
+import { publishBlockers } from '../lib/readiness';
 import { BackgroundPicker } from '../components/BackgroundPicker';
 import VrmPreview from '../components/VrmPreview';
 import { TranslationsCard } from './character/TranslationsCard';
@@ -101,8 +102,8 @@ function toDraft(c: Character): Draft {
     description: c.description ?? '',
     instruction: c.instruction ?? '',
     tier: c.tier === 'free' ? 'free' : 'pro',
-    price_ruby: String(c.price_ruby ?? 0),
-    price_vcoin: String(c.price_vcoin ?? 0),
+    price_ruby: priceText(c.price_ruby),
+    price_vcoin: priceText(c.price_vcoin),
     is_public: !!c.is_public,
     available: !!c.available,
   };
@@ -131,9 +132,10 @@ function DetailsTab({ char, onSaved }: { char: Character; onSaved: (c: Character
   async function save() {
     setErr('');
     if (!str('name').trim()) return setErr('Tên không được trống.');
-    const pr = parsePrice(str('price_ruby'));
-    const pv = parsePrice(str('price_vcoin'));
-    if (pr === null || pv === null) return setErr('Giá phải là số nguyên ≥ 0.');
+    // Trống hoặc 0 = không có giá = NULL (CHECK price > 0 không nhận 0).
+    const pr = priceOrNull(str('price_ruby'));
+    const pv = priceOrNull(str('price_vcoin'));
+    if (pr === undefined || pv === undefined) return setErr('Giá phải là số nguyên ≥ 0 (trống hoặc 0 = không có giá).');
 
     const next: Record<string, unknown> = {
       name: str('name').trim(),
@@ -147,6 +149,10 @@ function DetailsTab({ char, onSaved }: { char: Character; onSaved: (c: Character
       background_default_id: bgId,
     };
     for (const f of URL_FIELDS) next[f.k] = nullIfBlank(str(f.k).trim());
+    if (draft.is_public && draft.available) {
+      const blockers = publishBlockers({ instruction: next.instruction as string | null, description: next.description as string | null });
+      if (blockers.length) return setErr(`Chưa bật hiện trong app được: ${blockers.join('; ')}.`);
+    }
 
     // Chỉ ghi trường đổi thật — khỏi đè cột mà người khác vừa sửa ở chỗ khác.
     const patch: Record<string, unknown> = {};

@@ -109,6 +109,26 @@ export function parsePrice(raw: string): number | null {
   return Number.isSafeInteger(n) ? n : null;
 }
 
+/**
+ * A price box -> the value the DB accepts. Every price column has
+ * `CHECK (price IS NULL OR price > 0)`, so "no price" is stored as NULL, never
+ * 0: an empty box and 0 both mean "no price". `undefined` = not a price
+ * (the caller shows an error). Before this, a NULL price showed as "0" and
+ * every save sent 0, which the CHECK refused — so no edit of such a row, even
+ * a rename, could be saved.
+ */
+export function priceOrNull(raw: string): number | null | undefined {
+  if (raw.trim() === '') return null;
+  const n = parsePrice(raw);
+  if (n === null) return undefined;
+  return n > 0 ? n : null;
+}
+
+/** The text a price box shows: empty for NULL (no price). */
+export function priceText(v: number | null | undefined): string {
+  return v == null ? '' : String(v);
+}
+
 /** "" -> null for optional text/uuid columns, so clearing a field stores NULL. */
 export function nullIfBlank(v: unknown): unknown {
   return typeof v === 'string' && v.trim() === '' ? null : v;

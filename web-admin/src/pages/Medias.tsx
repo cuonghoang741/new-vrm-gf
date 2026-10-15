@@ -39,7 +39,7 @@ function MediaPrice({ row, busy, onPatch }: { row: MediaRow; busy: boolean; onPa
       setV(String(row.price_ruby ?? 0));
       return;
     }
-    if (n !== (row.price_ruby ?? 0)) onPatch({ price_ruby: n });
+    if (n !== (row.price_ruby ?? 0)) onPatch({ price_ruby: n > 0 ? n : null });   // CHECK > 0: 0 = NULL
   };
   const free = (row.tier ?? 'pro') === 'free';
   return (

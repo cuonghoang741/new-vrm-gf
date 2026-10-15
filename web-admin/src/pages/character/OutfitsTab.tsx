@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { mediaUrl, supabase } from '../../lib/supabase';
-import { deleteOne, errMsg, insertOne, nullIfBlank, parsePrice, updateOne } from '../../lib/db';
+import { deleteOne, errMsg, insertOne, nullIfBlank, priceOrNull, priceText, updateOne } from '../../lib/db';
 import VrmPreviewModal from '../../components/VrmPreviewModal';
 import type { Costume } from '../../lib/types';
 import { UnlockBadge, UnlockSelect } from '../../components/UnlockType';
@@ -23,13 +23,13 @@ type Draft = {
 
 const EMPTY: Draft = {
   costume_name: '', url: '', thumbnail: '', model_url: '', video_url: '',
-  unlock_type: 'ads', price_ruby: '0', available: false, description: '',
+  unlock_type: 'ads', price_ruby: '', available: false, description: '',
 };
 
 function toDraft(c: Costume): Draft {
   return {
     costume_name: c.costume_name, url: c.url ?? '', thumbnail: c.thumbnail ?? '', model_url: c.model_url ?? '',
-    video_url: c.video_url ?? '', unlock_type: asUnlock(c.unlock_type), price_ruby: String(c.price_ruby ?? 0),
+    video_url: c.video_url ?? '', unlock_type: asUnlock(c.unlock_type), price_ruby: priceText(c.price_ruby),
     available: !!c.available, description: c.description ?? '',
   };
 }
@@ -70,8 +70,9 @@ export function OutfitsTab({
     if (!draft.costume_name.trim()) return setErr('Cần có tên trang phục.');
     // `url` là NOT NULL trong DB và là ảnh app dùng khi thiếu thumbnail.
     if (!draft.url.trim()) return setErr('Cần có URL ảnh (cột url, bắt buộc).');
-    const price = parsePrice(draft.price_ruby);
-    if (price === null) return setErr(`Giá "${draft.price_ruby}" không hợp lệ — phải là số nguyên ≥ 0.`);
+    // Trống hoặc 0 = không có giá = NULL (CHECK price_ruby > 0 không nhận 0).
+    const price = priceOrNull(draft.price_ruby);
+    if (price === undefined) return setErr(`Giá "${draft.price_ruby}" không hợp lệ — phải là số nguyên ≥ 0.`);
     const problem = unlockProblem(draft.unlock_type, price);
     if (problem) return setErr(problem);
     const row = {

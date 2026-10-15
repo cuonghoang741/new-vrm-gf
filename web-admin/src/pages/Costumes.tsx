@@ -321,7 +321,7 @@ function CostumeCard({
       setPrice(String(row.price_ruby ?? 0));
       return;
     }
-    if (v !== (row.price_ruby ?? 0)) onPatch({ price_ruby: v });
+    if (v !== (row.price_ruby ?? 0)) onPatch({ price_ruby: v > 0 ? v : null });   // CHECK > 0: 0 = NULL
   }
 
   return (

@@ -94,7 +94,7 @@ export default function Backgrounds() {
       unlock_type: draft.unlock_type,
       unlock_at_level: draft.unlock_at_level,
       is_dark: draft.is_dark,
-      price_ruby: price,
+      price_ruby: price > 0 ? price : null,   // CHECK (price_ruby > 0): 0 = no price = NULL
       public: draft.public,
       available: draft.available,
       description: nullIfBlank(draft.description),

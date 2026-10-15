@@ -16,6 +16,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { mediaUrl } from '../lib/supabase';
 import { deleteOne, errMsg, insertOne, parsePrice, selectAll, updateOne } from '../lib/db';
+import { publishBlockers } from '../lib/readiness';
 import { BackgroundPicker } from '../components/BackgroundPicker';
 import VrmPreviewModal from '../components/VrmPreviewModal';
 import VrmThumb from '../components/VrmThumb';
@@ -78,6 +79,11 @@ export default function Characters() {
 
   /// Ghi một trường, cập nhật lạc quan, trả về như cũ nếu DB từ chối.
   async function quick(c: Character, fields: Partial<Character>) {
+    const after = { ...c, ...fields };
+    if ((fields.is_public || fields.available) && after.is_public && after.available) {
+      const blockers = publishBlockers(after);
+      if (blockers.length) return setErr(`${c.name}: chưa bật hiện trong app được: ${blockers.join('; ')}.`);
+    }
     setBusyId(c.id);
     const before = chars;
     setChars((p) => p.map((x) => (x.id === c.id ? { ...x, ...fields } : x)));
@@ -97,7 +103,7 @@ export default function Characters() {
       setErr(`Giá "${raw}" không hợp lệ — phải là số nguyên ≥ 0.`);
       return false;
     }
-    if (v !== (c.price_ruby ?? 0)) void quick(c, { price_ruby: v });
+    if (v !== (c.price_ruby ?? 0)) void quick(c, { price_ruby: v > 0 ? v : null });   // CHECK > 0: 0 = NULL
     return true;
   }
 
