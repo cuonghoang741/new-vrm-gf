@@ -24,7 +24,7 @@ for i, (cid, ch) in enumerate(chars.items()):
         j = get(f"https://hub.vroid.com/api/characters/{cid}/models?limit=30")
     except Exception:
         continue
-    models = [m for m in (j.get("data") or []) if m.get("is_downloadable") and perm(m)]
+    models = [m for m in (j.get("data") or []) if m.get("is_downloadable") is True and perm(m)]
     if not models: continue
     models.sort(key=lambda m: -(m.get("heart_count") or 0))
     out.append({
@@ -42,7 +42,7 @@ for i, (cid, ch) in enumerate(chars.items()):
     })
     if i % 25 == 0:
         print(f"  {i}/{len(chars)} → {len(out)} licensed", file=sys.stderr)
-    time.sleep(0.25)
+    time.sleep(0.6)   # be polite to VRoid Hub: >= 0.5 s between calls
 
 # Outfits first (that is the ask), hearts as the tie-break.
 out.sort(key=lambda c: (-c["outfits"], -c["hearts"]))

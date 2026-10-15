@@ -11,14 +11,19 @@ persona from that archetype and her picture, and builds the instruction from
 it plus the rules every persona shares.
 
     PERSONA_ADMIN_KEY=... SUPABASE_PAT=... python3 write_personas.py generate out.json
+    ... python3 write_personas.py generate out.json --include-hidden    # also hidden characters
+    ... python3 write_personas.py generate out.json --ids <uuid>,<uuid>  # just these (hidden or not)
     SUPABASE_PAT=... python3 write_personas.py apply out.json
 
 `generate` only writes the JSON file, for review. `apply` writes the rows and
-keeps what they replaced in data.persona_before.
+keeps what they replaced in data.persona_before. Characters that
+import_characters.py wrote (hidden, persona marked "[TODO") are written
+before they are published, so they need --include-hidden or --ids.
 """
 import json
 import os
 import random
+import re
 import sys
 import urllib.request
 
@@ -101,11 +106,14 @@ def lit(s):
     return "'" + str(s).replace("'", "''") + "'"
 
 
-def thin_characters():
-    return sql("""
+def thin_characters(ids=None, include_hidden=False):
+    shown = "true" if (ids or include_hidden) else "is_public and available"
+    only = " and id in (%s)" % ", ".join(lit(i) for i in ids) if ids else ""
+    return sql(f"""
         select id, name, "order" from characters c
-         where is_public and available and not (data ? 'live2d')
+         where {shown} and not (data ? 'live2d'){only}
            and (length(coalesce(instruction, '')) < 200
+                or instruction like '%[TODO%'
                 or (instruction ~* '^You are ([A-Za-z]+)'
                     and substring(instruction from '^You are ([A-Za-z]+)') <> c.name))
          order by "order" """)
@@ -132,8 +140,19 @@ def build_instruction(name, p):
     )
 
 
-def generate(out_path):
-    chars = thin_characters()
+def generate(out_path, *opts):
+    ids, include_hidden = None, False
+    for i, o in enumerate(opts):
+        if o == "--include-hidden":
+            include_hidden = True
+        elif o == "--ids" and i + 1 < len(opts):
+            ids = [x.strip() for x in opts[i + 1].split(",") if x.strip()]
+            bad = [x for x in ids if not re.fullmatch(r"[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}", x)]
+            if bad:
+                raise SystemExit("--ids takes character uuids: %s" % ", ".join(bad))
+        elif opts[i - 1:i] != ("--ids",):
+            raise SystemExit("unknown option %s (--include-hidden, --ids <uuid>,<uuid>)" % o)
+    chars = thin_characters(ids, include_hidden)
     rng = random.Random(20260930)
     pool = ARCHETYPES[:]
     rng.shuffle(pool)
@@ -162,7 +181,9 @@ def generate(out_path):
         print(f"{i + 1:3}/{len(chars)} {c['name']:10} {arch[:40]:40} | {p['tagline']}")
 
 
-def apply(in_path):
+def apply(in_path, *opts):
+    if opts:
+        raise SystemExit("apply takes only the JSON file")
     results = json.load(open(in_path))
     for cid, r in results.items():
         name, p = r["name"], r["persona"]
@@ -199,4 +220,4 @@ def apply(in_path):
 
 
 if __name__ == "__main__":
-    {"generate": generate, "apply": apply}[sys.argv[1]](sys.argv[2])
+    {"generate": generate, "apply": apply}[sys.argv[1]](sys.argv[2], *sys.argv[3:])
