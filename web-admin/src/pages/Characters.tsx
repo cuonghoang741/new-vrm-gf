@@ -20,6 +20,7 @@ import { publishBlockers } from '../lib/readiness';
 import { BackgroundPicker } from '../components/BackgroundPicker';
 import VrmPreviewModal from '../components/VrmPreviewModal';
 import VrmThumb from '../components/VrmThumb';
+import { isVrm } from '../lib/vrmThumbnail';
 import type { Background, Character } from '../lib/types';
 
 const pad = (n: number) => String(n).padStart(3, '0');
@@ -267,15 +268,32 @@ export default function Characters() {
                 </span>
 
                 <Link to={`/characters/${c.id}`} draggable={false} style={{ color: 'inherit', textDecoration: 'none' }}>
-                  {/* The model, not the catalogue art. A character whose
-                      `base_model_url` is not a .vrm keeps its thumbnail. */}
+                  {/* The catalogue art the app shows, with a capture of the
+                      real model in the corner: the art is repainted, so the
+                      two have to be compared side by side before publishing.
+                      Without art the model fills the card, as before. */}
                   <div className="char-avatar" style={{ filter: live ? undefined : 'grayscale(0.8)', overflow: 'hidden' }}>
-                    <VrmThumb
-                      modelUrl={c.base_model_url}
-                      fallback={img}
-                      alt={c.name}
-                      style={{ width: '100%', height: '100%' }}
-                    />
+                    {img ? (
+                      <img src={img} alt={c.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    ) : (
+                      <VrmThumb modelUrl={c.base_model_url} fallback={null} alt={c.name} style={{ width: '100%', height: '100%' }} />
+                    )}
+                    {img && isVrm(c.base_model_url) && (
+                      <div
+                        title="Model 3D thật (VRM)"
+                        style={{
+                          position: 'absolute', top: 8, right: 8, zIndex: 2, width: '36%', aspectRatio: '3 / 4',
+                          borderRadius: 8, overflow: 'hidden', background: 'var(--bg-elev-2)',
+                          border: '2px solid rgba(255,255,255,0.85)', boxShadow: '0 2px 10px rgba(0,0,0,0.55)',
+                        }}
+                      >
+                        <VrmThumb modelUrl={c.base_model_url} fallback={null} alt={`${c.name} VRM`} style={{ width: '100%', height: '100%' }} />
+                        <span style={{
+                          position: 'absolute', left: 0, right: 0, bottom: 0, textAlign: 'center', fontSize: 9, fontWeight: 800,
+                          letterSpacing: 0.5, color: '#fff', background: 'rgba(0,0,0,0.6)', padding: '1px 0',
+                        }}>3D</span>
+                      </div>
+                    )}
                     {!img && !c.base_model_url && <span>{c.name.slice(0, 1)}</span>}
                   </div>
                   <div className="char-body">
