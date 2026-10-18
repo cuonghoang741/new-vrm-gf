@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import * as Haptics from "expo-haptics";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { IconCrown, IconPlayerPlayFilled } from "@tabler/icons-react-native";
+import { IconPlayerPlayFilled } from "@tabler/icons-react-native";
 import RubyIcon from "../../components/icons/RubyIcon";
 import { SHEET } from "../../theme/sheet";
 import { QuestRow } from "./QuestRow";
@@ -27,6 +27,7 @@ import {
 import { analyticsService } from "../../services/AnalyticsService";
 import { setRuby, useRuby } from "../../services/rubyStore";
 import { track } from "../../services/trackEvents";
+import CrownIcon from "../../components/icons/CrownIcon";
 
 /** Where a quest's "Go" button takes the user. */
 export type QuestTarget = "checkin" | "chat" | "costume" | "background" | "dance" | "gallery";
@@ -255,7 +256,7 @@ export function QuestPage({ visible, onClose, isPro, sceneImage, onOpenSubscript
                         (state?.proBonus.amount ?? 0) > 0 ? (
                         <View style={[styles.card, styles.proCard]}>
                             <LinearGradient colors={SHEET.goldGradient} style={styles.cardIcon}>
-                                <IconCrown size={22} color="#fff" />
+                                <CrownIcon size={22} color="#fff" />
                             </LinearGradient>
                             <View style={{ flex: 1 }}>
                                 <Text style={styles.cardTitle}>{t("quest.pro_bonus")}</Text>
@@ -284,7 +285,7 @@ export function QuestPage({ visible, onClose, isPro, sceneImage, onOpenSubscript
                         <Pressable onPress={onOpenSubscription} style={({ pressed }) => [pressed && { opacity: 0.92 }]}>
                             <LinearGradient colors={["#3B2300", "#2A1440"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.card, styles.proCard]}>
                                 <LinearGradient colors={SHEET.goldGradient} style={styles.cardIcon}>
-                                    <IconCrown size={22} color="#fff" />
+                                    <CrownIcon size={22} color="#fff" />
                                 </LinearGradient>
                                 <View style={{ flex: 1 }}>
                                     <Text style={styles.cardTitle}>{t("quest.pro_title")}</Text>

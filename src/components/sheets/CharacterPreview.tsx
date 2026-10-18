@@ -19,6 +19,7 @@ import { supabase } from "../../config/supabase";
 import { useSubscription } from "../../contexts/SubscriptionContext";
 import { fetchTouchLine } from "../../services/touchReaction";
 import type { TouchPart } from "../VRMViewer";
+import { ProBadge } from "../icons/ProBadge";
 
 /** Radians per second: one slow turn about every 18 s. */
 const TURNTABLE_SPEED = 0.35;
@@ -341,7 +342,7 @@ export function CharacterPreview({
                     <View style={styles.nameRow}>
                         <Text style={styles.name} numberOfLines={1}>{character.name}</Text>
                         {showPro && (
-                            <View style={styles.proPill}><Text style={styles.proPillText}>PRO</Text></View>
+                            <ProBadge size="md" style={{ marginLeft: 8 }} />
                         )}
                         {rubyPrice > 0 && (
                             <View style={styles.rubyPill}>
@@ -393,7 +394,7 @@ export function CharacterPreview({
                                                     </View>
                                                 ) : null}
                                                 {isProCostume(c) && (
-                                                    <View style={styles.outfitPro}><Text style={styles.outfitProText}>PRO</Text></View>
+                                                    <View style={[styles.outfitPro, { backgroundColor: "transparent", paddingHorizontal: 0, paddingVertical: 0, borderWidth: 0 }, { height: undefined }]}><ProBadge size="xs" /></View>
                                                 )}
                                             </View>
                                         );

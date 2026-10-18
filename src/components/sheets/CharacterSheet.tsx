@@ -38,6 +38,7 @@ import { refreshRuby, setRuby, useRuby } from "../../services/rubyStore";
 import LockIcon from "../icons/LockIcon";
 import RubyIcon from "../icons/RubyIcon";
 import { track } from "../../services/trackEvents";
+import { ProBadge } from "../icons/ProBadge";
 
 const BG = "#0F0A1E";
 const ACCENT = "#FF4D8D";
@@ -566,9 +567,7 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
                     {locked && isAvailable && (
                         <View style={styles.tileBadges}>
                             {(lock === "pro" || lock === "pro_or_ruby") && (
-                                <View style={styles.tileProBadge}>
-                                    <Text style={styles.tileProBadgeText}>PRO</Text>
-                                </View>
+                                <ProBadge size="xs" />
                             )}
                             {(lock === "ruby" || lock === "pro_or_ruby") && tilePrice > 0 && (
                                 <View style={styles.tileRubyBadge}>
@@ -793,9 +792,7 @@ const CharacterSheet = forwardRef<CharacterSheetRef, CharacterSheetProps>(({
                                 </LinearGradient>
                             )}
                             {(heroLock === "pro" || heroLock === "pro_or_ruby") && (
-                                <View style={styles.proPill}>
-                                    <Text style={styles.proPillText}>PRO</Text>
-                                </View>
+                                <ProBadge size="md" />
                             )}
                             {(heroLock === "ruby" || heroLock === "pro_or_ruby") &&
                                 (focusedChar.price_ruby ?? 0) > 0 && (

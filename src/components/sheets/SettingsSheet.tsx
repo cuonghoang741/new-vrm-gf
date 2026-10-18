@@ -24,7 +24,6 @@ import {
     IconStar,
     IconRefresh,
     IconTrash,
-    IconCrown,
     IconShieldCheck,
     IconLanguage,
     IconCube,
@@ -52,6 +51,8 @@ import { RatingDialog } from "./RatingDialog";
 import { ReportDialog } from "./ReportDialog";
 import { supabase } from "../../config/supabase";
 import { authManager } from "../../services";
+import CrownIcon from "../icons/CrownIcon";
+import { ProBadge } from "../icons/ProBadge";
 
 interface SettingsSheetProps {
     /** Selected character's picture, blurred behind the sheet (Yuuki style). */
@@ -297,10 +298,7 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                                 <View style={styles.profileInfo}>
                                     <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                                         {isPro ? (
-                                            <View style={styles.proBadgeInline}>
-                                                <IconCrown size={12} color="#F59E0B" fill="#F59E0B" />
-                                                <Text style={styles.proBadgeInlineText}>PRO</Text>
-                                            </View>
+                                            <ProBadge size="sm" />
                                         ) : (
                                             <View style={styles.freeBadge}>
                                                 <Text style={styles.freeBadgeText}>{t("set.plan_free")}</Text>
@@ -334,7 +332,7 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                                     style={styles.upgradeCard}
                                 >
                                     <View style={styles.upgradeIcon}>
-                                        <IconCrown size={22} color="#FFD700" fill="#FFD700" />
+                                        <CrownIcon size={22} color="#FFD700" fill="#FFD700" />
                                     </View>
                                     <View style={{ flex: 1 }}>
                                         <Text style={styles.upgradeTitle}>{t("set.upgrade_pro")}</Text>
@@ -355,7 +353,7 @@ const SettingsSheet = forwardRef<SettingsSheetRef, SettingsSheetProps>(({
                                 {isPro && (
                                     <>
                                         <SettingItem
-                                            icon={<IconCrown size={20} color="#F59E0B" fill="#F59E0B" />}
+                                            icon={<CrownIcon size={20} color="#F59E0B" fill="#F59E0B" />}
                                             label={t("set.pro_active")}
                                             subtitle={t("set.pro_desc_active")}
                                             onPress={() => {

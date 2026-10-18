@@ -9,7 +9,8 @@ import {
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTranslation } from "react-i18next";
-import { IconPlayerPlayFilled, IconCrown } from "@tabler/icons-react-native";
+import { IconPlayerPlayFilled } from "@tabler/icons-react-native";
+import CrownIcon from "./icons/CrownIcon";
 
 const ACCENT = "#FF3D7F";
 const ACCENT_SOFT = "#FF7AA8";
@@ -96,7 +97,7 @@ export function AdGateDialog({
                             pressed && { opacity: 0.85 },
                         ]}
                     >
-                        <IconCrown size={16} color={GOLD} />
+                        <CrownIcon size={16} color={GOLD} />
                         <Text style={styles.secondaryText}>
                             {t("common.upgrade_pro")}
                         </Text>

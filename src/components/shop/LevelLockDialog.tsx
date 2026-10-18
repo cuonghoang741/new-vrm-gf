@@ -6,6 +6,7 @@ import { IconHeartFilled } from "@tabler/icons-react-native";
 import LockIcon from "../icons/LockIcon";
 import RubyIcon from "../icons/RubyIcon";
 import { SHEET } from "../../theme/sheet";
+import { ProBadge } from "../icons/ProBadge";
 
 /**
  * Shown when someone taps an item she is not close enough to share yet.
@@ -70,9 +71,7 @@ export function LevelLockDialog({
                     {(alsoPro || alsoPrice > 0) && (
                         <View style={styles.alsoRow}>
                             {alsoPro && (
-                                <LinearGradient colors={SHEET.goldGradient} style={styles.alsoPro}>
-                                    <Text style={styles.alsoProText}>PRO</Text>
-                                </LinearGradient>
+                                <ProBadge size="sm" />
                             )}
                             {alsoPrice > 0 && (
                                 <View style={styles.alsoRuby}>

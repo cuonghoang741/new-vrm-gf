@@ -3,9 +3,9 @@ import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from "rea
 import { LinearGradient } from "expo-linear-gradient";
 import { useTranslation } from "react-i18next";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { IconCrown } from "@tabler/icons-react-native";
 import RubyIcon from "../icons/RubyIcon";
 import { SHEET } from "../../theme/sheet";
+import CrownIcon from "../icons/CrownIcon";
 
 /**
  * The "how do you want to unlock this?" card for PRO and ruby items — same
@@ -87,7 +87,7 @@ export function UnlockDialog(p: UnlockDialogProps) {
                             onPress={p.onUpgrade}
                             style={({ pressed }) => [canBuy ? styles.secondary : styles.primaryGold, pressed && { opacity: 0.85 }]}
                         >
-                            <IconCrown size={16} color={canBuy ? SHEET.gold : "#2A1A00"} />
+                            <CrownIcon size={16} color={canBuy ? SHEET.gold : "#2A1A00"} />
                             <Text style={canBuy ? styles.secondaryText : styles.primaryGoldText}>{t("common.upgrade_pro")}</Text>
                         </Pressable>
                     )}

@@ -4,20 +4,22 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { SHEET } from "../../theme/sheet";
+import RubyIcon from "../icons/RubyIcon";
+import CrownIcon from "../icons/CrownIcon";
 
 /**
  * How the app is played, in one place. Reached from Settings and from her
  * bond page, where the touch rules are the question people actually have.
  */
-const SECTIONS: { key: string; emoji: string }[] = [
+const SECTIONS: { key: string; emoji: string; icon?: React.ReactNode }[] = [
     { key: "chat", emoji: "💬" },
     { key: "touch", emoji: "🤚" },
     { key: "swipe", emoji: "👀" },
     { key: "modes", emoji: "🧊" },
     { key: "bond", emoji: "⭐" },
     { key: "style", emoji: "👗" },
-    { key: "ruby", emoji: "💎" },
-    { key: "pro", emoji: "👑" },
+    { key: "ruby", emoji: "", icon: <RubyIcon size={26} /> },
+    { key: "pro", emoji: "", icon: <CrownIcon size={26} /> },
 ];
 
 export function HowToPlaySheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
@@ -33,9 +35,9 @@ export function HowToPlaySheet({ visible, onClose }: { visible: boolean; onClose
                     </Pressable>
                 </View>
                 <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 32, gap: 12 }}>
-                    {SECTIONS.map(({ key, emoji }) => (
+                    {SECTIONS.map(({ key, emoji, icon }) => (
                         <View key={key} style={[s.card, key === "touch" && s.cardHot]}>
-                            <Text style={s.emoji}>{emoji}</Text>
+                            {icon ? <View style={s.iconBox}>{icon}</View> : <Text style={s.emoji}>{emoji}</Text>}
                             <View style={{ flex: 1 }}>
                                 <Text style={s.cardTitle}>{t(`guide.${key}_title`)}</Text>
                                 <Text style={s.cardBody}>{t(`guide.${key}_body`)}</Text>
@@ -62,6 +64,7 @@ const s = StyleSheet.create({
     },
     cardHot: { borderColor: "rgba(255,77,141,0.45)", backgroundColor: "rgba(255,77,141,0.08)" },
     emoji: { fontSize: 24, marginTop: 1 },
+    iconBox: { width: 30, alignItems: "center", marginTop: 1 },
     cardTitle: { color: "#fff", fontSize: 16, fontWeight: "800" },
     cardBody: { color: "rgba(255,255,255,0.78)", fontSize: 14, lineHeight: 20, marginTop: 4 },
 });

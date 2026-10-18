@@ -24,7 +24,7 @@ import { analyticsService } from "../../services/AnalyticsService";
 import * as WebBrowser from "expo-web-browser";
 import { openBrowserSafe } from "../../utils/openBrowserSafe";
 import { AdsManager } from "../../services/AdsManager";
-import { IconX, IconCube3dSphere, IconVideo, IconUsers, IconSparkles, IconHeart, IconMusic, IconChevronLeft, IconChevronRight, IconCrown, IconAdOff, IconMessageHeart, IconBolt, IconGift, IconTrendingUp, IconHandFinger } from "@tabler/icons-react-native";
+import { IconX, IconCube3dSphere, IconVideo, IconUsers, IconSparkles, IconHeart, IconMusic, IconChevronLeft, IconChevronRight, IconAdOff, IconMessageHeart, IconBolt, IconGift, IconTrendingUp, IconHandFinger } from "@tabler/icons-react-native";
 import { useSubscription } from "../../contexts/SubscriptionContext";
 import VRMViewer, { VRMViewerHandle } from "../VRMViewer";
 import { getCharacters } from "../../cache/charactersCache";
@@ -34,6 +34,7 @@ import { styles } from "./SubscriptionSheet.styles";
 import { track } from "../../services/trackEvents";
 
 import { isFlashPackage } from "../flash/ids";
+import CrownIcon from "../icons/CrownIcon";
 /**
  * When the hidden paywall preview is created. Just after
  * usePrefetchPaywallModel (15 s) has started downloading the model, so the
@@ -50,7 +51,7 @@ const FEATURES = [
     { icon: IconBolt, text: "sub.b6_x2", color: "#F2C14E", highlight: true },
     { icon: IconTrendingUp, text: "sub.b9_bond_x2", color: "#F2C14E", highlight: true },
     // Lv5 is the top of the bond ladder and only PRO reaches it.
-    { icon: IconCrown, text: "sub.b11_lv5", color: "#F2C14E" },
+    { icon: CrownIcon, text: "sub.b11_lv5", color: "#F2C14E" },
     // New, and the reason the three PRO Live2D girls are locked.
     { icon: IconSparkles, text: "sub.b10_live2d", color: "#C8A8F0" },
     { icon: IconAdOff, text: "sub.b1", color: "#FF6FA5" },
@@ -698,7 +699,7 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                                         />
                                     )}
                                     {isPro && activeProductId === weeklyPackage.product.identifier && (
-                                        <IconCrown size={18} color="#F59E0B" fill="#F59E0B" />
+                                        <CrownIcon size={18} color="#F59E0B" fill="#F59E0B" />
                                     )}
                                 </Pressable>
                             )}
@@ -754,7 +755,7 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                                         />
                                     )}
                                     {isPro && activeProductId === monthlyPackage.product.identifier && (
-                                        <IconCrown size={18} color="#F59E0B" fill="#F59E0B" />
+                                        <CrownIcon size={18} color="#F59E0B" fill="#F59E0B" />
                                     )}
                                 </Pressable>
                             )}

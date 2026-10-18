@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import * as Haptics from "expo-haptics";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { IconCrown, IconLock, IconSparkles } from "@tabler/icons-react-native";
+import { IconLock, IconSparkles } from "@tabler/icons-react-native";
 import RubyIcon from "../../components/icons/RubyIcon";
 import { SHEET } from "../../theme/sheet";
 import {
@@ -18,6 +18,8 @@ import { refreshRuby } from "../../services/rubyStore";
 import { ICON_CHARACTERS } from "../../components/icons/iconCharacters";
 import { HowToPlaySheet } from "../../components/sheets/HowToPlaySheet";
 import { useSubscription } from "../../contexts/SubscriptionContext";
+import CrownIcon from "../../components/icons/CrownIcon";
+import { ProBadge } from "../../components/icons/ProBadge";
 
 /**
  * Her level page: how close you are to this one character, what the next level
@@ -187,7 +189,7 @@ export function BondPage({
                                 </View>
                                 {state.nextProOnly && (
                                     <View style={styles.proCap}>
-                                        <IconCrown size={13} color={SHEET.gold} fill={SHEET.gold} />
+                                        <CrownIcon size={13} color={SHEET.gold} fill={SHEET.gold} />
                                         <Text style={styles.proCapText}>
                                             {t(state.nextReady ? "bond.lv5_ready" : "bond.lv5_pro")}
                                         </Text>
@@ -231,7 +233,7 @@ export function BondPage({
                                             <Text style={[styles.lvTitle, l.reached && { color: "#fff" }]}>
                                                 {t(l.title_key)}
                                             </Text>
-                                            {l.level === 5 && <IconCrown size={13} color={SHEET.gold} fill={SHEET.gold} />}
+                                            {l.level === 5 && <CrownIcon size={13} color={SHEET.gold} fill={SHEET.gold} />}
                                             {l.pro_only && (
                                                 <View style={styles.proTag}><Text style={styles.proTagText}>{t("bond.pro_only")}</Text></View>
                                             )}
@@ -296,7 +298,7 @@ function QuestLine({
                         {t(`bond.q.${q.code}`, { defaultValue: q.code, n: q.target })}
                     </Text>
                     {q.pro_only && (
-                        <View style={styles.proTag}><Text style={styles.proTagText}>PRO</Text></View>
+                        <ProBadge size="xs" style={{ marginLeft: 6 }} />
                     )}
                 </View>
                 <View style={styles.qProgRow}>
@@ -321,7 +323,7 @@ function QuestLine({
                     broken control with its label missing. */}
                 {proLocked ? (
                     <View style={styles.qProLock}>
-                        <IconCrown size={12} color={SHEET.gold} fill={SHEET.gold} />
+                        <CrownIcon size={12} color={SHEET.gold} fill={SHEET.gold} />
                         <Text style={styles.qProLockText}>{t("bond.pro_only")}</Text>
                     </View>
                 ) : q.claimed ? (

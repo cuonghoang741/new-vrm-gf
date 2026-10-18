@@ -9,6 +9,8 @@ import { IconHeartFilled } from "@tabler/icons-react-native";
 import type { LockState } from "../../hooks/useItemUnlock";
 
 import { useTranslation } from "react-i18next";
+import { ProBadge } from "../icons/ProBadge";
+import CrownIcon from "../icons/CrownIcon";
 /**
  * One picker tile: 9:14 card, radius 16, name on a bottom fade.
  *
@@ -65,6 +67,7 @@ function ItemTileImpl({ width, name, image, placeholderIcon, lock, price = 0, re
     const { t } = useTranslation();
     const height = width / SHEET.tileAspect;
     const isProLock = lock === "pro" || lock === "pro_or_ruby";
+    const hasGateBar = !selected && lock !== "free" && lock !== "level";
     const gradient = isProLock
         ? (["#FFB347", "#FF4D8D"] as [string, string])
         : PLACEHOLDER_GRADIENTS[
@@ -121,7 +124,7 @@ function ItemTileImpl({ width, name, image, placeholderIcon, lock, price = 0, re
                         </View>
                         {(proTier || price > 0) && (
                             <View style={styles.levelAlso}>
-                                {proTier && <Text style={styles.levelAlsoPro}>PRO</Text>}
+                                {proTier && <ProBadge size="xs" />}
                                 {price > 0 && (
                                     <>
                                         <RubyIcon size={10} color="#fff" />
@@ -135,13 +138,18 @@ function ItemTileImpl({ width, name, image, placeholderIcon, lock, price = 0, re
 
                 {!!topLeft && <View style={styles.topLeft}>{topLeft}</View>}
 
-                <LinearGradient colors={["transparent", "rgba(0,0,0,0.78)"]} style={styles.caption}>
+                {/* Sits on the price bar when there is one: under it, the bar
+                    covered the name ("Crims 120 sti…"). */}
+                <LinearGradient
+                    colors={["transparent", "rgba(0,0,0,0.78)"]}
+                    style={[styles.caption, hasGateBar && { bottom: GATE_BAR_H, paddingBottom: 5 }]}
+                >
                     <Text style={styles.name} numberOfLines={1}>{name}</Text>
                 </LinearGradient>
 
                 {/* What it costs, along the bottom edge. One bar, or two
                     halves when the item needs PRO *and* ruby. */}
-                {!selected && lock !== "free" && lock !== "level" && (
+                {hasGateBar && (
                     <View style={styles.gateBar}>
                         {(lock === "pro" || lock === "pro_or_ruby") && (
                             <LinearGradient
@@ -149,7 +157,7 @@ function ItemTileImpl({ width, name, image, placeholderIcon, lock, price = 0, re
                                 start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
                                 style={[styles.gateHalf, lock === "pro" && styles.gateFull]}
                             >
-                                <Ionicons name="diamond" size={11} color="#3A2600" />
+                                <CrownIcon size={13} />
                                 <Text style={styles.gateProText}>PRO</Text>
                             </LinearGradient>
                         )}
@@ -184,6 +192,8 @@ function ItemTileImpl({ width, name, image, placeholderIcon, lock, price = 0, re
 
 export const ItemTile = memo(ItemTileImpl);
 
+const GATE_BAR_H = 24;
+
 const styles = StyleSheet.create({
     tile: {
         borderRadius: SHEET.tileRadius,
@@ -203,7 +213,7 @@ const styles = StyleSheet.create({
     /** The cost strip. Sits on the caption fade, flush to the card's edges. */
     gateBar: {
         position: "absolute", left: 0, right: 0, bottom: 0,
-        flexDirection: "row", height: 24, overflow: "hidden",
+        flexDirection: "row", height: GATE_BAR_H, overflow: "hidden",
     },
     gateHalf: {
         flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4,

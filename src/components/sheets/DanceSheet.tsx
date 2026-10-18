@@ -12,6 +12,7 @@ import { ItemTile } from "../shop/ItemTile";
 import { useItemUnlock, type UnlockableItem } from "../../hooks/useItemUnlock";
 import { track } from "../../services/trackEvents";
 import type { UnlockKind } from "../../services/economyService";
+import { ProBadge } from "../icons/ProBadge";
 
 export interface Dance {
     id: string;
@@ -157,9 +158,7 @@ export default function DanceSheet(p: Props) {
                 >
                     <Ionicons name="lock-closed" size={15} color={SHEET.gold} />
                     <Text style={styles.proNoteText}>{t("dance.pro_required")}</Text>
-                    <LinearGradient colors={SHEET.goldGradient} style={styles.proNoteCta}>
-                        <Text style={styles.proNoteCtaText}>PRO</Text>
-                    </LinearGradient>
+                    <ProBadge size="sm" />
                 </Pressable>
             )}
 
