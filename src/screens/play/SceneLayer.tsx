@@ -5,7 +5,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 import { CameraView } from "expo-camera";
 import { LiquidGlassView, isLiquidGlassSupported } from "@callstack/liquid-glass";
-import { IconBadge3d, IconCrown, IconFlame, IconPhone } from "@tabler/icons-react-native";
+import { IconBadge3d, IconFlame, IconPhone } from "@tabler/icons-react-native";
 import { useTranslation } from "react-i18next";
 import VRMViewer, { VRMViewerHandle, type TouchPart } from "../../components/VRMViewer";
 import { region2D } from "./touchRegions";
@@ -18,6 +18,8 @@ import { styles } from "./styles";
 import { formatTrial } from "../../services/trial3d";
 import { ACCENT, GOLD } from "./theme";
 import { QuickTouches, type QuickTouch } from "./QuickTouches";
+import CrownIcon from "../../components/icons/CrownIcon";
+import { ProBadge } from "../../components/icons/ProBadge";
 
 /**
  * Everything painted over the scene itself: the 2D/3D character layer, the
@@ -94,6 +96,8 @@ export interface SceneLayerProps {
      */
     trialRemaining: number;
     setSubscriptionOpen: (open: boolean) => void;
+    /** 3D pressed by a free user with no trial running: trial offer or paywall. */
+    onLocked3D: () => void;
     /**
      * A tap on her, from the 2D art or the 3D model, in this layer's
      * coordinates. Omitted, the character does not respond to touch.
@@ -152,6 +156,7 @@ export function SceneLayer({
     needsCheckin,
     trialRemaining,
     setSubscriptionOpen,
+    onLocked3D,
     onTouchCharacter,
     touchBounce,
     live2d,
@@ -350,11 +355,18 @@ export function SceneLayer({
                 {/* Diamond → Quest page. PRO lives inside it now (the PRO
                     card at the top), so PRO users get the same button with
                     a crown on it instead of a separate crown. */}
-                <Pressable onPress={onOpenGem} hitSlop={8} style={styles.upgradeProInner}>
-                    <RubyIcon size={20} color="#FFFFFF" />
+                {/* A gold-ringed medallion: the crown for a free user (it is the
+                    PRO pitch), her ruby for PRO (it opens the shop), with a
+                    small crown so PRO can see they have it. */}
+                <Pressable onPress={onOpenGem} hitSlop={8} style={({ pressed }) => [medal.wrap, pressed && { transform: [{ scale: 0.94 }] }]}>
+                    <LinearGradient colors={["#FFF0B8", "#FFC940", "#D9821A"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={medal.ring}>
+                        <LinearGradient colors={["#3A1A52", "#1C0C2C"]} style={medal.inner}>
+                            {isPro ? <RubyIcon size={22} /> : <CrownIcon size={24} />}
+                        </LinearGradient>
+                    </LinearGradient>
                     {isPro && (
-                        <View style={styles.crownOnGem}>
-                            <IconCrown size={11} color={GOLD} fill={GOLD} />
+                        <View style={medal.badge}>
+                            <CrownIcon size={12} />
                         </View>
                     )}
                 </Pressable>
@@ -416,7 +428,7 @@ export function SceneLayer({
                                 // The trial is the one window where 3D is not
                                 // the paywall's job.
                                 if (!isPro && trialRemaining <= 0) {
-                                    setSubscriptionOpen(true);
+                                    onLocked3D();
                                 } else {
                                     onEnter3D();
                                 }
@@ -442,8 +454,8 @@ export function SceneLayer({
                 </View>
             )}
             {!isPro && !live2d && (
-                <View style={styles.proBadgeLeft}>
-                    <Text style={styles.proBadgeLeftText}>PRO</Text>
+                <View style={[styles.proBadgeLeft, { backgroundColor: "transparent", paddingHorizontal: 0, paddingVertical: 0, borderWidth: 0 }]}>
+                    <ProBadge size="xs" />
                 </View>
             )}
             {/* Ruby balance — right below the 2D/3D toggle. Tap to check in. */}
@@ -505,4 +517,19 @@ const l2dCover = StyleSheet.create({
         borderWidth: StyleSheet.hairlineWidth, overflow: "hidden",
     },
     text: { fontSize: 14, fontWeight: "600" },
+});
+
+/** The top-left PRO / shop medallion. */
+const medal = StyleSheet.create({
+    wrap: {
+        shadowColor: "#FFB020", shadowOpacity: 0.55, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
+        elevation: 6,
+    },
+    ring: { width: 40, height: 40, borderRadius: 20, padding: 2 },
+    inner: { flex: 1, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+    badge: {
+        position: "absolute", top: -4, right: -4, width: 18, height: 18, borderRadius: 9,
+        alignItems: "center", justifyContent: "center", backgroundColor: "#1C0C2C",
+        borderWidth: 1, borderColor: "#FFC940",
+    },
 });

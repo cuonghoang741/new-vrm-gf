@@ -1547,6 +1547,12 @@ export default function PlayScreen() {
                     setQuestOpen(true);
                 }}
                 setSubscriptionOpen={setSubscriptionOpen}
+                onLocked3D={() => {
+                    // Someone who said "later" to the trial still has it:
+                    // the 3D button is the clearest place to ask again.
+                    if (trialUnclaimedRef.current) setTrialOffer(true);
+                    else setSubscriptionOpen(true);
+                }}
                 // Not while she is dancing or on a call: a reaction would cut
                 // into either one.
                 onTouchCharacter={dance.isDancing || voiceState.isConnected ? undefined : onSceneTouch}
