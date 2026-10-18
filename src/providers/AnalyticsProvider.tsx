@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import { crash } from '../services/crash';
 import { analyticsService, AnalyticsEvents } from '../services/AnalyticsService';
 import { AppsFlyerService } from '../services/AppsFlyerService';
+import { TikTokService } from '../services/TikTokService';
 import { FacebookService } from '../services/FacebookService';
 
 interface AnalyticsProviderProps {
@@ -27,6 +28,7 @@ export const AnalyticsProvider: React.FC<AnalyticsProviderProps> = ({ children }
       await crash.enable();
 
       AppsFlyerService.init();
+      void TikTokService.init();
 
       // 2. Facebook SDK — through the service, which reads the real ATT
       // answer and fires fb_mobile_activate_app. This used to call Settings

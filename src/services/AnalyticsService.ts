@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import { AppsFlyerService } from './AppsFlyerService';
+import { TikTokService } from './TikTokService';
 import { FacebookService } from './FacebookService';
 
 // Optional import for Firebase Analytics to prevent crash if not installed
@@ -191,6 +192,9 @@ class AnalyticsService {
       // 3. Facebook
       await FacebookService.logEvent(eventName, params);
 
+      // 4. TikTok (no-op until configured)
+      await TikTokService.logEvent(eventName, params);
+
       if (__DEV__) {
         console.log('[Analytics] Event logged:', eventName, params);
       }
@@ -217,6 +221,9 @@ class AnalyticsService {
            if (__DEV__) console.log('[AppsFlyer] User ID set:', userId, res);
         });
       } catch (e) {}
+
+      // TikTok
+      void TikTokService.setUserId(userId);
 
       // Facebook
       try {
