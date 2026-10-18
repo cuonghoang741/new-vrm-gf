@@ -1,6 +1,7 @@
 import { supabase } from "../config/supabase";
 import { Characters } from "../types/database";
 import { currentLang } from "../i18n";
+import { File, Paths } from "expo-file-system";
 
 /**
  * Lightweight in-memory cache for the public characters query.
@@ -95,10 +96,30 @@ export async function localizeCharacters<T extends { id: string; name: string; d
 }
 
 /** Fetch characters and store in cache. Called by SignInScreen. */
+/**
+ * The last list fetched, kept on disk so the sign-in screen can start her
+ * video on launch instead of after three queries.
+ */
+const SNAPSHOT = new File(Paths.cache, "public-characters.json");
+
 export async function fetchAndCacheCharacters(): Promise<Characters[]> {
     const chars = await queryPublicCharacters();
     _cache = { data: chars, timestamp: Date.now() };
+    if (chars.length > 0) {
+        try { SNAPSHOT.write(JSON.stringify(chars)); } catch { /* cache only */ }
+    }
     return chars;
+}
+
+/** The list from the previous launch, or null on a first run. */
+export function readStoredCharacters(): Characters[] | null {
+    try {
+        if (!SNAPSHOT.exists) return null;
+        const rows = JSON.parse(SNAPSHOT.textSync());
+        return Array.isArray(rows) && rows.length > 0 ? rows : null;
+    } catch {
+        return null;
+    }
 }
 
 /**

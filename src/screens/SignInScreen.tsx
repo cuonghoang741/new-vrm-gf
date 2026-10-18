@@ -26,7 +26,7 @@ import * as AppleAuthentication from "expo-apple-authentication";
 import { AdBanner } from "../components/ads/AdBanner";
 import * as WebBrowser from "expo-web-browser";
 import { authService } from "../services";
-import { fetchAndCacheCharacters } from "../cache/charactersCache";
+import { fetchAndCacheCharacters, readStoredCharacters } from "../cache/charactersCache";
 import { AdsManager } from "../services/AdsManager";
 import { openBrowserSafe } from "../utils/openBrowserSafe";
 import { GalaxyBackground } from "../components/GalaxyBackground";
@@ -78,21 +78,23 @@ export default function SignInScreen() {
 
     // Fetch public characters and cache for onboarding reuse
     useEffect(() => {
+        const toPreview = (chars: any[]): CharacterPreview[] => chars.map((c) => ({
+            id: c.id,
+            name: c.name,
+            description: c.description,
+            video_url: c.video_url || null,
+            thumbnail_url: c.thumbnail_url,
+            base_model_url: c.base_model_url,
+            bg_image: c.thumbnail_url ?? null,
+        }));
+        // Last launch's list first, so her video is already loading while the
+        // fresh one is fetched.
+        const stored = readStoredCharacters();
+        if (stored) setCharacters(toPreview(stored));
         const loadCharacters = async () => {
             try {
                 const chars = await fetchAndCacheCharacters();
-                if (chars.length > 0) {
-                    const mapped: CharacterPreview[] = chars.map((c: any) => ({
-                        id: c.id,
-                        name: c.name,
-                        description: c.description,
-                        video_url: c.video_url,
-                        thumbnail_url: c.thumbnail_url,
-                        base_model_url: c.base_model_url,
-                        bg_image: c.thumbnail_url ?? null,
-                    }));
-                    setCharacters(mapped);
-                }
+                if (chars.length > 0) setCharacters(toPreview(chars));
             } catch (e) {
                 console.error("Failed to fetch characters:", e);
             }
@@ -194,11 +196,15 @@ export default function SignInScreen() {
     const selectedChar = characters[selectedIndex];
     // Recreated whenever the uri changes — swiping to another character gets
     // her clip, and the previous player is released.
-    const previewPlayer = useVideoPlayer(selectedChar?.video_url ?? null, (p) => {
-        p.loop = true;
-        p.muted = true;
-        p.play();
-    });
+    // Cached on disk: from the second launch on she plays without a download.
+    const previewPlayer = useVideoPlayer(
+        selectedChar?.video_url ? { uri: selectedChar.video_url, useCaching: true } : null,
+        (p) => {
+            p.loop = true;
+            p.muted = true;
+            p.play();
+        },
+    );
 
     return (
         <View style={styles.container}>
