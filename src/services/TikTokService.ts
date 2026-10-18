@@ -27,6 +27,9 @@ const TIKTOK_APP_ID = (IS_IOS
 const ACCESS_TOKEN = (IS_IOS
     ? process.env.EXPO_PUBLIC_TIKTOK_ACCESS_TOKEN_IOS
     : process.env.EXPO_PUBLIC_TIKTOK_ACCESS_TOKEN_ANDROID) ?? '';
+// Debug mode sends to Events Manager's "Test events" tab instead of the live
+// feed. On in dev, and in a QA build made with EXPO_PUBLIC_TIKTOK_DEBUG=1.
+const DEBUG = __DEV__ || process.env.EXPO_PUBLIC_TIKTOK_DEBUG === '1';
 
 let ready: Promise<boolean> | null = null;
 
@@ -37,11 +40,11 @@ export const TikTokService = {
             if (__DEV__) console.log('[TikTok] not configured, SDK off');
             return (ready = Promise.resolve(false));
         }
-        ready = TikTokBusiness.initializeSdk(APP_ID, TIKTOK_APP_ID, ACCESS_TOKEN, __DEV__, {
+        ready = TikTokBusiness.initializeSdk(APP_ID, TIKTOK_APP_ID, ACCESS_TOKEN, DEBUG, {
             disablePaymentTracking: true,
         })
             .then(() => {
-                if (__DEV__) console.log('[TikTok] SDK started');
+                if (DEBUG) console.log('[TikTok] SDK started (debug)');
                 return true;
             })
             .catch((e: unknown) => {
@@ -85,6 +88,10 @@ export const TikTokService = {
                     });
                     return;
                 }
+                case 'currency_spend':
+                    return void (await TikTokBusiness.trackEvent(TikTokEventName.SPEND_CREDITS));
+                case 'quest_complete':
+                    return void (await TikTokBusiness.trackEvent(TikTokEventName.UNLOCK_ACHIEVEMENT));
                 case 'currency_purchase_start':
                     return void (await TikTokBusiness.trackContentEvent(TikTokContentEventName.CHECK_OUT, {
                         [TikTokContentEventParameter.CONTENT_TYPE]: String(params.item_type ?? 'product'),
