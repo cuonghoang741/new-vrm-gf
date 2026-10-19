@@ -269,9 +269,9 @@ export default function Characters() {
                 </span>
 
                 <Link to={`/characters/${c.id}`} draggable={false} style={{ color: 'inherit', textDecoration: 'none' }}>
-                  {/* The catalogue art the app shows, with the VRM's own
-                      thumbnail (embedded in the file, captured once into
-                      vrm_thumbnail_url) in the corner: the art is repainted,
+                  {/* The catalogue art the app shows, with a full-body render
+                      of the VRM (captured once into vrm_thumbnail_url by
+                      tools/vroid/vrm_thumbs_render.mjs) in the corner: the art is repainted,
                       so the two have to be compared before publishing. No
                       captured thumbnail yet: render the model live instead. */}
                   <div className="char-avatar" style={{ filter: live ? undefined : 'grayscale(0.8)', overflow: 'hidden' }}>
@@ -282,9 +282,9 @@ export default function Characters() {
                     )}
                     {(vrmThumb || (img && isVrm(c.base_model_url))) && (
                       <div
-                        title="Ảnh gốc trong file VRM"
+                        title="Ảnh chụp toàn thân từ file VRM"
                         style={{
-                          position: 'absolute', top: 8, right: 8, zIndex: 2, width: 52, height: 52,
+                          position: 'absolute', top: 8, right: 8, zIndex: 2, width: '36%', aspectRatio: '3 / 4',
                           borderRadius: 10, overflow: 'hidden', background: 'var(--bg-elev-2)',
                           border: '1.5px solid rgba(255,255,255,0.8)', boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
                         }}

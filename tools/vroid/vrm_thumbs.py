@@ -10,14 +10,15 @@ The image is a bufferView in the BIN chunk, so only three small HTTP Range
 reads are needed per model (GLB header, JSON chunk, image bytes) instead of
 downloading ~19MB each.
 
-Each image is downscaled to 256px (JPEG, or PNG if it has alpha), uploaded to R2 at app-art/vrm-thumb/<character_id>.<png|jpg>
+Each image is downscaled to fit 300x400 (JPEG, or PNG if it has alpha), uploaded to R2 at app-art/vrm-full/<character_id>.<png|jpg>
 through the `r2-presign` edge function on the Yuuki project (same as
 pushbuild.sh), and its public URL written to characters.vrm_thumbnail_url.
 Nothing else on the row is touched. Characters that already have a URL are
 skipped unless --force.
 
-VRMs without an embedded thumbnail: render them with vrm_thumbs_render.mjs,
-then `vrm_thumbs.py --rendered OUT_DIR` uploads those the same way.
+The embedded thumbnails are VRoid head shots. The CMS uses full-body renders
+instead: vrm_thumbs_render.mjs OUT_DIR, then `vrm_thumbs.py --rendered OUT_DIR`
+uploads every <character_id>.png found there the same way.
 
 Secrets come from the environment only; nothing is printed.
 """
@@ -30,7 +31,7 @@ import urllib.request
 
 from PIL import Image  # pip install pillow
 
-THUMB_PX = 256  # the CMS shows ~52px; 256 keeps it sharp on 2x/3x screens
+THUMB_PX = (300, 400)  # the CMS corner shows ~64x86 px; this keeps it sharp on 3x screens
 
 PROJECT = "kwqqmjfsrgoczbutuisx"
 PRESIGN_REF = os.environ.get("YUUKI_REF", "hpjhqezgfqztcafaknzk")
@@ -95,9 +96,9 @@ def embedded_thumbnail(url: str):
 
 
 def shrink(data: bytes, mime: str):
-    """VRoid thumbnails are ~2MB 1024px PNGs; a card corner needs ~20KB."""
+    """Renders and VRoid thumbnails are large PNGs; a card corner needs ~20KB."""
     im = Image.open(io.BytesIO(data))
-    im.thumbnail((THUMB_PX, THUMB_PX), Image.LANCZOS)
+    im.thumbnail(THUMB_PX, Image.LANCZOS)
     out = io.BytesIO()
     if im.mode in ("RGBA", "LA", "P") and im.convert("RGBA").getextrema()[3][0] < 255:
         im.convert("RGBA").save(out, "PNG", optimize=True)
@@ -110,7 +111,7 @@ def upload(char_id: str, data: bytes, mime: str) -> str:
     ext = "jpg" if "jpeg" in mime or "jpg" in mime else "png"
     req = urllib.request.Request(
         f"https://{PRESIGN_REF}.supabase.co/functions/v1/r2-presign",
-        data=json.dumps({"path": f"app-art/vrm-thumb/{char_id}.{ext}", "contentType": mime}).encode(),
+        data=json.dumps({"path": f"app-art/vrm-full/{char_id}.{ext}", "contentType": mime}).encode(),
         headers={"Content-Type": "application/json", "x-presign-token": os.environ["R2_PRESIGN_TOKEN"], **UA},
         method="POST",
     )
@@ -132,14 +133,20 @@ def push(cid: str, name: str, data: bytes, mime: str):
 
 def main_rendered(folder: str):
     """Upload <character_id>.png files made by vrm_thumbs_render.mjs."""
-    rows = sql("select id, name from characters where base_model_url ilike '%.vrm%' and vrm_thumbnail_url is null")
+    where = "base_model_url ilike '%.vrm%'"
+    if "--force" not in sys.argv:  # resume: skip rows already pointing at a render
+        where += " and coalesce(vrm_thumbnail_url, '') not like '%/vrm-full/%'"
+    rows = sql(f"select id, name from characters where {where}")
     for row in rows:
         path = os.path.join(folder, f"{row['id']}.png")
-        if os.path.exists(path):
+        if not os.path.exists(path):
+            print(f"  none  {row['name']}")
+            continue
+        try:
             with open(path, "rb") as f:
                 push(row["id"], row["name"], f.read(), "image/png")
-        else:
-            print(f"  none  {row['name']}")
+        except Exception as e:  # noqa: BLE001 - rerun picks it up
+            print(f"  FAIL  {row['name']}: {e}")
 
 
 def main():

@@ -1,14 +1,16 @@
-// Fallback for tools/vroid/vrm_thumbs.py: render the VRMs that have NO
-// embedded thumbnail, once, headless, with three + @pixiv/three-vrm served by
-// the CMS dev server. Front camera framed on the humanoid head bone (head and
-// shoulders) - not the bounding box, which bunny ears and bows throw off.
+// Render every VRM character full body, once, headless, with three +
+// @pixiv/three-vrm served by the CMS dev server. Arms are lowered out of the
+// T-pose and a front camera frames the whole model (3:4 portrait). The
+// thumbnails embedded in VRoid files are head shots, so these replace them.
 //
 //   cd web-admin && npx vite --port 5180          # in another shell
-//   SUPABASE_ACCESS_TOKEN=... npx -y -p puppeteer-core@23 node tools/vroid/vrm_thumbs_render.mjs OUT_DIR
+//   SUPABASE_ACCESS_TOKEN=... npx -y -p puppeteer-core@23 node tools/vroid/vrm_thumbs_render.mjs OUT_DIR [--missing]
 //   python3 tools/vroid/vrm_thumbs.py --rendered OUT_DIR   # shrinks, uploads, sets vrm_thumbnail_url
 //
-// Writes OUT_DIR/<character_id>.png. Uses system Chrome (CHROME env to override).
-import { mkdirSync, writeFileSync } from 'node:fs';
+// --missing renders only rows without vrm_thumbnail_url.
+// Writes OUT_DIR/<character_id>.png and skips files already there, so a
+// stopped run resumes. Uses system Chrome (CHROME env to override).
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import puppeteer from 'puppeteer-core';
 
@@ -22,7 +24,8 @@ const res = await fetch(`https://api.supabase.com/v1/projects/${REF}/database/qu
   method: 'POST',
   headers: { Authorization: `Bearer ${process.env.SUPABASE_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
   body: JSON.stringify({
-    query: "select id, name, base_model_url from characters where base_model_url ilike '%.vrm%' and vrm_thumbnail_url is null",
+    query: "select id, name, base_model_url from characters where base_model_url ilike '%.vrm%'" +
+      (process.argv.includes('--missing') ? ' and vrm_thumbnail_url is null' : ''),
   }),
 });
 const rows = await res.json();
@@ -36,9 +39,9 @@ async function render(url) {
   const THREE = await import(dep('three\\.js'));
   const { GLTFLoader } = await import(dep('three_examples_jsm_loaders_GLTFLoader'));
   const { VRMLoaderPlugin, VRMUtils } = await import(dep('@pixiv_three-vrm'));
-  const S = 512;
+  const W = 600, H = 800;
   const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, alpha: true });
-  r.setSize(S, S);
+  r.setSize(W, H);
   r.outputColorSpace = THREE.SRGBColorSpace;
   r.setClearColor(0xe9e9ee, 1);
   const scene = new THREE.Scene();
@@ -53,17 +56,28 @@ async function render(url) {
   if (!vrm) throw new Error('not a VRM');
   VRMUtils.rotateVRM0(vrm);
   scene.add(vrm.scene);
+  // Relaxed stance instead of the T-pose. rotateVRM0 turns a 0.x model's
+  // whole rig half a turn about Y, which flips the sign of a Z rotation.
+  const s = vrm.meta?.metaVersion === '0' ? 1 : -1;
+  const bone = (n) => vrm.humanoid.getNormalizedBoneNode(n);
+  bone('leftUpperArm')?.rotation.set(0, 0, 1.25 * s);
+  bone('rightUpperArm')?.rotation.set(0, 0, -1.25 * s);
+  bone('leftLowerArm')?.rotation.set(0, 0.15 * s, 0);
+  bone('rightLowerArm')?.rotation.set(0, -0.15 * s, 0);
   vrm.update(0);
   scene.updateMatrixWorld(true);
-  const head = vrm.humanoid.getNormalizedBoneNode('head') ?? vrm.humanoid.getRawBoneNode('head');
-  const neck = vrm.humanoid.getNormalizedBoneNode('neck');
-  const hp = head.getWorldPosition(new THREE.Vector3());
-  const np = neck ? neck.getWorldPosition(new THREE.Vector3()) : hp.clone().setY(hp.y - 0.1);
-  const unit = Math.max(hp.y - np.y, 0.06); // neck->head length scales the shot
-  const target = new THREE.Vector3(hp.x, hp.y + unit * 0.6, hp.z);
-  const camera = new THREE.PerspectiveCamera(25, 1, 0.05, 50);
-  camera.position.set(target.x, target.y, target.z + unit * 14);
-  camera.lookAt(target);
+  // Frame head top to feet. The mesh box, not bones: hair and ears belong in
+  // a full-body shot; feet bones sit above the soles.
+  const box = new THREE.Box3().setFromObject(vrm.scene);
+  const size = box.getSize(new THREE.Vector3());
+  const center = box.getCenter(new THREE.Vector3());
+  const fov = 25;
+  const camera = new THREE.PerspectiveCamera(fov, W / H, 0.05, 100);
+  const halfH = (size.y * 1.08) / 2;
+  const halfW = (size.x * 1.08) / 2 / (W / H);
+  const dist = Math.max(halfH, halfW) / Math.tan(THREE.MathUtils.degToRad(fov / 2)) + size.z / 2;
+  camera.position.set(center.x, center.y, center.z + dist);
+  camera.lookAt(center);
   r.render(scene, camera);
   const data = r.domElement.toDataURL('image/png');
   VRMUtils.deepDispose(vrm.scene);
@@ -79,6 +93,7 @@ const browser = await puppeteer.launch({
 const page = await browser.newPage();
 await page.goto(CMS, { waitUntil: 'domcontentloaded' });
 for (const r of rows) {
+  if (existsSync(join(out, `${r.id}.png`))) continue;
   try {
     const dataUrl = await page.evaluate(render, r.base_model_url);
     writeFileSync(join(out, `${r.id}.png`), Buffer.from(dataUrl.split(',')[1], 'base64'));
