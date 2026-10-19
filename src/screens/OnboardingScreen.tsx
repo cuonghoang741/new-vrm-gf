@@ -16,6 +16,7 @@ import {
     ActivityIndicator,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import { Image as ExpoImage } from "expo-image";
 import { GalaxyBackground } from "../components/GalaxyBackground";
 import { StatusBar } from "expo-status-bar";
 import {
@@ -40,6 +41,7 @@ import { preloadNative } from "../components/ads/nativeAdPreload";
 import { AdUnits } from "../config/ads";
 import * as SecureStore from "expo-secure-store";
 import { track } from "../services/trackEvents";
+import { prefetch, prepareWebRoot } from "../services/vrmCache";
 
 const { width, height } = Dimensions.get("window");
 
@@ -82,6 +84,14 @@ interface OnboardingScreenProps {
  * Ad slot per onboarding slide, keyed by `step` (0 = slide 1). Slide 2
  * (`step === 1`) is intentionally absent.
  */
+/**
+ * Media height of the onboarding native ads. The question slides have half a
+ * screen of nothing under their options, so the ad gets a real picture there;
+ * the result slide shares its height with her portrait and gets less.
+ */
+const AD_MEDIA_H = Math.round(Math.min(width - 56 - 28, 380) * 9 / 16);
+const AD_MEDIA_H_RESULT = Math.max(120, Math.round(height * 0.15));
+
 const ONBOARDING_AD_SLOTS: Record<number, { unitId: string; placement: string }> = {
     0: { unitId: AdUnits.nativeOnboarding1, placement: "native_onboarding_1_1" },
     2: { unitId: AdUnits.nativeOnboarding2, placement: "native_onboarding_1_2" },
@@ -205,6 +215,12 @@ export default function OnboardingScreen({
             // Random pick from the pool
             const matched = pool[Math.floor(Math.random() * pool.length)];
             setMatchedCharacter(matched as Characters);
+            // The paywall opens on her straight after onboarding, before
+            // usePrefetchPaywallModel's delayed download has started; begin
+            // it here so her 3D preview comes from disk instead of a cold
+            // 17 MB stream.
+            void prepareWebRoot();
+            prefetch([(matched as any).base_model_url]);
 
             // NOW transition to step 3 (only after we have a character)
             animateTransition(3);
@@ -535,30 +551,48 @@ export default function OnboardingScreen({
                                             { transform: [{ scale: scaleAnim }] },
                                         ]}
                                     >
-                                        <View style={styles.giftIcon}>
-                                            <IconGift size={32} color="#FFD700" />
+                                        <View style={styles.resultKicker}>
+                                            <IconSparkles size={16} color="#FF8FB8" />
+                                            <Text style={styles.resultTitle}>{t("onb.your_match")}</Text>
+                                            <IconSparkles size={16} color="#FF8FB8" />
                                         </View>
-                                        <Text style={styles.resultTitle}>{t("onb.your_match")}</Text>
 
-                                        <View style={styles.characterCard}>
-                                            {matchedCharacter.thumbnail_url && (
-                                                <Image
-                                                    source={{ uri: matchedCharacter.thumbnail_url }}
-                                                    style={styles.characterImage}
-                                                    resizeMode="cover"
+                                        {/* A portrait, not an avatar: she is the gift, so
+                                            she gets the screen. Height follows the window so
+                                            the native ad below still fits on short phones. */}
+                                        <View style={styles.portraitGlow}>
+                                            <View style={styles.portrait}>
+                                                {matchedCharacter.thumbnail_url ? (
+                                                    <ExpoImage
+                                                        source={matchedCharacter.thumbnail_url}
+                                                        style={StyleSheet.absoluteFill}
+                                                        contentFit="cover"
+                                                        contentPosition="top"
+                                                        cachePolicy="disk"
+                                                        transition={200}
+                                                    />
+                                                ) : null}
+                                                <LinearGradient
+                                                    colors={["transparent", "rgba(13,2,33,0.55)", "rgba(13,2,33,0.96)"]}
+                                                    locations={[0.45, 0.7, 1]}
+                                                    style={StyleSheet.absoluteFill}
+                                                    pointerEvents="none"
                                                 />
-                                            )}
-                                            <Text style={styles.characterName}>
-                                                {matchedCharacter.name}
-                                            </Text>
-                                            {matchedCharacter.description && (
-                                                <Text
-                                                    style={styles.characterDesc}
-                                                    numberOfLines={3}
-                                                >
-                                                    {matchedCharacter.description}
-                                                </Text>
-                                            )}
+                                                <View style={styles.giftBadge}>
+                                                    <IconGift size={14} color="#FFD700" />
+                                                    <Text style={styles.giftBadgeText}>{t("onb.gift_badge")}</Text>
+                                                </View>
+                                                <View style={styles.portraitInfo}>
+                                                    <Text style={styles.characterName}>
+                                                        {matchedCharacter.name}
+                                                    </Text>
+                                                    {matchedCharacter.description ? (
+                                                        <Text style={styles.characterDesc} numberOfLines={2}>
+                                                            {matchedCharacter.description}
+                                                        </Text>
+                                                    ) : null}
+                                                </View>
+                                            </View>
                                         </View>
 
                                         <TouchableOpacity
@@ -568,7 +602,7 @@ export default function OnboardingScreen({
                                             disabled={isClaiming}
                                         >
                                             <LinearGradient
-                                                colors={isClaiming ? ["#7a2d52", "#D44D85"] : ["#E85C93", "#FF8FB8"]}
+                                                colors={isClaiming ? ["#7a2d52", "#D44D85"] : ["#FF6FA3", "#FF2E74"]}
                                                 style={styles.startButtonGradient}
                                                 start={{ x: 0, y: 0 }}
                                                 end={{ x: 1, y: 0 }}
@@ -612,6 +646,7 @@ export default function OnboardingScreen({
                             key={onboardingAd.placement}
                             adUnitId={onboardingAd.unitId}
                             placement={onboardingAd.placement}
+                            mediaHeight={step === 3 ? AD_MEDIA_H_RESULT : AD_MEDIA_H}
                         />
                     </View>
                 )}
@@ -752,7 +787,6 @@ const styles = StyleSheet.create({
      * mean to make.
      */
     adSlot: {
-        paddingHorizontal: 20,
         // Margin on BOTH sides, because which side the button lands on changes
         // per slide: "Continue" sits below the card on slides 1 and 3, while on
         // the result slide the card sits below "Start chatting". A gap on one
@@ -789,49 +823,73 @@ const styles = StyleSheet.create({
         alignItems: "center",
         width: "100%",
     },
-    giftIcon: {
-        width: 64,
-        height: 64,
-        borderRadius: 32,
-        backgroundColor: "rgba(255, 215, 0, 0.15)",
-        justifyContent: "center",
+    resultKicker: {
+        flexDirection: "row",
         alignItems: "center",
+        gap: 8,
         marginBottom: 16,
     },
     resultTitle: {
-        fontSize: 28,
-        fontWeight: "800",
+        fontSize: 24,
+        fontWeight: "900",
         color: "#FFFFFF",
-        marginBottom: 24,
     },
-    characterCard: {
-        alignItems: "center",
-        backgroundColor: "rgba(255,255,255,0.06)",
-        borderRadius: 24,
-        padding: 24,
+    portraitGlow: {
         width: "100%",
-        borderWidth: 1,
-        borderColor: "rgba(232, 92, 147,0.3)",
-        marginBottom: 32,
+        borderRadius: 28,
+        marginBottom: 22,
+        shadowColor: "#FF4D8D",
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.55,
+        shadowRadius: 24,
+        elevation: 14,
+        backgroundColor: "#0d0221",
     },
-    characterImage: {
-        width: 120,
-        height: 120,
-        borderRadius: 60,
-        marginBottom: 16,
-        borderWidth: 3,
-        borderColor: "rgba(232, 92, 147,0.5)",
+    portrait: {
+        width: "100%",
+        height: Math.min(height * 0.36, width * 1.05),
+        borderRadius: 28,
+        overflow: "hidden",
+        borderWidth: 1.5,
+        borderColor: "rgba(255,143,184,0.55)",
+        backgroundColor: "#1a0a2e",
+        justifyContent: "flex-end",
+    },
+    giftBadge: {
+        position: "absolute",
+        top: 14,
+        left: 14,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+        paddingHorizontal: 12,
+        paddingVertical: 7,
+        borderRadius: 999,
+        backgroundColor: "rgba(13,2,33,0.62)",
+        borderWidth: 1,
+        borderColor: "rgba(255,215,0,0.45)",
+    },
+    giftBadgeText: {
+        color: "#FFE58A",
+        fontSize: 12.5,
+        fontWeight: "800",
+        letterSpacing: 0.3,
+    },
+    portraitInfo: {
+        paddingHorizontal: 20,
+        paddingBottom: 18,
     },
     characterName: {
-        fontSize: 24,
-        fontWeight: "700",
+        fontSize: 32,
+        fontWeight: "900",
         color: "#FFFFFF",
-        marginBottom: 8,
+        marginBottom: 4,
+        textShadowColor: "rgba(0,0,0,0.4)",
+        textShadowRadius: 8,
     },
     characterDesc: {
         fontSize: 14,
-        color: "rgba(255,255,255,0.5)",
-        textAlign: "center",
+        color: "rgba(255,255,255,0.78)",
         lineHeight: 20,
     },
     startButton: {

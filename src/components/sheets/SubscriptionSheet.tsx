@@ -8,33 +8,29 @@ import {
     ScrollView,
     ActivityIndicator,
     Alert,
-    Modal,
     StatusBar,
     Linking,
-    FlatList,
-    TouchableOpacity,
     Animated,
 } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PurchasesPackage } from "react-native-purchases";
 import { analyticsService } from "../../services/AnalyticsService";
-import * as WebBrowser from "expo-web-browser";
 import { openBrowserSafe } from "../../utils/openBrowserSafe";
 import { AdsManager } from "../../services/AdsManager";
-import { IconX, IconCube3dSphere, IconVideo, IconUsers, IconSparkles, IconHeart, IconMusic, IconChevronLeft, IconChevronRight, IconAdOff, IconMessageHeart, IconBolt, IconGift, IconTrendingUp, IconHandFinger } from "@tabler/icons-react-native";
+import { IconX, IconCube3dSphere, IconUsers, IconSparkles, IconAdOff, IconMessageHeart, IconBolt, IconGift, IconTrendingUp, IconHandFinger, IconCheck, IconMusic } from "@tabler/icons-react-native";
 import { useSubscription } from "../../contexts/SubscriptionContext";
 import VRMViewer, { VRMViewerHandle } from "../VRMViewer";
 import { getCharacters } from "../../cache/charactersCache";
 import { useVrmPreviewLoader } from "../../hooks/useVrmPreviewLoader";
 import { supabase } from "../../config/supabase";
-import { styles } from "./SubscriptionSheet.styles";
+import { styles, HERO_H } from "./SubscriptionSheet.styles";
 import { track } from "../../services/trackEvents";
 
 import { isFlashPackage } from "../flash/ids";
 import CrownIcon from "../icons/CrownIcon";
+
 /**
  * When the hidden paywall preview is created. Just after
  * usePrefetchPaywallModel (15 s) has started downloading the model, so the
@@ -53,15 +49,15 @@ const FEATURES = [
     // Lv5 is the top of the bond ladder and only PRO reaches it.
     { icon: CrownIcon, text: "sub.b11_lv5", color: "#F2C14E" },
     // New, and the reason the three PRO Live2D girls are locked.
-    { icon: IconSparkles, text: "sub.b10_live2d", color: "#C8A8F0" },
+    { icon: IconSparkles, text: "sub.b10_live2d", color: "#FF9EC4" },
     { icon: IconAdOff, text: "sub.b1", color: "#FF6FA5" },
     { icon: IconMessageHeart, text: "sub.b2", color: "#FF8FB8" },
     // Free accounts get three touches a day; the prompt that follows the
     // third opens this sheet, so it has to say what PRO changes about it.
     { icon: IconHandFinger, text: "sub.b8_touch", color: "#FF8FB8" },
-    { icon: IconCube3dSphere, text: "sub.b3", color: "#C8A8F0" },
-    { icon: IconUsers, text: "sub.b4", color: "#4CAF50" },
-    { icon: IconSparkles, text: "sub.b5", color: "#2196F3" },
+    { icon: IconCube3dSphere, text: "sub.b3", color: "#FF9EC4" },
+    { icon: IconUsers, text: "sub.b4", color: "#7DD3A8" },
+    { icon: IconSparkles, text: "sub.b5", color: "#FFC48A" },
 ];
 
 interface Props {
@@ -73,10 +69,19 @@ interface Props {
     currentCharacterId?: string | null;
 }
 
+/**
+ * The paywall, over a live 3D preview of the girl.
+ *
+ * Every model it shows is read from the disk cache when it is there (see
+ * useVrmPreviewLoader): the first one is prefetched before the paywall is ever
+ * opened, and each one shown warms its carousel neighbours. Nothing in RN
+ * blurs over the live canvas — a real-time BlurView on top of WebGL was the
+ * stutter — and the canvas stops drawing whenever the sheet is closed.
+ */
 export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess, currentModelUrl, currentBackgroundUrl, currentCharacterId }: Props) {
+    const lastAnimRef = useRef<string>("");
     const { t } = useTranslation();
     const insets = useSafeAreaInsets();
-    const lastAnimRef = useRef<string>("");
     const {
         isPro,
         isLoading: contextLoading,
@@ -119,6 +124,7 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
     );
     const [isProcessing, setIsProcessing] = useState(false);
     const [activeProductId, setActiveProductId] = useState<string | null>(null);
+
     const vrmRef = useRef<VRMViewerHandle>(null);
     const [vrmReady, setVrmReady] = useState(false);
     /**
@@ -178,18 +184,6 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
     // Test controls state
     const [characters, setCharacters] = useState<any[]>([]);
     const [selectedIndex, setSelectedIndex] = useState(0);
-    const flatListRef = useRef<FlatList>(null);
-
-    // Auto-scroll to selected index once the list is available
-    useEffect(() => {
-        if (characters.length > 0 && selectedIndex >= 0) {
-            // Need a tiny timeout to ensure FlatList has rendered its items
-            setTimeout(() => {
-                flatListRef.current?.scrollToIndex({ index: selectedIndex, animated: true, viewPosition: 0.5 });
-            }, 300);
-        }
-    }, [characters.length, selectedIndex]);
-
     // Sync selectedIndex whenever characters or currentCharacterId changes
     useEffect(() => {
         if (characters.length > 0 && currentCharacterId) {
@@ -456,6 +450,58 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
         }
     };
 
+    const renderPlan = (pkg: PurchasesPackage, kind: "weekly" | "monthly") => {
+        const selected = !isPro && selectedPackage?.identifier === pkg.identifier;
+        const active = isPro && activeProductId === pkg.product.identifier;
+        const badge = active
+            ? t("sub.active")
+            : kind === "monthly" && discountPercentage && !isPro
+                ? t("sub.save", { percent: discountPercentage })
+                : null;
+        return (
+            <Pressable
+                key={kind}
+                style={[styles.planCard, selected && styles.planCardSelected, active && styles.planCardActive]}
+                onPress={() => !isPro && handleSelectPlan(pkg, kind)}
+            >
+                {badge && (
+                    <LinearGradient
+                        colors={active ? ["#4ADE80", "#16A34A"] : ["#FFD27A", "#FF9F43"]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.planBadge}
+                    >
+                        <Text style={styles.planBadgeText}>{badge}</Text>
+                    </LinearGradient>
+                )}
+                <View style={styles.planTop}>
+                    <Text style={[styles.planName, (selected || active) && styles.planNameOn]}>
+                        {t(kind === "weekly" ? "sub.weekly" : "sub.monthly")}
+                    </Text>
+                    {!isPro && (
+                        <View style={[styles.radio, selected && styles.radioOn]}>
+                            {selected && <IconCheck size={12} color="#fff" strokeWidth={3.2} />}
+                        </View>
+                    )}
+                </View>
+                <Text style={styles.planPrice} numberOfLines={1} adjustsFontSizeToFit>
+                    {pkg.product.priceString}
+                </Text>
+                {/* What a month works out to per week, so the saving is
+                    arithmetic the user can check rather than a claim on a
+                    badge. */}
+                <Text style={styles.planSub} numberOfLines={1}>
+                    {kind === "monthly"
+                        ? (pkg.product.price / WEEKS_PER_MONTH).toLocaleString(undefined, {
+                            style: "currency",
+                            currency: pkg.product.currencyCode,
+                        }) + t("sub.per_week_suffix")
+                        : " "}
+                </Text>
+            </Pressable>
+        );
+    };
+
     return (
         <Animated.View
             style={[
@@ -468,11 +514,22 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                 }
             ]}
         >
-            <View style={styles.contentWrap}>
-                <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+            <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-                {/* Mounted while open or pre-warmed (see `warm`); rendering is
-                    paused whenever the paywall is hidden. */}
+            {/* The live preview. Mounted while open or pre-warmed (see
+                `warm`); its canvas is paused whenever the sheet is hidden. The
+                picture under it covers the moments before the model is in. */}
+            <View style={[styles.stage, { height: HERO_H + 80 }]} pointerEvents="none">
+                {selectedChar?.thumbnail_url ? (
+                    <Image
+                        source={selectedChar.thumbnail_url}
+                        style={StyleSheet.absoluteFill}
+                        contentFit="cover"
+                        contentPosition="top"
+                        cachePolicy="disk"
+                        blurRadius={18}
+                    />
+                ) : null}
                 {viewerMounted && (
                     <VRMViewer
                         ref={vrmRef}
@@ -483,331 +540,193 @@ export default function SubscriptionSheet({ isOpened, onClose, onPurchaseSuccess
                         {...preview.viewerSource}
                     />
                 )}
-
-                {/* Blur overlay when a costume is selected or transitioning */}
-                {shouldBlurPreview && (
-                    <BlurView
-                        intensity={60}
-                        tint="dark"
-                        style={StyleSheet.absoluteFill}
-                    />
-                )}
-
-                {/* BG gradient overlay */}
                 <LinearGradient
-                    colors={["rgba(26,5,51,0.1)", "rgba(13,13,26,0.4)", "rgba(0,0,0,0.95)"]}
-                    locations={[0, 0.4, 1]}
+                    colors={["rgba(11,6,20,0.55)", "rgba(11,6,20,0)", "rgba(11,6,20,0.1)", "rgba(11,6,20,0.9)", "#0B0614"]}
+                    locations={[0, 0.16, 0.5, 0.8, 1]}
                     style={StyleSheet.absoluteFill}
                 />
+            </View>
 
-                {/* Header */}
-                <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-                    <Pressable
-                        onPress={() => {
-                            track.proPaywallClose(selectedPackage?.packageType?.toLowerCase());
-                            onClose();
-                        }}
-                        style={({ pressed }) => [styles.closeBtn, pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] }]}
-                    >
-                        <BlurView intensity={40} tint="dark" style={styles.closeBtnInner}>
-                            <IconX color="#fff" size={22} />
-                        </BlurView>
-                    </Pressable>
-                </View>
-
-                {/* Content */}
-                <View style={styles.mainContent}>
-                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-                        {/* Hero */}
-                        <View style={styles.heroSection}>
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 300 + insets.bottom }}
+                bounces={false}
+            >
+                <View style={[styles.hero, { height: HERO_H }]}>
+                    <View style={styles.heroText}>
+                        <Pressable onPress={handleSecretProTap} hitSlop={10}>
                             <LinearGradient
-                                colors={["#FF6FA5", "#E85C93"]}
+                                colors={["#FFE29A", "#F5B642"]}
                                 start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 0 }}
+                                end={{ x: 1, y: 1 }}
                                 style={styles.proBadge}
                             >
-                                <Pressable onPress={handleSecretProTap} hitSlop={10}>
-                                    <Text style={styles.proBadgeText}>TRUEMATE PRO</Text>
-                                </Pressable>
+                                <CrownIcon size={14} color="#5A3300" fill="#5A3300" />
+                                <Text style={styles.proBadgeText}>TRUEMATE PRO</Text>
                             </LinearGradient>
+                        </Pressable>
+                        <Text style={styles.heroTitle}>{t("sub.hero_title")}</Text>
 
-                            <Text style={styles.heroTitle}>{t("sub.hero_title")}</Text>
-
-                            {/* Demo Controls Area */}
-                            {characters.length > 0 && (
-                                <View style={styles.demoControls}>
-                                    {/* Avatar Carousel Pill */}
-                                    <View style={styles.avatarGlassPill}>
-                                        <TouchableOpacity style={styles.arrowBtn} onPress={goToPrev} activeOpacity={0.7}>
-                                            <IconChevronLeft size={18} color="rgba(255,255,255,0.6)" />
-                                        </TouchableOpacity>
-
-                                        <FlatList
-                                            ref={flatListRef}
-                                            style={styles.carouselList}
-                                            data={characters}
-                                            horizontal
-                                            showsHorizontalScrollIndicator={false}
-                                            contentContainerStyle={styles.thumbnailList}
-                                            onScrollToIndexFailed={(info) => {
-                                                const wait = new Promise(resolve => setTimeout(resolve, 500));
-                                                wait.then(() => {
-                                                    flatListRef.current?.scrollToIndex({ index: info.index, animated: true });
-                                                });
-                                            }}
-                                            keyExtractor={(item) => item.id}
-                                            renderItem={({ item, index }) => (
-                                                <TouchableOpacity
-                                                    onPress={() => setSelectedIndex(index)}
-                                                    activeOpacity={0.7}
-                                                    style={[
-                                                        styles.thumbnailWrap,
-                                                        index === selectedIndex && styles.thumbnailWrapActive,
-                                                    ]}
-                                                >
-                                                    <Image
-                                                        source={{ uri: item.small_thumb_url ?? item.thumbnail_url ?? undefined }}
-                                                        style={styles.thumbnail}
-                                                        contentFit="cover"
-                                                    />
-                                                </TouchableOpacity>
-                                            )}
-                                        />
-
-                                        <TouchableOpacity style={styles.arrowBtn} onPress={goToNext} activeOpacity={0.7}>
-                                            <IconChevronRight size={18} color="rgba(255,255,255,0.6)" />
-                                        </TouchableOpacity>
-                                    </View>
-
-                                    {/* Secondary Actions */}
-                                    <View style={styles.actionsRow}>
-                                        {(isCostumesLoading || costumes.length > 0) && (
-                                            <View style={[styles.actionGroup, { alignItems: "flex-start" }]}>
-                                                <Text style={styles.sectionLabel}>{t("sub.outfit")}</Text>
-                                                {isCostumesLoading ? (
-                                                    <View style={styles.costumesList}>
-                                                        {[1, 2, 3].map((key) => (
-                                                            <Animated.View
-                                                                key={key}
-                                                                style={[styles.costumeItemSkeleton, { opacity: shimmerOpacity }]}
-                                                            />
-                                                        ))}
-                                                    </View>
-                                                ) : (
-                                                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.costumesList}>
-
-                                                        {costumes.map((c) => (
-                                                            <TouchableOpacity
-                                                                key={c.id}
-                                                                activeOpacity={0.7}
-                                                                onPress={() => setSelectedCostume(c)}
-                                                                style={[styles.costumeItem, selectedCostume?.id === c.id && styles.costumeItemActive]}
-                                                            >
-                                                                <Image
-                                                                    source={{ uri: c.thumbnail ?? undefined }}
-                                                                    style={styles.costumeThumb}
-                                                                    contentFit="cover"
-                                                                />
-                                                            </TouchableOpacity>
-                                                        ))}
-                                                    </ScrollView>
-                                                )}
-                                            </View>
-                                        )}
-
-                                        <View style={[styles.actionGroup, { flex: 0 }]}>
-                                            <Text style={styles.sectionLabel}>{t("sub.vibe")}</Text>
-                                            <TouchableOpacity style={styles.danceBtn} onPress={handleDanceTest} activeOpacity={0.7}>
-                                                <IconMusic size={20} color="#fff" />
-                                            </TouchableOpacity>
-                                        </View>
-                                    </View>
-                                </View>
-                            )}
-                        </View>
-
-                        {/* Features */}
-                        <View style={styles.featuresContainer}>
-                            {FEATURES.map((f, i) => (
-                                <View key={i} style={[styles.featureItem, f.highlight && styles.featureItemHighlight]}>
-                                    <View style={[styles.featureIcon, { backgroundColor: f.color + "20" }]}>
-                                        <f.icon size={20} color={f.color} />
-                                    </View>
-                                    <Text style={[styles.featureText, f.highlight && styles.featureTextHighlight]}>
-                                        {t(f.text)}
-                                    </Text>
-                                    {f.highlight && (
-                                        <View style={styles.x2Pill}>
-                                            <Text style={styles.x2PillText}>×2</Text>
-                                        </View>
-                                    )}
-                                </View>
-                            ))}
-
-                            {/* PRO opens the PRO-only catalogue; it does not
-                                hand over the ruby-priced items inside it. Say
-                                so here rather than let the purchase say it. */}
-                            <Text style={styles.finePrint}>{t("sub.fine_print")}</Text>
-                        </View>
-                        <View style={{ height: 350 }} />
-                    </ScrollView>
-
-                    {/* Bottom panel — solid dark overlay so the 3D behind doesn't
-                        bleed through (real-time blur over the live scene = lag). */}
-                    <LinearGradient
-                        colors={["rgba(12,7,22,0)", "rgba(12,7,22,0.97)"]}
-                        style={styles.bottomFade}
-                        pointerEvents="none"
-                    />
-                    <View
-                        style={[styles.bottomPanel, { paddingBottom: insets.bottom + 10 }]}
-                    >
-                        {/* Plans */}
-                        <View style={styles.plansRow}>
-                            {weeklyPackage && (
-                                <Pressable
-                                    style={[
-                                        styles.planCard,
-                                        !isPro && selectedPackage?.identifier === weeklyPackage.identifier && styles.planCardSelected,
-                                        isPro && activeProductId === weeklyPackage.product.identifier && styles.planCardActive,
-                                    ]}
-                                    onPress={() => !isPro && handleSelectPlan(weeklyPackage, "weekly")}
-                                >
-                                    {isPro && activeProductId === weeklyPackage.product.identifier && (
-                                        <View style={styles.activeBadge}>
-                                            <Text style={styles.activeText}>{t("sub.active")}</Text>
-                                        </View>
-                                    )}
-                                    <View style={styles.planInfo}>
-                                        <Text
-                                            style={[
-                                                styles.planName,
-                                                !isPro && selectedPackage?.identifier === weeklyPackage.identifier && styles.textHL,
-                                                isPro && activeProductId === weeklyPackage.product.identifier && styles.textActive,
-                                            ]}
-                                        >
-                                            {t("sub.weekly")}
-                                        </Text>
-                                        <Text style={styles.planPrice}>{weeklyPackage.product.priceString}</Text>
-                                    </View>
-                                    {!isPro && (
-                                        <View
-                                            style={[
-                                                styles.radio,
-                                                selectedPackage?.identifier === weeklyPackage.identifier && styles.radioSelected,
-                                            ]}
-                                        />
-                                    )}
-                                    {isPro && activeProductId === weeklyPackage.product.identifier && (
-                                        <CrownIcon size={18} color="#F59E0B" fill="#F59E0B" />
-                                    )}
-                                </Pressable>
-                            )}
-                            {monthlyPackage && (
-                                <Pressable
-                                    style={[
-                                        styles.planCard,
-                                        !isPro && selectedPackage?.identifier === monthlyPackage.identifier && styles.planCardSelected,
-                                        isPro && activeProductId === monthlyPackage.product.identifier && styles.planCardActive,
-                                    ]}
-                                    onPress={() => !isPro && handleSelectPlan(monthlyPackage, "monthly")}
-                                >
-                                    {isPro && activeProductId === monthlyPackage.product.identifier ? (
-                                        <View style={styles.activeBadge}>
-                                            <Text style={styles.activeText}>{t("sub.active")}</Text>
-                                        </View>
-                                    ) : (
-                                        discountPercentage && !isPro && (
-                                            <View style={styles.discountBadge}>
-                                                <Text style={styles.discountText}>{t("sub.save", { percent: discountPercentage })}</Text>
-                                            </View>
-                                        )
-                                    )}
-                                    <View style={styles.planInfo}>
-                                        <Text
-                                            style={[
-                                                styles.planName,
-                                                !isPro && selectedPackage?.identifier === monthlyPackage.identifier && styles.textHL,
-                                                isPro && activeProductId === monthlyPackage.product.identifier && styles.textActive,
-                                            ]}
-                                        >
-                                            {t("sub.monthly")}
-                                        </Text>
-                                        <Text style={styles.planPrice}>{monthlyPackage.product.priceString}</Text>
-                                        {/* What a month works out to per week,
-                                            so the saving is arithmetic the
-                                            user can check rather than a claim
-                                            on a badge. */}
-                                        <Text style={styles.perMonth}>
-                                            {(monthlyPackage.product.price / WEEKS_PER_MONTH).toLocaleString(undefined, {
-                                                style: "currency",
-                                                currency: monthlyPackage.product.currencyCode,
-                                            })}
-                                            {t("sub.per_week_suffix")}
-                                        </Text>
-                                    </View>
-                                    {!isPro && (
-                                        <View
-                                            style={[
-                                                styles.radio,
-                                                selectedPackage?.identifier === monthlyPackage.identifier && styles.radioSelected,
-                                            ]}
-                                        />
-                                    )}
-                                    {isPro && activeProductId === monthlyPackage.product.identifier && (
-                                        <CrownIcon size={18} color="#F59E0B" fill="#F59E0B" />
-                                    )}
-                                </Pressable>
-                            )}
-                        </View>
-
-                        {/* CTA */}
-                        {isPro ? (
-                            <Pressable
-                                style={styles.ctaButtonManage}
-                                onPress={() => { AdsManager.suppressNextResumeAd(); Linking.openURL("https://apps.apple.com/account/subscriptions"); }}
+                        {characters.length > 1 && (
+                            <ScrollView
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={styles.avatarRow}
+                                style={styles.avatarScroll}
                             >
-                                <Text style={styles.ctaTextManage}>{t("sub.manage")}</Text>
-                            </Pressable>
-                        ) : (
-                            <Pressable
-                                style={[styles.ctaButton, (isProcessing || contextLoading) && { opacity: 0.6 }]}
-                                onPress={isProcessing || contextLoading ? undefined : handleSubscribe}
-                            >
-                                <LinearGradient
-                                    colors={["#FF6FA5", "#E85C93"]}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 0 }}
-                                    style={styles.ctaGradient}
-                                >
-                                    {isProcessing ? (
-                                        <ActivityIndicator color="#fff" />
-                                    ) : (
-                                        <Text style={styles.ctaText}>{t("sub.cta")}</Text>
-                                    )}
-                                </LinearGradient>
-                            </Pressable>
+                                {characters.map((c, i) => (
+                                    <Pressable
+                                        key={c.id}
+                                        onPress={() => setSelectedIndex(i)}
+                                        style={[styles.avatar, i === selectedIndex && styles.avatarOn]}
+                                    >
+                                        <Image
+                                            source={c.small_thumb_url ?? c.thumbnail_url}
+                                            style={styles.avatarImg}
+                                            contentFit="cover"
+                                            contentPosition="top"
+                                            cachePolicy="disk"
+                                        />
+                                    </Pressable>
+                                ))}
+                            </ScrollView>
                         )}
 
-                        {/* Footer */}
-                        <View style={styles.footerLinks}>
-                            <Pressable onPress={handleRestore}>
-                                <Text style={styles.footerLink}>{t("sub.restore")}</Text>
-                            </Pressable>
-                            <Text style={styles.footerDot}>•</Text>
-                            <Pressable onPress={() => openBrowserSafe("https://truemate.netlify.app/terms")}>
-                                <Text style={styles.footerLink}>Terms</Text>
-                            </Pressable>
-                            <Text style={styles.footerDot}>•</Text>
-                            <Pressable onPress={() => openBrowserSafe("https://truemate.netlify.app/privacy")}>
-                                <Text style={styles.footerLink}>Privacy</Text>
-                            </Pressable>
-                            <Text style={styles.footerDot}>•</Text>
-                            <Pressable onPress={() => openBrowserSafe("https://truemate.netlify.app/eula")}>
-                                <Text style={styles.footerLink}>EULA</Text>
+                        <View style={styles.toolsRow}>
+                            <ScrollView
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                style={{ flex: 1 }}
+                                contentContainerStyle={styles.costumeRow}
+                            >
+                                {isCostumesLoading
+                                    ? [1, 2, 3, 4].map((k) => (
+                                        <Animated.View key={k} style={[styles.costume, styles.costumeBone, { opacity: shimmerOpacity }]} />
+                                    ))
+                                    : costumes.map((c) => (
+                                        <Pressable
+                                            key={c.id}
+                                            onPress={() => setSelectedCostume(c)}
+                                            style={[styles.costume, selectedCostume?.id === c.id && styles.costumeOn]}
+                                        >
+                                            <Image
+                                                source={c.thumbnail ?? undefined}
+                                                style={styles.costumeImg}
+                                                contentFit="cover"
+                                                cachePolicy="disk"
+                                            />
+                                        </Pressable>
+                                    ))}
+                            </ScrollView>
+                            <Pressable
+                                onPress={handleDanceTest}
+                                style={({ pressed }) => [styles.danceBtn, pressed && { opacity: 0.75 }]}
+                                hitSlop={6}
+                            >
+                                <IconMusic size={18} color="#fff" />
                             </Pressable>
                         </View>
                     </View>
+                </View>
+
+                {/* ─── What PRO gives ─── */}
+                <View style={styles.features}>
+                    {FEATURES.map((f, i) => (
+                        <View
+                            key={f.text}
+                            style={[styles.featureRow, i < FEATURES.length - 1 && styles.featureDivider]}
+                        >
+                            <View style={[styles.featureIcon, { backgroundColor: f.color + "22" }]}>
+                                <f.icon size={18} color={f.color} />
+                            </View>
+                            <Text style={[styles.featureText, f.highlight && styles.featureTextHL]}>
+                                {t(f.text)}
+                            </Text>
+                            {f.highlight && (
+                                <View style={styles.x2Pill}>
+                                    <Text style={styles.x2PillText}>×2</Text>
+                                </View>
+                            )}
+                        </View>
+                    ))}
+                </View>
+                {/* PRO opens the PRO-only catalogue; it does not hand over the
+                    ruby-priced items inside it. Say so here rather than let
+                    the purchase say it. */}
+                <Text style={styles.finePrint}>{t("sub.fine_print")}</Text>
+            </ScrollView>
+
+            {/* Close sits over the scroll so it never scrolls away. */}
+            <Pressable
+                onPress={() => {
+                    track.proPaywallClose(selectedPackage?.packageType?.toLowerCase());
+                    onClose();
+                }}
+                hitSlop={10}
+                style={({ pressed }) => [styles.closeBtn, { top: insets.top + 10 }, pressed && { opacity: 0.7 }]}
+            >
+                <IconX color="#fff" size={20} />
+            </Pressable>
+
+            {/* ─── Plans + CTA, pinned ─── */}
+            <LinearGradient
+                colors={["rgba(11,6,20,0)", "#0B0614"]}
+                locations={[0, 0.62]}
+                style={[styles.bottomFade, { bottom: 0 }]}
+                pointerEvents="none"
+            />
+            <View style={[styles.bottomPanel, { paddingBottom: insets.bottom + 10 }]}>
+                <View style={styles.plansRow}>
+                    {weeklyPackage && renderPlan(weeklyPackage, "weekly")}
+                    {monthlyPackage && renderPlan(monthlyPackage, "monthly")}
+                </View>
+
+                {isPro ? (
+                    <Pressable
+                        style={styles.ctaManage}
+                        onPress={() => { AdsManager.suppressNextResumeAd(); Linking.openURL("https://apps.apple.com/account/subscriptions"); }}
+                    >
+                        <Text style={styles.ctaManageText}>{t("sub.manage")}</Text>
+                    </Pressable>
+                ) : (
+                    <Pressable
+                        style={({ pressed }) => [styles.cta, (isProcessing || contextLoading) && { opacity: 0.6 }, pressed && { transform: [{ scale: 0.985 }] }]}
+                        onPress={isProcessing || contextLoading ? undefined : handleSubscribe}
+                    >
+                        <LinearGradient
+                            colors={["#FF6FA3", "#FF2E74"]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.ctaGradient}
+                        >
+                            {isProcessing ? (
+                                <ActivityIndicator color="#fff" />
+                            ) : (
+                                <>
+                                    <CrownIcon size={18} color="#fff" fill="#fff" />
+                                    <Text style={styles.ctaText}>{t("sub.cta")}</Text>
+                                </>
+                            )}
+                        </LinearGradient>
+                    </Pressable>
+                )}
+
+                <View style={styles.footerLinks}>
+                    <Pressable onPress={handleRestore} hitSlop={6}>
+                        <Text style={styles.footerLink}>{t("sub.restore")}</Text>
+                    </Pressable>
+                    <Text style={styles.footerDot}>·</Text>
+                    <Pressable onPress={() => openBrowserSafe("https://truemate.netlify.app/terms")} hitSlop={6}>
+                        <Text style={styles.footerLink}>Terms</Text>
+                    </Pressable>
+                    <Text style={styles.footerDot}>·</Text>
+                    <Pressable onPress={() => openBrowserSafe("https://truemate.netlify.app/privacy")} hitSlop={6}>
+                        <Text style={styles.footerLink}>Privacy</Text>
+                    </Pressable>
+                    <Text style={styles.footerDot}>·</Text>
+                    <Pressable onPress={() => openBrowserSafe("https://truemate.netlify.app/eula")} hitSlop={6}>
+                        <Text style={styles.footerLink}>EULA</Text>
+                    </Pressable>
                 </View>
             </View>
         </Animated.View>

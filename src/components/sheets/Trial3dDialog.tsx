@@ -2,8 +2,15 @@ import React, { useEffect, useRef } from "react";
 import { Animated, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTranslation } from "react-i18next";
-import { IconBadge3d } from "@tabler/icons-react-native";
+import { Image } from "expo-image";
+import { IconPlayerPlayFilled } from "@tabler/icons-react-native";
 import { SHEET } from "../../theme/sheet";
+
+// Painted for this dialog: a chibi figure on a hologram stage, on the same
+// near-black as CARD_TOP so its edges disappear into the card.
+const HERO = "https://pub-2682fd3d83e342588016f364737f5758.r2.dev/app-art/trial/trial3d.jpg";
+const CARD_TOP = "#0B010C";
+const CARD_BOTTOM = "#1C0A1C";
 
 /**
  * The one time a free user is handed 3D.
@@ -42,18 +49,18 @@ export function Trial3dDialog({
             <View style={styles.backdrop}>
                 <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
 
-                <Animated.View style={[styles.card, { opacity: pop, transform: [{ scale }] }]}>
-                    <LinearGradient
-                        colors={["#C9A6FF", "#7A4DFF"]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.halo}
-                    >
-                        <View style={styles.haloInner}>
-                            <IconBadge3d size={40} color="#C9A6FF" />
-                        </View>
-                    </LinearGradient>
+                <Animated.View style={[styles.cardWrap, { opacity: pop, transform: [{ scale }] }]}>
+                    <LinearGradient colors={[CARD_TOP, CARD_TOP, CARD_BOTTOM]} locations={[0, 0.5, 1]} style={styles.card}>
+                    <View style={styles.hero}>
+                        <Image source={HERO} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="disk" transition={160} />
+                        <LinearGradient
+                            colors={["transparent", CARD_TOP]}
+                            style={styles.heroFade}
+                            pointerEvents="none"
+                        />
+                    </View>
 
+                    <View style={styles.content}>
                     <Text style={styles.title}>{t("trial3d.title", { n: minutes })}</Text>
                     <Text style={styles.body}>{t("trial3d.body")}</Text>
 
@@ -64,6 +71,7 @@ export function Trial3dDialog({
                             end={{ x: 1, y: 0 }}
                             style={styles.cta}
                         >
+                            <IconPlayerPlayFilled size={18} color="#fff" />
                             <Text style={styles.ctaText}>{t("trial3d.cta", { n: minutes })}</Text>
                         </LinearGradient>
                     </Pressable>
@@ -71,6 +79,8 @@ export function Trial3dDialog({
                     <Pressable onPress={onClose} hitSlop={8} style={styles.later}>
                         <Text style={styles.laterText}>{t("trial3d.later")}</Text>
                     </Pressable>
+                    </View>
+                    </LinearGradient>
                 </Animated.View>
             </View>
         </Modal>
@@ -85,36 +95,36 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         padding: 28,
     },
-    card: {
+    cardWrap: {
         width: "100%",
         maxWidth: 330,
         borderRadius: 28,
-        backgroundColor: "#171026",
+        shadowColor: SHEET.accent,
+        shadowOpacity: 0.35,
+        shadowRadius: 28,
+        shadowOffset: { width: 0, height: 0 },
+        elevation: 12,
+    },
+    card: {
+        borderRadius: 28,
+        overflow: "hidden",
         borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.12)",
-        alignItems: "center",
-        paddingHorizontal: 22,
-        paddingTop: 26,
-        paddingBottom: 18,
+        borderColor: "rgba(255,111,163,0.28)",
     },
-    halo: {
-        width: 88, height: 88, borderRadius: 44,
-        alignItems: "center", justifyContent: "center",
-        marginBottom: 16,
-    },
-    haloInner: {
-        width: 76, height: 76, borderRadius: 38,
-        alignItems: "center", justifyContent: "center",
-        backgroundColor: "#171026",
-    },
-    title: { color: "#fff", fontSize: 19, fontWeight: "900", textAlign: "center" },
+    hero: { width: "100%", aspectRatio: 881 / 768 * 1.12, backgroundColor: CARD_TOP },
+    heroFade: { position: "absolute", left: 0, right: 0, bottom: 0, height: 70 },
+    content: { alignItems: "center", paddingHorizontal: 22, paddingBottom: 16, marginTop: -18 },
+    title: { color: "#fff", fontSize: 21, fontWeight: "900", textAlign: "center" },
     body: {
-        color: "rgba(255,255,255,0.6)", fontSize: 13.5, lineHeight: 19,
+        color: "rgba(255,255,255,0.66)", fontSize: 13.5, lineHeight: 19,
         textAlign: "center", marginTop: 8,
     },
     cta: {
         height: 50, minWidth: 236, borderRadius: 25,
-        alignItems: "center", justifyContent: "center", marginTop: 20,
+        flexDirection: "row", gap: 8,
+        alignItems: "center", justifyContent: "center", marginTop: 18,
+        shadowColor: SHEET.accent, shadowOpacity: 0.5, shadowRadius: 14,
+        shadowOffset: { width: 0, height: 4 }, elevation: 6,
     },
     ctaText: { color: "#fff", fontSize: 16, fontWeight: "800" },
     later: { alignSelf: "center", paddingVertical: 10, paddingHorizontal: 16, marginTop: 2 },

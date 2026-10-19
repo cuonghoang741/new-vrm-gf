@@ -5,6 +5,7 @@ import {
     NativeAdView,
     NativeAsset,
     NativeAssetType,
+    NativeMediaView,
 } from "react-native-google-mobile-ads";
 import { AdUnits } from "../../config/ads";
 import { analyticsService } from "../../services/AnalyticsService";
@@ -47,6 +48,7 @@ export function NativeAdCard({
     cornerRadius,
     adUnitId,
     fullWidthCta = false,
+    mediaHeight,
 }: {
     placement?: string;
     /** Defaults to the shared native unit; the language screen passes its own. */
@@ -56,6 +58,12 @@ export function NativeAdCard({
      * small button on the right.
      */
     fullWidthCta?: boolean;
+    /**
+     * Large card: the ad's image or video at this height under the headline,
+     * and the CTA across the card. For screens with room to spare, where the
+     * one-line card read as a scrap at the bottom.
+     */
+    mediaHeight?: number;
     /**
      * 0 for an edge-to-edge footer banner, left undefined for a contained
      * card. Same knob yuuki exposes.
@@ -134,14 +142,18 @@ export function NativeAdCard({
     // Nothing will ever arrive — give the space back rather than leaving a
     // skeleton shimmering forever.
     if (failed) return null;
-    if (!ad) return <NativeAdSkeleton cornerRadius={cornerRadius} />;
+    if (!ad) return <NativeAdSkeleton cornerRadius={cornerRadius} mediaHeight={mediaHeight} />;
+
+    // The media view shows the main image for image ads and plays video
+    // otherwise; it is the same height as the skeleton's, so nothing shifts.
+    const wideCta = fullWidthCta || mediaHeight !== undefined;
 
     return (
         <NativeAdView
             nativeAd={ad}
             style={[styles.card, cornerRadius !== undefined && { borderRadius: cornerRadius }]}
         >
-            <View style={[styles.row, fullWidthCta && styles.rowAboveCta]}>
+            <View style={[styles.row, wideCta && styles.rowAboveCta]}>
                 {/* The spacing lives on these wrappers, never on the asset
                     view itself: RN implements `gap` as margins on the direct
                     children, and a margin on a registered asset is what makes
@@ -172,7 +184,7 @@ export function NativeAdCard({
                         </View>
                     ) : null}
                 </View>
-                {ad.callToAction && !fullWidthCta ? (
+                {ad.callToAction && !wideCta ? (
                     <View style={styles.ctaSlot}>
                         <NativeAsset assetType={NativeAssetType.CALL_TO_ACTION}>
                             <View style={[styles.cta, ctaColor ? { backgroundColor: ctaColor } : null]}>
@@ -185,7 +197,13 @@ export function NativeAdCard({
                 ) : null}
             </View>
 
-            {ad.callToAction && fullWidthCta ? (
+            {mediaHeight !== undefined ? (
+                <View style={[styles.mediaSlot, { height: mediaHeight }]}>
+                    <NativeMediaView style={styles.media} resizeMode="cover" />
+                </View>
+            ) : null}
+
+            {ad.callToAction && wideCta ? (
                 <View style={styles.ctaWideSlot}>
                 <NativeAsset assetType={NativeAssetType.CALL_TO_ACTION}>
                     <View
@@ -210,7 +228,7 @@ export function NativeAdCard({
  * radius, border and the same 44px icon row — so the slot does not resize
  * when the real ad swaps in.
  */
-function NativeAdSkeleton({ cornerRadius }: { cornerRadius?: number }) {
+function NativeAdSkeleton({ cornerRadius, mediaHeight }: { cornerRadius?: number; mediaHeight?: number }) {
     const shimmer = useRef(new Animated.Value(0.35)).current;
 
     useEffect(() => {
@@ -226,14 +244,24 @@ function NativeAdSkeleton({ cornerRadius }: { cornerRadius?: number }) {
 
     return (
         <View style={[styles.card, styles.skeletonCard, cornerRadius !== undefined && { borderRadius: cornerRadius }]}>
-            <View style={styles.row}>
+            <View style={[styles.row, mediaHeight !== undefined && styles.rowAboveCta]}>
                 <Animated.View style={[styles.icon, styles.bone, { opacity: shimmer }]} />
                 <View style={styles.middle}>
                     <Animated.View style={[styles.boneLine, { width: "62%", opacity: shimmer }]} />
                     <Animated.View style={[styles.boneLine, { width: "88%", marginTop: 7, height: 9, opacity: shimmer }]} />
                 </View>
-                <Animated.View style={[styles.ctaBone, { opacity: shimmer }]} />
+                {mediaHeight === undefined && <Animated.View style={[styles.ctaBone, { opacity: shimmer }]} />}
             </View>
+            {mediaHeight !== undefined && (
+                <>
+                    <View style={[styles.mediaSlot, { height: mediaHeight }]}>
+                        <Animated.View style={[styles.media, styles.bone, { opacity: shimmer }]} />
+                    </View>
+                    <View style={styles.ctaWideSlot}>
+                        <Animated.View style={[styles.ctaWide, styles.bone, { height: 42, opacity: shimmer }]} />
+                    </View>
+                </>
+            )}
         </View>
     );
 }
@@ -291,6 +319,8 @@ const styles = StyleSheet.create({
     // gives way when the text is long.
     ctaSlot: { marginLeft: 12, flexShrink: 0 },
     ctaWideSlot: { marginTop: 12, paddingHorizontal: 14, paddingBottom: 14 },
+    mediaSlot: { marginTop: 12, paddingHorizontal: 14 },
+    media: { flex: 1, borderRadius: 12, overflow: "hidden" },
     // No margins on an asset view: spacing comes from the row's gap. A margin
     // on the registered asset is a common trigger for AdMob's "advertiser
     // assets outside native ad view" finding.

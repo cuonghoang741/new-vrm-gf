@@ -30,6 +30,7 @@ const en: Dict = {
     "ads.loading": "Loading ad…",
     "act.cam_on": "Cam On",
     "onb.your_match": "Your match!",
+    "onb.gift_badge": "Welcome gift",
     "onb.start_chatting_with": "Start chatting with {{name}}",
     "ads.watch_ad": "Watch ad",
     "lang.title": "Choose your language",

@@ -30,6 +30,7 @@ const zh: Dict = {
     "ads.loading": "正在加载广告…",
     "act.cam_on": "开摄像头",
     "onb.your_match": "为你匹配到了！",
+    "onb.gift_badge": "见面礼",
     "onb.start_chatting_with": "开始和{{name}}聊天",
     "ads.watch_ad": "观看广告",
     "lang.title": "选择语言",

@@ -30,6 +30,7 @@ const ko: Dict = {
     "ads.loading": "광고 불러오는 중…",
     "act.cam_on": "카메라 켬",
     "onb.your_match": "당신의 짝이에요!",
+    "onb.gift_badge": "웰컴 선물",
     "onb.start_chatting_with": "{{name}}와 대화 시작",
     "ads.watch_ad": "광고 보기",
     "lang.title": "언어 선택",

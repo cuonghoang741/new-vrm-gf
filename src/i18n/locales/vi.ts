@@ -30,6 +30,7 @@ const vi: Dict = {
     "ads.loading": "Đang tải quảng cáo…",
     "act.cam_on": "Bật cam",
     "onb.your_match": "Người hợp với bạn!",
+    "onb.gift_badge": "Quà chào mừng",
     "onb.start_chatting_with": "Trò chuyện với {{name}}",
     "ads.watch_ad": "Xem quảng cáo",
     "lang.title": "Chọn ngôn ngữ",

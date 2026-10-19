@@ -213,7 +213,7 @@ export default function PlayScreen() {
      * below only spends what the server already granted.
      */
     const [trialRemaining, setTrialRemaining] = useState(0);
-    const [trialMinutes, setTrialMinutes] = useState(3);
+    const [trialMinutes, setTrialMinutes] = useState(5);
     const [trialOffer, setTrialOffer] = useState(false);
     const trialAskedRef = useRef(false);
     /** The free 3D trial exists and has not been used: a 2D tap offers it again. */

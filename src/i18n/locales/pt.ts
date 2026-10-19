@@ -30,6 +30,7 @@ const pt: Dict = {
     "ads.loading": "Carregando anúncio…",
     "act.cam_on": "Câmera",
     "onb.your_match": "Seu par!",
+    "onb.gift_badge": "Presente de boas-vindas",
     "onb.start_chatting_with": "Converse com {{name}}",
     "ads.watch_ad": "Ver anúncio",
     "lang.title": "Escolha o seu idioma",

@@ -30,6 +30,7 @@ const ja: Dict = {
     "ads.loading": "広告を読み込み中…",
     "act.cam_on": "カメラON",
     "onb.your_match": "あなたにぴったり！",
+    "onb.gift_badge": "ウェルカムギフト",
     "onb.start_chatting_with": "{{name}}とチャットを始める",
     "ads.watch_ad": "広告を見る",
     "lang.title": "言語を選択",

@@ -48,12 +48,16 @@ const TEST_AD_UNITS = {
   interstitialSplash: "ca-app-pub-3940256099942544/1033173712",
   rewarded: "ca-app-pub-3940256099942544/5224354917",
   rewardedInterstitial: "ca-app-pub-3940256099942544/5354046379",
-  native: "ca-app-pub-3940256099942544/2247696110",
-  nativeLanguage1: "ca-app-pub-3940256099942544/2247696110",
-  nativeLanguage2: "ca-app-pub-3940256099942544/2247696110",
-  nativeOnboarding1: "ca-app-pub-3940256099942544/2247696110",
-  nativeOnboarding2: "ca-app-pub-3940256099942544/2247696110",
-  nativeOnboarding3: "ca-app-pub-3940256099942544/2247696110",
+  // Native Video sample, not the plain Native one (…/2247696110): that unit
+  // was answering "Incorrect native ad response. Click actions were not
+  // properly specified" on 2026-10-19, so test builds showed no native ad at
+  // all. This one also brings media, which the large onboarding card shows.
+  native: "ca-app-pub-3940256099942544/1044960115",
+  nativeLanguage1: "ca-app-pub-3940256099942544/1044960115",
+  nativeLanguage2: "ca-app-pub-3940256099942544/1044960115",
+  nativeOnboarding1: "ca-app-pub-3940256099942544/1044960115",
+  nativeOnboarding2: "ca-app-pub-3940256099942544/1044960115",
+  nativeOnboarding3: "ca-app-pub-3940256099942544/1044960115",
   appOpen: "ca-app-pub-3940256099942544/9257395921",
   appOpenSplash: "ca-app-pub-3940256099942544/9257395921",
 } as const;
