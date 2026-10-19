@@ -33,6 +33,8 @@ export type Character = {
   avatar: string | null;
   small_avatar: string | null;
   base_model_url: string | null;
+  /** Thumbnail embedded in the VRM, extracted once by tools/vroid/vrm_thumbs.py. */
+  vrm_thumbnail_url?: string | null;
   video_url: string | null;
   agent_elevenlabs_id: string | null;
   background_default_id: string | null;

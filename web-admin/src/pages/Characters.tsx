@@ -234,6 +234,7 @@ export default function Characters() {
             const live = reasons.length === 0;
             const busy = busyId === c.id;
             const img = mediaUrl(c.thumbnail_url ?? c.avatar);
+            const vrmThumb = isVrm(c.base_model_url) ? mediaUrl(c.vrm_thumbnail_url) : null;
             const bg = backgrounds.find((b) => b.id === c.background_default_id);
             const bgThumb = bg ? mediaUrl(bg.thumbnail ?? bg.image) : null;
             const isDragging = draggedIdx === idx;
@@ -268,30 +269,31 @@ export default function Characters() {
                 </span>
 
                 <Link to={`/characters/${c.id}`} draggable={false} style={{ color: 'inherit', textDecoration: 'none' }}>
-                  {/* The catalogue art the app shows, with a capture of the
-                      real model in the corner: the art is repainted, so the
-                      two have to be compared side by side before publishing.
-                      Without art the model fills the card, as before. */}
+                  {/* The catalogue art the app shows, with the VRM's own
+                      thumbnail (embedded in the file, captured once into
+                      vrm_thumbnail_url) in the corner: the art is repainted,
+                      so the two have to be compared before publishing. No
+                      captured thumbnail yet: render the model live instead. */}
                   <div className="char-avatar" style={{ filter: live ? undefined : 'grayscale(0.8)', overflow: 'hidden' }}>
                     {img ? (
                       <img src={img} alt={c.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                     ) : (
                       <VrmThumb modelUrl={c.base_model_url} fallback={null} alt={c.name} style={{ width: '100%', height: '100%' }} />
                     )}
-                    {img && isVrm(c.base_model_url) && (
+                    {(vrmThumb || (img && isVrm(c.base_model_url))) && (
                       <div
-                        title="Model 3D thật (VRM)"
+                        title="Ảnh gốc trong file VRM"
                         style={{
-                          position: 'absolute', top: 8, right: 8, zIndex: 2, width: '36%', aspectRatio: '3 / 4',
-                          borderRadius: 8, overflow: 'hidden', background: 'var(--bg-elev-2)',
-                          border: '2px solid rgba(255,255,255,0.85)', boxShadow: '0 2px 10px rgba(0,0,0,0.55)',
+                          position: 'absolute', top: 8, right: 8, zIndex: 2, width: 52, height: 52,
+                          borderRadius: 10, overflow: 'hidden', background: 'var(--bg-elev-2)',
+                          border: '1.5px solid rgba(255,255,255,0.8)', boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
                         }}
                       >
-                        <VrmThumb modelUrl={c.base_model_url} fallback={null} alt={`${c.name} VRM`} style={{ width: '100%', height: '100%' }} />
-                        <span style={{
-                          position: 'absolute', left: 0, right: 0, bottom: 0, textAlign: 'center', fontSize: 9, fontWeight: 800,
-                          letterSpacing: 0.5, color: '#fff', background: 'rgba(0,0,0,0.6)', padding: '1px 0',
-                        }}>3D</span>
+                        {vrmThumb ? (
+                          <img src={vrmThumb} alt={`${c.name} VRM`} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        ) : (
+                          <VrmThumb modelUrl={c.base_model_url} fallback={null} alt={`${c.name} VRM`} style={{ width: '100%', height: '100%' }} />
+                        )}
                       </div>
                     )}
                     {!img && !c.base_model_url && <span>{c.name.slice(0, 1)}</span>}
