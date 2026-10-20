@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 
 // Available animations in the app (from fbxFiles)
 const AVAILABLE_ANIMATIONS = [
@@ -61,7 +60,7 @@ const AVAILABLE_ACTIONS = [
     {
         action: "become_nude",
         description: "User EXPLICITLY wants to see the character nude, undressed, or naked in the 3D scene (NOT a photo)",
-        examples: ["cởi đồ", "nude", "lột đồ", "naked", "undress", "cho xem hàng", "show nude", "show sensitive body areas", "show pussy", "show boobs"]
+        examples: ["cởi đồ", "nude", "lột đồ", "naked", "undress", "cho xem hàng", "show nude", "show butt", "show sensitive body areas", "show pussy", "show boobs"]
     },
     {
         action: "change_character",
@@ -115,47 +114,23 @@ IMPORTANT RULES:
 10. If user asks for "nude photo", "sexy video", "hot picture", use 'send_nude_media', NOT 'send_photo' or 'become_nude'.
 
 Return ONLY a JSON object with this exact format:
-{"action": "action_name", "confidence": 0.0-1.0, "parameters": {"animationName": "Animation Name"}, "reasoning": "brief explanation"}
+{"action": "action_name", "confidence": 0.0-1.0, "parameters": {"animationName": "Animation Name", "mediaTag": "tag"}, "reasoning": "brief explanation"}
 
 For play_animation, always include parameters.animationName with one of the available animation names.
+For send_photo / send_video / send_nude_media, include parameters.mediaTag when the
+user asked for a specific KIND of picture, picking the closest tag from the
+"Available media tags" list given below. Leave mediaTag out when they only asked
+for "a photo" with no subject — the app then picks one at random.
 For other actions, parameters can be empty {}.`;
 
-// Retry helper function for Gemini API calls
-async function fetchWithRetry(
-    url: string,
-    options: RequestInit,
-    maxRetries: number = 3,
-    initialDelayMs: number = 1000,
-    contextInfo: string = ""
-): Promise<Response> {
-    let lastError: Error | null = null;
-
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-            const response = await fetch(url, options);
-
-            if (response.ok || (response.status >= 400 && response.status < 500)) {
-                return response;
-            }
-
-            const errorText = await response.text();
-            lastError = new Error(`Gemini status ${response.status}: ${errorText}`);
-            console.log(`[gemini-suggest-action] Attempt ${attempt}/${maxRetries} failed: ${lastError.message}`);
-        } catch (error) {
-            lastError = error instanceof Error ? error : new Error(String(error));
-            console.log(`[gemini-suggest-action] Attempt ${attempt}/${maxRetries} network error: ${lastError.message}`);
-        }
-
-        if (attempt < maxRetries) {
-            const delay = initialDelayMs * Math.pow(2, attempt - 1);
-            await new Promise(resolve => setTimeout(resolve, delay));
-        }
-    }
-
-    // Try to notify Telegram before throwing
-    await sendTelegramError(`Gemini fully failed after ${maxRetries} attempts.\nError: ${lastError?.message}`, contextInfo);
-
-    throw lastError || new Error('All retry attempts failed');
+/**
+ * The tag vocabulary is per character and lives in `medias.keywords`, so the
+ * caller sends it with the request. Without it the model invents tags that
+ * match nothing and every request degrades to a random picture.
+ */
+function withMediaTags(prompt: string, tags: string[]): string {
+    if (!tags.length) return prompt;
+    return `${prompt}\n\nAvailable media tags for THIS character (use one of these exact strings, or omit mediaTag):\n${tags.map((t) => `- ${t}`).join("\n")}`;
 }
 
 async function sendTelegramError(message: string, context: string = '') {
@@ -191,11 +166,11 @@ serve(async (req: Request) => {
     }
 
     try {
-        if (!GEMINI_API_KEY) {
-            throw new Error("GEMINI_API_KEY not configured");
-        }
-
-        const { message } = await req.json();
+        const { message, mediaTags } = await req.json();
+        const tags: string[] = Array.isArray(mediaTags)
+            ? mediaTags.filter((t: unknown) => typeof t === "string" && t.trim()).slice(0, 40)
+            : [];
+        const prompt = withMediaTags(SYSTEM_PROMPT, tags);
 
         if (!message || typeof message !== "string") {
             return new Response(
@@ -207,83 +182,46 @@ serve(async (req: Request) => {
         let responseText = "";
         const contextInfo = `Action suggest for message: "${message.substring(0, 40)}${message.length > 40 ? '...' : ''}"`;
 
+        // OpenAI only. GEMINI_API_KEY has been invalid since 2026-09-28, and
+        // trying it first cost every message a failed call and an alert.
         try {
-            // Call Gemini API with retry
-            const geminiResponse = await fetchWithRetry(
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
-                {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        contents: [
-                            {
-                                role: "user",
-                                parts: [{ text: `${SYSTEM_PROMPT}\n\nUser message to analyze: "${message}"` }]
-                            }
-                        ],
-                        generationConfig: {
-                            temperature: 0.1,
-                            maxOutputTokens: 300,
-                        }
-                    })
+            const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+            if (!OPENAI_API_KEY) throw new Error("OpenAI API key not configured");
+
+            const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${OPENAI_API_KEY}`
                 },
-                2, 1000, contextInfo
-            );
+                body: JSON.stringify({
+                    model: "gpt-4o-mini",
+                    messages: [
+                        { role: "system", content: prompt },
+                        { role: "user", content: `User message to analyze: "${message}"` }
+                    ],
+                    temperature: 0.1,
+                    response_format: { type: "json_object" }
+                })
+            });
 
-            if (!geminiResponse.ok) {
-                const errorText = await geminiResponse.text();
-                throw new Error(`Gemini status ${geminiResponse.status}: ${errorText}`);
+            if (!openaiResponse.ok) {
+                const errText = await openaiResponse.text();
+                throw new Error(`OpenAI status ${openaiResponse.status}: ${errText}`);
             }
 
-            const geminiData = await geminiResponse.json();
-            responseText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-            
-            if (!responseText) throw new Error("Gemini returned an empty response");
+            const openaiData = await openaiResponse.json();
+            responseText = openaiData.choices?.[0]?.message?.content || "";
 
-        } catch (geminiError: any) {
-            console.error(`[gemini-suggest-action] Gemini failed: ${geminiError.message}. Attempting OpenAI fallback...`);
-            
-            try {
-                const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-                if (!OPENAI_API_KEY) throw new Error("OpenAI API key not configured");
-
-                const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": `Bearer ${OPENAI_API_KEY}`
-                    },
-                    body: JSON.stringify({
-                        model: "gpt-4o-mini",
-                        messages: [
-                            { role: "system", content: SYSTEM_PROMPT },
-                            { role: "user", content: `User message to analyze: "${message}"` }
-                        ],
-                        temperature: 0.1,
-                        response_format: { type: "json_object" }
-                    })
-                });
-
-                if (!openaiResponse.ok) {
-                    const errText = await openaiResponse.text();
-                    throw new Error(`OpenAI status ${openaiResponse.status}: ${errText}`);
-                }
-
-                const openaiData = await openaiResponse.json();
-                responseText = openaiData.choices?.[0]?.message?.content || "";
-                
-                if (!responseText) throw new Error("OpenAI returned an empty response");
-                
-                console.log('[gemini-suggest-action] OpenAI fallback successful');
-                await sendTelegramError(`⚠️ Gemini failed, used OpenAI fallback.\nGemini Error: ${geminiError.message}`, contextInfo + "\n(AUTO-FALLBACK)");
-            } catch (openaiError: any) {
-                console.error(`[gemini-suggest-action] OpenAI fallback also failed: ${openaiError.message}`);
-                // Proceed to default result
-                responseText = "{}"; 
-            }
+            if (!responseText) throw new Error("OpenAI returned an empty response");
+        } catch (openaiError: any) {
+            console.error(`[gemini-suggest-action] OpenAI failed: ${openaiError.message}`);
+            await sendTelegramError(`OpenAI failed: ${openaiError.message}`, contextInfo);
+            // Proceed to default result
+            responseText = "{}";
         }
 
-        // Parse the JSON response from Gemini
+        // Parse the JSON response
         let result = { action: "none", confidence: 1.0, parameters: {}, reasoning: "Failed to parse response" };
 
         try {
@@ -308,6 +246,17 @@ serve(async (req: Request) => {
                         );
                         parameters.animationName = closest?.name || "Happy"; // Default to Happy
                     }
+                }
+
+                // A tag the character has no media for is worse than no tag: it
+                // would send the app hunting and then fall back anyway. Keep it
+                // only when it really is one of this character's tags.
+                if (parameters.mediaTag) {
+                    const want = String(parameters.mediaTag).toLowerCase().trim();
+                    const match = tags.find((t) => t.toLowerCase() === want)
+                        ?? tags.find((t) => t.toLowerCase().includes(want) || want.includes(t.toLowerCase()));
+                    if (match) parameters.mediaTag = match;
+                    else delete parameters.mediaTag;
                 }
 
                 result = {

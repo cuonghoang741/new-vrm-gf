@@ -81,7 +81,8 @@ async function translateDescription(
 
     try {
         let text = "";
-        if (GEMINI_API_KEY) {
+        // Gemini is off (key invalid since 2026-09-28): OpenAI translates.
+        if (GEMINI_API_KEY && Deno.env.get("GEMINI_ENABLED") === "1") {
             const r = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },

@@ -391,16 +391,12 @@ serve(async (req)=>{
     };
     // Context info for error reporting
     const contextInfo = `User: ${user_id || client_id || 'Unknown'}\nCharacter: ${character_id}`;
-    // Which model answers, in order. OpenAI goes first: GEMINI_API_KEY went
-    // invalid on 2026-09-28, and every message was paying for a failed Gemini
-    // call plus a Telegram alert before reaching OpenAI anyway. Set
-    // CHAT_PROVIDER=gemini once a working key is in to put Gemini back in front.
-    const providers = Deno.env.get('CHAT_PROVIDER') === 'gemini' ? [
-      ['gemini', callGemini],
+    // OpenAI only. GEMINI_API_KEY has been invalid since 2026-09-28; Gemini
+    // was switched off entirely on 2026-10-20 so no message pays for a
+    // failed call or an alert. callGemini stays for when a key is back:
+    // add ['gemini', callGemini] to this list.
+    const providers = [
       ['openai', callOpenAI]
-    ] : [
-      ['openai', callOpenAI],
-      ['gemini', callGemini]
     ];
     let responseText = '';
     const failures = {};
@@ -416,7 +412,6 @@ serve(async (req)=>{
     if (!responseText) {
       return new Response(JSON.stringify({
         error: 'All AI models failed',
-        gemini_error: failures.gemini,
         openai_error: failures.openai
       }), {
         status: 500,

@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 
 // Available animations in the app (from fbxFiles)
 const AVAILABLE_ANIMATIONS = [
@@ -134,44 +133,6 @@ function withMediaTags(prompt: string, tags: string[]): string {
     return `${prompt}\n\nAvailable media tags for THIS character (use one of these exact strings, or omit mediaTag):\n${tags.map((t) => `- ${t}`).join("\n")}`;
 }
 
-// Retry helper function for Gemini API calls
-async function fetchWithRetry(
-    url: string,
-    options: RequestInit,
-    maxRetries: number = 3,
-    initialDelayMs: number = 1000,
-    contextInfo: string = ""
-): Promise<Response> {
-    let lastError: Error | null = null;
-
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-            const response = await fetch(url, options);
-
-            if (response.ok || (response.status >= 400 && response.status < 500)) {
-                return response;
-            }
-
-            const errorText = await response.text();
-            lastError = new Error(`Gemini status ${response.status}: ${errorText}`);
-            console.log(`[gemini-suggest-action] Attempt ${attempt}/${maxRetries} failed: ${lastError.message}`);
-        } catch (error) {
-            lastError = error instanceof Error ? error : new Error(String(error));
-            console.log(`[gemini-suggest-action] Attempt ${attempt}/${maxRetries} network error: ${lastError.message}`);
-        }
-
-        if (attempt < maxRetries) {
-            const delay = initialDelayMs * Math.pow(2, attempt - 1);
-            await new Promise(resolve => setTimeout(resolve, delay));
-        }
-    }
-
-    // Try to notify Telegram before throwing
-    await sendTelegramError(`Gemini fully failed after ${maxRetries} attempts.\nError: ${lastError?.message}`, contextInfo);
-
-    throw lastError || new Error('All retry attempts failed');
-}
-
 async function sendTelegramError(message: string, context: string = '') {
     const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
     const CHAT_ID = Deno.env.get("TELEGRAM_CHAT_ID");
@@ -205,10 +166,6 @@ serve(async (req: Request) => {
     }
 
     try {
-        if (!GEMINI_API_KEY) {
-            throw new Error("GEMINI_API_KEY not configured");
-        }
-
         const { message, mediaTags } = await req.json();
         const tags: string[] = Array.isArray(mediaTags)
             ? mediaTags.filter((t: unknown) => typeof t === "string" && t.trim()).slice(0, 40)
@@ -225,83 +182,46 @@ serve(async (req: Request) => {
         let responseText = "";
         const contextInfo = `Action suggest for message: "${message.substring(0, 40)}${message.length > 40 ? '...' : ''}"`;
 
+        // OpenAI only. GEMINI_API_KEY has been invalid since 2026-09-28, and
+        // trying it first cost every message a failed call and an alert.
         try {
-            // Call Gemini API with retry
-            const geminiResponse = await fetchWithRetry(
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=${GEMINI_API_KEY}`,
-                {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        contents: [
-                            {
-                                role: "user",
-                                parts: [{ text: `${prompt}\n\nUser message to analyze: "${message}"` }]
-                            }
-                        ],
-                        generationConfig: {
-                            temperature: 0.1,
-                            maxOutputTokens: 300,
-                        }
-                    })
+            const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+            if (!OPENAI_API_KEY) throw new Error("OpenAI API key not configured");
+
+            const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${OPENAI_API_KEY}`
                 },
-                2, 1000, contextInfo
-            );
+                body: JSON.stringify({
+                    model: "gpt-4o-mini",
+                    messages: [
+                        { role: "system", content: prompt },
+                        { role: "user", content: `User message to analyze: "${message}"` }
+                    ],
+                    temperature: 0.1,
+                    response_format: { type: "json_object" }
+                })
+            });
 
-            if (!geminiResponse.ok) {
-                const errorText = await geminiResponse.text();
-                throw new Error(`Gemini status ${geminiResponse.status}: ${errorText}`);
+            if (!openaiResponse.ok) {
+                const errText = await openaiResponse.text();
+                throw new Error(`OpenAI status ${openaiResponse.status}: ${errText}`);
             }
 
-            const geminiData = await geminiResponse.json();
-            responseText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-            
-            if (!responseText) throw new Error("Gemini returned an empty response");
+            const openaiData = await openaiResponse.json();
+            responseText = openaiData.choices?.[0]?.message?.content || "";
 
-        } catch (geminiError: any) {
-            console.error(`[gemini-suggest-action] Gemini failed: ${geminiError.message}. Attempting OpenAI fallback...`);
-            
-            try {
-                const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-                if (!OPENAI_API_KEY) throw new Error("OpenAI API key not configured");
-
-                const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": `Bearer ${OPENAI_API_KEY}`
-                    },
-                    body: JSON.stringify({
-                        model: "gpt-4o-mini",
-                        messages: [
-                            { role: "system", content: prompt },
-                            { role: "user", content: `User message to analyze: "${message}"` }
-                        ],
-                        temperature: 0.1,
-                        response_format: { type: "json_object" }
-                    })
-                });
-
-                if (!openaiResponse.ok) {
-                    const errText = await openaiResponse.text();
-                    throw new Error(`OpenAI status ${openaiResponse.status}: ${errText}`);
-                }
-
-                const openaiData = await openaiResponse.json();
-                responseText = openaiData.choices?.[0]?.message?.content || "";
-                
-                if (!responseText) throw new Error("OpenAI returned an empty response");
-                
-                console.log('[gemini-suggest-action] OpenAI fallback successful');
-                await sendTelegramError(`⚠️ Gemini failed, used OpenAI fallback.\nGemini Error: ${geminiError.message}`, contextInfo + "\n(AUTO-FALLBACK)");
-            } catch (openaiError: any) {
-                console.error(`[gemini-suggest-action] OpenAI fallback also failed: ${openaiError.message}`);
-                // Proceed to default result
-                responseText = "{}"; 
-            }
+            if (!responseText) throw new Error("OpenAI returned an empty response");
+        } catch (openaiError: any) {
+            console.error(`[gemini-suggest-action] OpenAI failed: ${openaiError.message}`);
+            await sendTelegramError(`OpenAI failed: ${openaiError.message}`, contextInfo);
+            // Proceed to default result
+            responseText = "{}";
         }
 
-        // Parse the JSON response from Gemini
+        // Parse the JSON response
         let result = { action: "none", confidence: 1.0, parameters: {}, reasoning: "Failed to parse response" };
 
         try {

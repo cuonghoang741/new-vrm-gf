@@ -278,84 +278,57 @@ serve(async (req) => {
         const contextInfo = `User: ${user_id || client_id || 'Unknown'}\nCharacter: ${character_id}`;
 
         let responseText = '';
+        // OpenAI only. GEMINI_API_KEY has been invalid since 2026-09-28, and
+        // trying it first cost every message a failed call and an alert.
         try {
-            const geminiResponse = await fetchWithRetry(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-                method: 'POST',
+            const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+            if (!OPENAI_API_KEY) throw new Error("OpenAI API key not configured");
+
+            const openaiMessages = [
+                { role: "system", content: systemInstructionText },
+                ...contents.map(m => ({
+                    role: m.role === "model" ? "assistant" : "user",
+                    content: m.parts[0].text
+                }))
+            ];
+
+            const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+                method: "POST",
                 headers: {
-                    'Content-Type': 'application/json'
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${OPENAI_API_KEY}`
                 },
-                body: JSON.stringify(geminiRequestBody)
-            }, 1, 1000, contextInfo);
+                body: JSON.stringify({
+                    model: "gpt-4o-mini",
+                    messages: openaiMessages,
+                    temperature: 0.7
+                })
+            });
 
-            if (!geminiResponse.ok) {
-                const errorText = await geminiResponse.text();
-                throw new Error(`Gemini status ${geminiResponse.status}: ${errorText}`);
+            if (!openaiResponse.ok) {
+                const errText = await openaiResponse.text();
+                throw new Error(`OpenAI status ${openaiResponse.status}: ${errText}`);
             }
 
-            const geminiData = await geminiResponse.json();
-            const candidate = geminiData.candidates?.[0];
-            if (candidate?.content?.parts?.[0]?.text) {
-                responseText = candidate.content.parts[0].text;
-            } else {
-                throw new Error('Unexpected Gemini response structure');
-            }
-        } catch (geminiError: any) {
-            console.error(`[gemini-chat] Gemini failed: ${geminiError.message}. Attempting OpenAI fallback...`);
+            const openaiData = await openaiResponse.json();
+            responseText = openaiData.choices?.[0]?.message?.content || "";
 
-            try {
-                const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-                if (!OPENAI_API_KEY) throw new Error("OpenAI API key not configured");
+            if (!responseText) throw new Error("OpenAI returned an empty response");
 
-                const openaiMessages = [
-                    { role: "system", content: systemInstructionText },
-                    ...contents.map(m => ({
-                        role: m.role === "model" ? "assistant" : "user",
-                        content: m.parts[0].text
-                    }))
-                ];
+        } catch (openaiError: any) {
+            console.error(`[gemini-chat] OpenAI failed: ${openaiError.message}`);
+            await sendTelegramError(`OpenAI failed: ${openaiError.message}`, contextInfo);
 
-                const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": `Bearer ${OPENAI_API_KEY}`
-                    },
-                    body: JSON.stringify({
-                        model: "gpt-4o-mini",
-                        messages: openaiMessages,
-                        temperature: 0.7
-                    })
-                });
-
-                if (!openaiResponse.ok) {
-                    const errText = await openaiResponse.text();
-                    throw new Error(`OpenAI status ${openaiResponse.status}: ${errText}`);
+            return new Response(JSON.stringify({
+                error: 'All AI models failed',
+                openai_error: openaiError.message
+            }), {
+                status: 500,
+                headers: {
+                    ...corsHeaders,
+                    'Content-Type': 'application/json'
                 }
-
-                const openaiData = await openaiResponse.json();
-                responseText = openaiData.choices?.[0]?.message?.content || "";
-
-                if (!responseText) throw new Error("OpenAI returned an empty response");
-
-                console.log('[gemini-chat] OpenAI fallback successful');
-
-                // Optional: Notify Telegram that we are using fallback
-                await sendTelegramError(`⚠️ Gemini failed, used OpenAI fallback.\nGemini Error: ${geminiError.message}`, contextInfo + "\n(AUTO-FALLBACK)");
-            } catch (openaiError: any) {
-                console.error(`[gemini-chat] OpenAI fallback also failed: ${openaiError.message}`);
-
-                return new Response(JSON.stringify({
-                    error: 'All AI models failed',
-                    gemini_error: geminiError.message,
-                    openai_error: openaiError.message
-                }), {
-                    status: 500,
-                    headers: {
-                        ...corsHeaders,
-                        'Content-Type': 'application/json'
-                    }
-                });
-            }
+            });
         }
         const cleanedResponse = responseText.trimEnd();
         // Split response into multiple messages using ||| delimiter
